@@ -1,0 +1,101 @@
+name: iOS
+
+# The iPhone and iPad app under ios/: generates the Xcode project from ios/project.yml with
+# XcodeGen, builds it for the iOS simulator in Debug and Release, and runs the StarwireKit tests.
+# Signing and the iPad itself are the Mac's job (docs/ios/mac-runbook.md). Actions are pinned to
+# full commit hashes; the comment says which release each one is.
+on:
+  push:
+    branches: ['**']
+    paths:
+      - 'ios/**'
+      - '.gitmodules'
+      - '.github/workflows/ios.yml'
+  pull_request:
+    paths:
+      - 'ios/**'
+      - '.gitmodules'
+      - '.github/workflows/ios.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Simulator builds and StarwireKit tests
+    runs-on: macos-26
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # Only the iOS submodules; Android's common-c isn't needed here
+      - name: Submodules
+        run: |
+          git submodule update --init --recursive --depth 1 \
+            ios/moonlight-common/moonlight-common-c ios/X1Kit ios/third_party/imgui \
+            ios/third_party/implot ||
+          git submodule update --init --recursive \
+            ios/moonlight-common/moonlight-common-c ios/X1Kit ios/third_party/imgui \
+            ios/third_party/implot
+          git submodule status --recursive ios
+
+      - name: Tools
+        run: |
+          mkdir -p logs
+          xcodebuild -version | tee logs/versions.txt
+          swift --version | tee -a logs/versions.txt
+          brew install xcodegen
+          xcodegen --version | tee -a logs/versions.txt
+          # Xcode can come without the iOS platform; upstream's CI downloads it the same way
+          if ! xcodebuild -showsdks | grep -q iphonesimulator; then
+            xcodebuild -downloadPlatform iOS
+          fi
+
+      - name: Generate the Xcode project
+        working-directory: ios
+        run: xcodegen generate --spec project.yml
+
+      - name: Build for the simulator (Debug)
+        working-directory: ios
+        run: |
+          set -o pipefail
+          xcodebuild -project Starwire.xcodeproj -scheme Starwire -configuration Debug \
+            -destination 'generic/platform=iOS Simulator' -derivedDataPath ../build/DerivedData \
+            CODE_SIGNING_ALLOWED=NO build 2>&1 | tee ../logs/build-debug.log
+
+      - name: Build for the simulator (Release)
+        working-directory: ios
+        run: |
+          set -o pipefail
+          xcodebuild -project Starwire.xcodeproj -scheme Starwire -configuration Release \
+            -destination 'generic/platform=iOS Simulator' -derivedDataPath ../build/DerivedData \
+            CODE_SIGNING_ALLOWED=NO build 2>&1 | tee ../logs/build-release.log
+
+      - name: StarwireKit tests
+        run: |
+          set -o pipefail
+          swift test --package-path ios/StarwireKit 2>&1 | tee logs/starwirekit-tests.log
+
+      # Warnings and errors first, so the log is quick to read
+      - name: Summary
+        if: always()
+        run: |
+          for f in logs/build-*.log; do
+            [ -f "$f" ] || continue
+            echo "== $f: $(grep -c ' warning: ' "$f" || true) warning lines, $(grep -c ' error: ' "$f" || true) error lines"
+            grep ' error: ' "$f" | sort -u | head -50 || true
+          done | tee logs/summary.txt
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: ios-logs
+          path: logs/
+          retention-days: 7

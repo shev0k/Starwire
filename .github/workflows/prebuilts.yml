@@ -28,6 +28,8 @@ on:
       - 'gradle/wrapper/**'
       - '.github/tools/prebuilts/**'
       - '.github/workflows/prebuilts.yml'
+      # The iOS app's prebuilt libraries come from upstream moonlight-ios and aren't checked here
+      - '!ios/**'
   pull_request:
     paths:
       - '**.so'
@@ -48,6 +50,8 @@ on:
       - 'gradle/wrapper/**'
       - '.github/tools/prebuilts/**'
       - '.github/workflows/prebuilts.yml'
+      # The iOS app's prebuilt libraries come from upstream moonlight-ios and aren't checked here
+      - '!ios/**'
   schedule:
     - cron: '23 5 * * 1'
   workflow_dispatch:
