@@ -1,0 +1,120 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- Starwire's page in the iOS Settings app. These are for testing until the app's own
+     settings screen gets them (phase 2 and phase 4). The keys are read in PacingPolicy.m and
+     Logger.m, and can also be given as launch arguments, for example -StarwireDropPolicy newest. -->
+<plist version="1.0">
+<dict>
+	<key>PreferenceSpecifiers</key>
+	<array>
+		<dict>
+			<key>Type</key>
+			<string>PSGroupSpecifier</string>
+			<key>Title</key>
+			<string>Host</string>
+			<key>FooterText</key>
+			<string>Vibeshine only. Streams a virtual display at your stream's resolution and frame rate instead of the PC's monitor.</string>
+		</dict>
+		<dict>
+			<key>Type</key>
+			<string>PSToggleSwitchSpecifier</string>
+			<key>Title</key>
+			<string>Use a virtual display</string>
+			<key>Key</key>
+			<string>StarwireVirtualDisplay</string>
+			<key>DefaultValue</key>
+			<false/>
+		</dict>
+		<dict>
+			<key>Type</key>
+			<string>PSGroupSpecifier</string>
+			<key>Title</key>
+			<string>Frame pacing tests</string>
+			<key>FooterText</key>
+			<string>Changes apply to the next stream. Frames to buffer "App setting" uses the value in the app's settings.</string>
+		</dict>
+		<dict>
+			<key>Type</key>
+			<string>PSMultiValueSpecifier</string>
+			<key>Title</key>
+			<string>Present timing</string>
+			<key>Key</key>
+			<string>StarwirePresentTiming</string>
+			<key>DefaultValue</key>
+			<string>nearest</string>
+			<key>Titles</key>
+			<array>
+				<string>Nearest refresh</string>
+				<string>Full frame interval (old)</string>
+			</array>
+			<key>Values</key>
+			<array>
+				<string>nearest</string>
+				<string>frame</string>
+			</array>
+		</dict>
+		<dict>
+			<key>Type</key>
+			<string>PSMultiValueSpecifier</string>
+			<key>Title</key>
+			<string>When the queue is full</string>
+			<key>Key</key>
+			<string>StarwireDropPolicy</string>
+			<key>DefaultValue</key>
+			<string>alternate</string>
+			<key>Titles</key>
+			<array>
+				<string>Alternate (old)</string>
+				<string>Keep the newest</string>
+			</array>
+			<key>Values</key>
+			<array>
+				<string>alternate</string>
+				<string>newest</string>
+			</array>
+		</dict>
+		<dict>
+			<key>Type</key>
+			<string>PSMultiValueSpecifier</string>
+			<key>Title</key>
+			<string>Frames to buffer</string>
+			<key>Key</key>
+			<string>StarwireFramesToBuffer</string>
+			<key>DefaultValue</key>
+			<integer>0</integer>
+			<key>Titles</key>
+			<array>
+				<string>App setting</string>
+				<string>1</string>
+				<string>2</string>
+				<string>3</string>
+			</array>
+			<key>Values</key>
+			<array>
+				<integer>0</integer>
+				<integer>1</integer>
+				<integer>2</integer>
+				<integer>3</integer>
+			</array>
+		</dict>
+		<dict>
+			<key>Type</key>
+			<string>PSGroupSpecifier</string>
+			<key>Title</key>
+			<string>Logging</string>
+			<key>FooterText</key>
+			<string>Writes extra detail to the system log. Takes effect the next time the app starts.</string>
+		</dict>
+		<dict>
+			<key>Type</key>
+			<string>PSToggleSwitchSpecifier</string>
+			<key>Title</key>
+			<string>Verbose logging</string>
+			<key>Key</key>
+			<string>StarwireVerboseLogging</string>
+			<key>DefaultValue</key>
+			<false/>
+		</dict>
+	</array>
+</dict>
+</plist>

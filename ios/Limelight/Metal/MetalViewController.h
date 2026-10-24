@@ -14,4 +14,10 @@
                             enableHdr:(BOOL)enableHdr
                        metricsHandler:(MetricsHandler _Nonnull)metricsHandler;
 
+// While the app is inactive: stop drawing, keep the stream
+- (void)pauseRendering;
+- (void)resumeRendering;
+// Stops the renderer and its thread. Safe to call more than once.
+- (void)shutdown;
+
 @end

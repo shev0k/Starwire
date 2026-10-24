@@ -5,9 +5,14 @@
 #import "MetalView.h"
 #import "MetalConfig.h"
 
+#undef LOG_FILE_CATEGORY
+#define LOG_FILE_CATEGORY LOGCAT_VIDEO
+
 @implementation MetalView {
     // The secondary thread containing the render loop.
     NSThread *_renderThread;
+    // Signalled by the render thread as it exits
+    dispatch_semaphore_t _renderThreadExited;
 }
 
 #pragma mark - Initialization and Setup.
@@ -37,12 +42,19 @@
     if (_renderThread) {
         Log(LOG_I, @"[MetalView] sending renderThread a cancel message");
         [_renderThread cancel];
+        // This runs on the main thread. It used to spin until the render thread finished, which
+        // deadlocked if the render thread was waiting on the main thread (a layer change). The
+        // render thread no longer waits on the main thread once it is stopping, and this wait is
+        // bounded as well (as in VoidLink). The thread holds this view, so letting it finish on
+        // its own is safe.
         Log(LOG_I, @"[MetalView] waiting on renderThread to finish");
-        while (!_renderThread.isFinished) {
-            usleep(100);
+        if (dispatch_semaphore_wait(_renderThreadExited, dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_SEC)) == 0) {
+            Log(LOG_I, @"[MetalView] renderThread has finished");
+        } else {
+            Log(LOG_W, @"[MetalView] renderThread still busy after 1 s, letting it exit on its own");
         }
-        Log(LOG_I, @"[MetalView] renderThread has finished");
         _renderThread = nil;
+        _renderThreadExited = nil;
     }
 }
 
@@ -61,15 +73,29 @@
         return;
     }
 
+    // Moving between windows must not start a second render loop (VoidLink)
+    if (_renderThread) {
+        Log(LOG_W, @"[MetalView] movedToWindow with a live renderThread, restarting it");
+        [self shutdown];
+    }
+
     // Render on a new thread
+    dispatch_semaphore_t exited = dispatch_semaphore_create(0);
+    _renderThreadExited = exited;
     _renderThread = [[NSThread alloc] initWithBlock:^{
         while (![NSThread currentThread].isCancelled) {
             @autoreleasepool {
-                [self.delegate waitToRenderTo:self.metalLayer];
-                [self.delegate renderTo:self.metalLayer];
+                id<MetalViewDelegate> delegate = self.delegate;
+                if (!delegate) {
+                    // The view controller is gone; don't spin
+                    break;
+                }
+                [delegate waitToRenderTo:self.metalLayer];
+                [delegate renderTo:self.metalLayer];
             }
         }
         Log(LOG_I, @"[MetalView] renderThread is exiting");
+        dispatch_semaphore_signal(exited);
     }];
     _renderThread.name = @"MetalVideoRenderer";
     _renderThread.qualityOfService = NSQualityOfServiceUserInteractive;
@@ -121,7 +147,7 @@
     newSize.width *= scaleFactor;
     newSize.height *= scaleFactor;
 
-    if (newSize.width <= 0 || newSize.width <= 0) {
+    if (newSize.width <= 0 || newSize.height <= 0) {
         return;
     }
 

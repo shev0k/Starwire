@@ -3,6 +3,9 @@
 #import "Logger.h"
 #include <Limelight.h>
 
+#undef LOG_FILE_CATEGORY
+#define LOG_FILE_CATEGORY LOGCAT_VIDEO
+
 @implementation Frame {
     CFDictionaryRef _formatDescExt;
 }
@@ -78,12 +81,17 @@
     if (_formatDesc) {
         CFRelease(_formatDesc);
     }
-    _formatDesc = CFRetain(formatDesc);
+    // NULL guards from VoidLink: the format description can be missing, for example while
+    // the decoder is being rebuilt
+    _formatDesc = formatDesc ? (CMVideoFormatDescriptionRef)CFRetain(formatDesc) : NULL;
 }
 
 - (CFDictionaryRef)getFormatDescExtensions {
     if (!_formatDescExt && _formatDesc) {
-        _formatDescExt = CFRetain(CMFormatDescriptionGetExtensions(_formatDesc));
+        CFDictionaryRef ext = CMFormatDescriptionGetExtensions(_formatDesc);
+        if (ext) {
+            _formatDescExt = CFRetain(ext);
+        }
     }
     return _formatDescExt;
 }

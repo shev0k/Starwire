@@ -9,13 +9,22 @@ The implementation of the cross-platform game view controller.
 #import "FrameQueue.h"
 #import "ImGuiRenderer.h"
 #import "MetalVideoRenderer.h"
+#import "PacingPolicy.h"
+
+#undef LOG_FILE_CATEGORY
+#define LOG_FILE_CATEGORY LOGCAT_VIDEO
+
+@interface MetalViewController ()
+// Atomic: the render thread reads it while the main thread clears it in shutdown. The render
+// thread takes a strong copy for each frame (as VoidLink does).
+@property (atomic, strong) MetalVideoRenderer *renderer;
+@end
 
 @implementation MetalViewController {
     FrameQueue *_frameQueue;
     float _framerate;
     BOOL _enableHdr;
     MetalView *_metalView;
-    MetalVideoRenderer *_renderer;
     MetricsHandler _metricsHandler;
     CADisplayLink *_displayLink;
 }
@@ -66,7 +75,15 @@ The implementation of the cross-platform game view controller.
         Log(LOG_E, @"The renderer couldn't be initialized.");
         return;
     }
-    self->_renderer = renderer;
+
+    // How long each frame stays on screen (see PacingMinimumPresentDuration)
+    PacingSettings *pacing = [PacingSettings current];
+    double displayHz = (double)UIScreen.mainScreen.maximumFramesPerSecond;
+    renderer.minimumPresentDuration = PacingMinimumPresentDuration(pacing.presentTiming, _framerate, displayHz);
+    Log(LOG_I, @"[MetalViewController] present timing %@: hold each frame at least %.3f ms (stream %.0f FPS, display %.0f Hz)",
+        pacing.presentTimingName, renderer.minimumPresentDuration * 1000.0, _framerate, displayHz);
+
+    self.renderer = renderer;
     Log(LOG_I, @"[MetalViewController] viewDidLoad, created renderer: %@", renderer);
 
     // Initialize the renderer-dependent view properties.
@@ -89,8 +106,15 @@ The implementation of the cross-platform game view controller.
 }
 
 - (void)waitToRenderTo:(nonnull CAMetalLayer *)layer {
+    MetalVideoRenderer *renderer = self.renderer;
+    if (!renderer || renderer.isStopping) {
+        // Don't spin while shutting down
+        usleep(10000);
+        return;
+    }
+
     // Renderer obtains a nextDrawable, waiting if necessary
-    [_renderer waitToRenderTo:layer];
+    [renderer waitToRenderTo:layer];
 
     // If we don't have a frame yet, wait on that too
     [_frameQueue waitForEnqueue];
@@ -98,30 +122,61 @@ The implementation of the cross-platform game view controller.
 
 /// Draw frame (used by manual loop)
 - (void)renderTo:(nonnull CAMetalLayer *)layer {
-    if (!_renderer.isStopping) {
-        CFTimeInterval timeout = (1.0f / _framerate) - _renderer.averageGPUTime;
-        Frame *frame = [_frameQueue dequeueWithTimeout:timeout];
-        if (frame) {
-            [_renderer renderFrame:frame toLayer:layer];
-        }
+    MetalVideoRenderer *renderer = self.renderer;
+    if (!renderer || renderer.isStopping) {
+        return;
+    }
+    CFTimeInterval timeout = (1.0f / _framerate) - renderer.averageGPUTime;
+    Frame *frame = [_frameQueue dequeueWithTimeout:timeout];
+    if (frame) {
+        [renderer renderFrame:frame toLayer:layer];
     }
 }
 
 - (void)drawableResize:(CGSize)size {
-    [_renderer drawableResize:size];
+    [self.renderer drawableResize:size];
+}
+
+// The app is inactive (Control Center, the app switcher, a call banner): stop drawing but keep
+// the stream, and pick up again on return. From VoidLink's pause and resume path.
+- (void)pauseRendering {
+    Log(LOG_I, @"[MetalViewController] pausing rendering");
+    _displayLink.paused = YES;
+    self.renderer.isPaused = YES;
+}
+
+- (void)resumeRendering {
+    Log(LOG_I, @"[MetalViewController] resuming rendering");
+    self.renderer.isPaused = NO;
+    _displayLink.paused = NO;
+}
+
+// Stops the renderer, then the render thread. Safe to call more than once.
+- (void)shutdown {
+    if (_displayLink) {
+        [_displayLink invalidate];
+        _displayLink = nil;
+    }
+
+    // The renderer first: once it is stopping, the render thread can't start waiting on the main
+    // thread, so the wait for it below can't deadlock
+    MetalVideoRenderer *renderer = self.renderer;
+    if (renderer) {
+        [renderer shutdown];
+        self.renderer = nil;
+    }
+
+    if (_metalView) {
+        _metalView.delegate = nil;
+        [_metalView shutdown];
+    }
 }
 
 - (void)viewDidDisappear:(BOOL)animated {
     [super viewDidDisappear:animated];
 
     Log(LOG_I, @"[MetalViewController] viewDidDisappear");
-
-    if (_displayLink) {
-        [_displayLink invalidate];
-    }
-
-    [_renderer shutdown];
-    _renderer = nil;
+    [self shutdown];
 }
 
 #if TARGET_OS_IOS

@@ -18,6 +18,9 @@
 #import "PlatformThreads.h"
 #import "MetalViewController.h"
 #import "ImGuiPlots.h"
+#import "PacingPolicy.h"
+#import "PacingStats.h"
+#import <os/signpost.h>
 
 #include <libavcodec/avcodec.h>
 #include <libavcodec/cbs.h>
@@ -25,6 +28,9 @@
 #include <libavformat/avio.h>
 #include <libavutil/mem.h>
 #include <mach/mach_time.h>
+
+#undef LOG_FILE_CATEGORY
+#define LOG_FILE_CATEGORY LOGCAT_VIDEO
 
 // Define for extra logging related to frame pacing
 #define DISPLAYLINK_VERBOSE
@@ -48,6 +54,8 @@ extern int ff_isom_write_av1c(AVIOContext *pb, const uint8_t *buf, int size,
     VTDecompressionSessionRef _decompressionSession;
 
     FrameQueue *_frameQueue;
+    PacingSettings *_pacingSettings;
+    double _displayHz;
 }
 
 - (id)initWithView:(StreamView*)view callbacks:(id<ConnectionCallbacks>)callbacks streamAspectRatio:(float)aspectRatio
@@ -68,9 +76,17 @@ extern int ff_isom_write_av1c(AVIOContext *pb, const uint8_t *buf, int size,
 
     DataManager* dataMan = [[DataManager alloc] init];
 
+    // Pacing choices for the phase 1a A/B runs (PacingPolicy.h), read once per stream
+    _pacingSettings = [PacingSettings current];
+    _displayHz = (double)UIScreen.mainScreen.maximumFramesPerSecond;
+    int framesToBuffer = [_pacingSettings framesToBufferWithAppSetting:(int)[[dataMan getSettings].frameQueueSize integerValue]];
+
     _frameQueue = [FrameQueue sharedInstance];
-    [_frameQueue start];
-    [_frameQueue setHighWaterMark:(int)[[dataMan getSettings].frameQueueSize integerValue]];
+    [_frameQueue startForOwner:self];
+    [_frameQueue setHighWaterMark:framesToBuffer];
+    [_frameQueue setDropPolicy:_pacingSettings.dropPolicy];
+    Log(LOG_I, @"Pacing: frames to buffer %d, drop policy %@, present timing %@, display %.0f Hz",
+        framesToBuffer, _pacingSettings.dropPolicyName, _pacingSettings.presentTimingName, _displayHz);
 
     if (_formatDesc != nil) {
         CFRelease(_formatDesc);
@@ -93,6 +109,11 @@ extern int ff_isom_write_av1c(AVIOContext *pb, const uint8_t *buf, int size,
 
     // reset plot data in case we've already used it for a previous renderer
     [[ImGuiPlots sharedInstance] clearData];
+
+    // A new pacing record for this stream, logged every 5 seconds
+    _frameQueue.pacingStats = [[PacingStats alloc] initWithFrameInterval:1.0 / (frameRate > 0 ? frameRate : 60)
+                                                         refreshInterval:1.0 / (_displayHz > 0 ? _displayHz : 60)
+                                                            windowLength:5.0];
 
     // RENDER_METAL begins in StreamFrameViewController
 }
@@ -141,7 +162,12 @@ int DrSubmitDecodeUnit(PDECODE_UNIT decodeUnit);
 
 - (void)cleanup
 {
-    [_frameQueue stop];
+    PacingStats *pacingStats = _frameQueue.pacingStats;
+    if (pacingStats) {
+        Log(LOG_I, @"Last pacing at stop: %@", [PacingStats logLineForWindow:[pacingStats currentWindow]]);
+    }
+    // Only stops the queue if no newer stream has started it
+    [_frameQueue stopForOwner:self];
 
     if (_decompressionSession != NULL) {
         VTDecompressionSessionInvalidate(_decompressionSession);
@@ -625,12 +651,18 @@ int DrSubmitDecodeUnit(PDECODE_UNIT decodeUnit);
     [self setupDecompressionSession];
   }
 
+  // Signposts for Instruments: "decode" runs from submit to the decoder's output
+  os_log_t pacingLog = LogHandle(LOGCAT_PACING);
+  os_signpost_id_t decodeId = os_signpost_id_generate(pacingLog);
+  os_signpost_interval_begin(pacingLog, decodeId, "decode", "frame %d", frameNumber);
+
   OSStatus status = VTDecompressionSessionDecodeFrameWithOutputHandler(
       _decompressionSession,
       sampleBuffer,
       0,
       NULL,
       ^(OSStatus status, VTDecodeInfoFlags infoFlags, CVImageBufferRef _Nullable imageBuffer, CMTime presentationTimestamp, CMTime presentationDuration) {
+          os_signpost_interval_end(pacingLog, decodeId, "decode", "frame %d status %d", frameNumber, (int)status);
           if (status != noErr || !imageBuffer) {
             NSError *error = [NSError errorWithDomain:NSOSStatusErrorDomain code:status userInfo:nil];
             Log(LOG_E, @"Decompression session error: %@", error);
@@ -646,6 +678,8 @@ int DrSubmitDecodeUnit(PDECODE_UNIT decodeUnit);
               Frame *frame = [[Frame alloc] initWithPixelBufffer:pixelBuffer frameNumber:frameNumber frameType:frameType pts:presentationTimestamp];
               [frame setFormatDesc:self->_formatDesc];
 
+              [self->_frameQueue.pacingStats noteArrivalAt:frame.decodedAt];
+              os_signpost_event_emit(pacingLog, OS_SIGNPOST_ID_EXCLUSIVE, "enqueue", "frame %d", frameNumber);
               int framesDropped = [self->_frameQueue enqueue:frame withSlackSize:3];
 
               static PlotMetrics frameQueueMetrics = {};

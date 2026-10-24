@@ -17,7 +17,8 @@
 @interface MetalView : UIView <CALayerDelegate>
 
 @property (nonatomic, nonnull, readonly) CAMetalLayer *metalLayer;
-@property (nonatomic, nullable) id<MetalViewDelegate> delegate;
+// Weak: the view controller owns this view (it was a retain cycle; VoidLink made it weak)
+@property (nonatomic, weak, nullable) id<MetalViewDelegate> delegate;
 @property (nonatomic) float framerate;
 
 - (void)initCommon;

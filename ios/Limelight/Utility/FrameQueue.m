@@ -1,12 +1,24 @@
 @import AVFoundation;
 @import VideoToolbox;
 
-#import <os/lock.h>
+#import <pthread.h>
+#import <os/signpost.h>
 #import <Limelight.h>
 #import "Logger.h"
 #import "FloatBuffer.h"
 #import "FrameQueue.h"
 #import "ImGuiPlots.h"
+
+#undef LOG_FILE_CATEGORY
+#define LOG_FILE_CATEGORY LOGCAT_PACING
+
+// Starwire changes to Andy Grundman's queue:
+// - a mutex and condition variable replace the unfair lock, the semaphore and the usleep(100)
+//   poll in dequeueWithTimeout
+// - a choice of drop policy, and every drop reported to PacingStats with its reason
+// - clear releases the queued frames, and start and stop are scoped to an owner (from VoidLink)
+// - the frame rate estimate uses the frames' own timestamps, so it can be tested
+// - instances can be made for tests; the app uses sharedInstance
 
 @implementation FrameQueue {
     NSMutableArray<id> *_buffer;
@@ -18,66 +30,56 @@
     BOOL _droppedLast;
     int _framesIn;
     CMTime _ptsCorrection;
-    os_unfair_lock _lock;
+    pthread_mutex_t _mutex;
+    pthread_cond_t _cond;
 
     FloatBuffer *_queueSizeHistory;
     int _currentSoftCap;
-    dispatch_queue_t _sq;
-    dispatch_semaphore_t _frameSemaphore;
+    __weak id _owner;
+
+    CFTimeInterval _fpsWindowStart;
+    int _fpsWindowFrames;
+    CFTimeInterval _fpsEstimate;
 }
 
 + (instancetype)sharedInstance {
     static FrameQueue *sharedInstance = nil;
     static dispatch_once_t onceToken;
     dispatch_once(&onceToken, ^{
-        sharedInstance = [[super allocWithZone:NULL] _initSingleton];
+        sharedInstance = [[FrameQueue alloc] initWithMaxCapacity:15];
     });
     return sharedInstance;
 }
 
-// Prevent others from using alloc/init directly
-+ (instancetype)allocWithZone:(struct _NSZone *)zone {
-    return [self sharedInstance];
-}
-
-// If someone tries to copy it, just return the same instance
-- (id)copyWithZone:(NSZone *)zone {
-    return self;
-}
-
-- (id)mutableCopyWithZone:(NSZone *)zone {
-    return self;
-}
-
-- (instancetype)_initSingleton {
+- (instancetype)initWithMaxCapacity:(int)maxCapacity {
     self = [super init];
     if (self) {
         _droppedLast       = NO;
         _frameDropMetrics  = [[FloatBuffer alloc] initWithCapacity:512];
         _framesIn          = 0;
         _highWaterMark     = 2;
-        _maxCapacity       = 15;
+        _maxCapacity       = maxCapacity > 0 ? maxCapacity : 15;
         _ptsCorrection     = CMTimeMake(0, 90000);
         _queueSizeHistory  = [[FloatBuffer alloc] initWithCapacity:64];
-        _lock              = OS_UNFAIR_LOCK_INIT;
         _paused            = YES; // caller will call start()
+        _dropPolicy        = FrameDropPolicyAlternate;
+        pthread_mutex_init(&_mutex, NULL);
+        pthread_cond_init(&_cond, NULL);
 
-	    // ring buffer
-	    _capacity = _maxCapacity;
+        // ring buffer
+        _capacity = _maxCapacity;
         _buffer = [NSMutableArray arrayWithCapacity:_capacity];
         for (int i = 0; i < _capacity; i++) {
             [_buffer addObject:[NSNull null]];
         }
         _head = _tail = _count = 0;
-
-        _sq = dispatch_queue_create("com.moonlight.FrameQueue",
-            dispatch_queue_attr_make_with_qos_class(DISPATCH_QUEUE_SERIAL, QOS_CLASS_USER_INTERACTIVE, 0));
-        _frameSemaphore = dispatch_semaphore_create(0);
-
-        // ping estimatedFramerate to set initial last value
-        [self estimatedFramerate];
     }
-	return self;
+    return self;
+}
+
+- (void)dealloc {
+    pthread_cond_destroy(&_cond);
+    pthread_mutex_destroy(&_mutex);
 }
 
 // Push into buffer at _tail
@@ -86,13 +88,12 @@
     _tail = (_tail + 1) % _capacity;
     _count++;
 
-    // I think it's ok to signal the cond from within the unfair lock, the render
-    // loop will just end up waiting on it in a call to dequeue.
-    dispatch_semaphore_signal(_frameSemaphore);
+    // Wakes a render loop waiting in dequeueWithTimeout or waitForEnqueue
+    pthread_cond_signal(&_cond);
 
-	FQLog(LOG_I, @"[-> %@ %d / %f] enqueue frame, queue size %d / %d",
-		frame.frameType == FRAME_TYPE_IDR ? @"IDR" : @"P",
-		frame.frameNumber, frame.pts, _count, _highWaterMark);
+    FQLog(LOG_I, @"[-> %@ %d / %f] enqueue frame, queue size %d / %d",
+        frame.frameType == FRAME_TYPE_IDR ? @"IDR" : @"P",
+        frame.frameNumber, frame.pts, _count, _highWaterMark);
 }
 
 // Pop oldest frame from _head
@@ -121,165 +122,179 @@
     }
 }
 
-- (void)_noteDroppedFrame:(Frame *)frame {
+- (void)_noteDroppedFrame:(Frame *)frame reason:(PacingDropReason)reason {
+    [_pacingStats noteDrop:reason queueDepth:_count];
+    os_signpost_event_emit(LogHandle(LOGCAT_PACING), OS_SIGNPOST_ID_EXCLUSIVE, "drop", "frame %d, %{public}s, queue %d",
+                           frame.frameNumber, reason == PacingDropIncoming ? "incoming" : "oldest", _count);
+
     if ([frame durationIsValid]) {
         _ptsCorrection = CMTimeAdd(_ptsCorrection, frame.duration90);
-		FQLog(LOG_W, @"dropped frame %d with duration %.3f ms", frame.frameNumber, frame.duration * 1000.0);
+        FQLog(LOG_W, @"dropped frame %d with duration %.3f ms", frame.frameNumber, frame.duration * 1000.0);
     } else {
-		// count unknowns as 1 avg frametime
-        CFTimeInterval fps = (_framesIn > 1000) ? [self _unsafeEstimatedFramerate] : 0.0f;
-        CMTime oneFrame = (_framesIn > 1000) ? CMTimeMake((int)(90000.0f / fps), 90000) : kCMTimeZero;
+        // count unknowns as 1 avg frametime
+        CFTimeInterval fps = (_framesIn > 1000) ? _fpsEstimate : 0.0f;
+        CMTime oneFrame = (fps > 0) ? CMTimeMake((int)(90000.0f / fps), 90000) : kCMTimeZero;
         _ptsCorrection = CMTimeAdd(_ptsCorrection, oneFrame);
         FQLog(LOG_W, @"dropped frame %d with unknown duration, using %.3f ms (%.1f fps) instead",
             frame.frameNumber, CMTimeGetSeconds(oneFrame) * 1000.0, fps);
     }
 }
 
+// Drops the oldest queued frame unless it's an IDR frame. Returns the number dropped.
+- (int)_dropOldestUnlessIDR {
+    if (_count == 0 || [self _peekFrame].frameType == FRAME_TYPE_IDR) {
+        return 0;
+    }
+    Frame *oldest = [self _popFrame];
+    [oldest setDurationFromNext:[self _peekFrame]];
+    [self _noteDroppedFrame:oldest reason:PacingDropOldest];
+    return 1;
+}
+
+- (void)_noteArrivalForFramerate:(Frame *)frame {
+    CFTimeInterval t = frame.decodedAt;
+    if (t <= 0) {
+        return;
+    }
+    if (_fpsWindowStart == 0) {
+        _fpsWindowStart = t;
+        _fpsWindowFrames = 0;
+    }
+    _fpsWindowFrames++;
+    if (t - _fpsWindowStart >= 1.0) {
+        _fpsEstimate = (_fpsWindowFrames - 1) / (t - _fpsWindowStart);
+        _fpsWindowStart = t;
+        _fpsWindowFrames = 1;
+    }
+}
+
 - (int)_unsafeEnqueue:(Frame *)frame withDropTarget:(int)frameDropTarget {
     int dropCount = 0;
+    [self _noteArrivalForFramerate:frame];
+
+    // The ring can't grow. Only a run of IDR frames could fill it, but don't overwrite.
+    if (_count >= _capacity) {
+        Frame *oldest = [self _popFrame];
+        [self _noteDroppedFrame:oldest reason:PacingDropOldest];
+        dropCount++;
+    }
+
     // Always accept IDR frames, allow exceeding HWM
     if (frame.frameType == FRAME_TYPE_IDR || _count < frameDropTarget) {
         [self _pushFrame:frame];
         _droppedLast = NO;
+    } else if (_dropPolicy == FrameDropPolicyNewest) {
+        // Keep the newest: drop the oldest & enqueue new
+        dropCount += [self _dropOldestUnlessIDR];
+        [self _pushFrame:frame];
+        _droppedLast = NO;
     } else {
         if (!_droppedLast) {
-			// alternate between: drop newest...
-            [self _noteDroppedFrame:frame];
-            dropCount = 1;
+            // alternate between: drop newest...
+            [self _noteDroppedFrame:frame reason:PacingDropIncoming];
+            dropCount++;
             _droppedLast = YES;
         } else {
             // and: drop oldest & enqueue new
-            if ([self _peekFrame].frameType != FRAME_TYPE_IDR) {
-				Frame *oldest = [self _popFrame];
-                [oldest setDurationFromNext:[self _peekFrame]];
-                [self _noteDroppedFrame:oldest];
-                dropCount = 1;
-            }
+            dropCount += [self _dropOldestUnlessIDR];
             [self _pushFrame:frame];
             _droppedLast = NO;
         }
     }
-	// regardless of drop status, every enqueue is a frame
+    // regardless of drop status, every enqueue is a frame
     // for estimatedFramerate purposes
     _framesIn++;
     [_frameDropMetrics addValue:(float)dropCount];
+    [_pacingStats noteQueueDepth:_count];
 
     // Stats displays the soft cap
     _currentSoftCap = frameDropTarget;
     return dropCount;
 }
 
-// enqueue with simple alternate-drop logic
 - (int)enqueue:(Frame *)frame {
-    os_unfair_lock_lock(&_lock);
+    pthread_mutex_lock(&_mutex);
     int dropCount = [self _unsafeEnqueue:frame withDropTarget:_highWaterMark];
-    os_unfair_lock_unlock(&_lock);
+    pthread_mutex_unlock(&_mutex);
     return dropCount;
 }
 
-// enqueue that is a bit more flexixble, using the same 500ms queue size history method as moonlight-qt.
+// The slack isn't used: Andy's adaptive drop target (moonlight-qt's 500 ms queue history) was
+// left commented out, and phase 4 replaces this pacing. Kept for the decoder's call.
 - (int)enqueue:(Frame *)frame withSlackSize:(int)slack {
-    os_unfair_lock_lock(&_lock);
-    CFTimeInterval now = CACurrentMediaTime();
-
-    // new data point for queue health
+    pthread_mutex_lock(&_mutex);
     [_queueSizeHistory addValue:(float)_count];
-
-    // The "target" initially starts as the size of the buffer chosen by the user. 1-5 default 2. We drop a frame
-    // when the queue size exceeds this amount.
-    int frameDropTarget = _highWaterMark;
-
-//    CFTimeInterval t0 = [_queueSizeHistory oldestTimestamp];
-//    if (now - t0 > 0.5f) {
-//        // Get the current drop percentage over the past 512 frames
-//        // TODO: design a better API e.g. [ImGuiPlots PLOT_DROPPED].
-//        float dropRate = [[ImGuiPlots sharedInstance].plots[PLOT_DROPPED].buffer averageValue];
-//        if (dropRate > 0.25f) {
-//            FQLog(LOG_I, @"queue is dropping at %.2f%%, forcing a drop", dropRate * 100.0);
-//            frameDropTarget--;
-//        } else if (_queueSizeHistory.minValue > 0 && _queueSizeHistory.minValue == _queueSizeHistory.maxValue) {
-//            // If the queue has been in the same state for the entire period, it's possible to get stuck there for a while.
-//            // Lower the FDT by 1 to force a frame to be dropped and hopefully unstick things.
-//            FQLog(LOG_I, @"queue stuck at %.0f, forcing a drop", _queueSizeHistory.minValue);
-//            frameDropTarget--;
-//        } else if (_queueSizeHistory.minValue < 1.0f) {
-//            // If the queue has cleared out at least once in the past history period, be more lenient about dropping frames.
-//            frameDropTarget += slack;
-//            //        FQLog(LOG_I, @"allowing frameDropTarget of %d (history %.0f/%.0f/%.2f)", frameDropTarget,
-//            //            _queueSizeHistory.minValue, _queueSizeHistory.maxValue, _queueSizeHistory.averageValue);
-//        }
-//
-//        // TODO: New logic
-//        // Use timestamps, check initial interval is long enough
-//        // Smarter when checking min==max, a steady state can be fine if no frames are being dropped
-//        //   If min==max && frame drops are >= 25%, force a drop
-//        //   Maybe only look at >= 25%.
-//        // Test condition variables, manual present, no displaylink
-//    }
-
-    // original enqueue logic still applies if we're full
-    int dropCount = [self _unsafeEnqueue:frame withDropTarget:frameDropTarget];
-
-    os_unfair_lock_unlock(&_lock);
+    int dropCount = [self _unsafeEnqueue:frame withDropTarget:_highWaterMark];
+    pthread_mutex_unlock(&_mutex);
     return dropCount;
+}
+
+static struct timespec TimespecFromInterval(CFTimeInterval interval) {
+    struct timespec ts;
+    if (interval < 0) {
+        interval = 0;
+    }
+    ts.tv_sec = (time_t)interval;
+    ts.tv_nsec = (long)((interval - (double)ts.tv_sec) * 1e9);
+    return ts;
 }
 
 // Allows the render loop to wait if the queue is empty
 - (void)waitForEnqueue {
-    while (!self.paused && [self isEmpty]) {
-        dispatch_time_t timeout = dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.1f * NSEC_PER_SEC)); // 100ms
-        dispatch_semaphore_wait(_frameSemaphore, timeout);
+    pthread_mutex_lock(&_mutex);
+    if (!self.paused && _count == 0) {
+        // 100ms, then the caller's loop checks for cancellation
+        struct timespec ts = TimespecFromInterval(0.1);
+        pthread_cond_timedwait_relative_np(&_cond, &_mutex, &ts);
     }
+    pthread_mutex_unlock(&_mutex);
 }
 
-- (Frame *)dequeue {
-    os_unfair_lock_lock(&_lock);
+- (Frame *)_unsafeDequeue {
     Frame *frame = nil;
     if (_count > 0) {
         frame = [self _popFrame];
         // compute duration from next
         Frame *next = [self _peekFrame];
         if (next) {
-			[frame setDurationFromNext:next];
-		}
-		FQLog(LOG_I, @"[<- %d / %f%@] dequeue frame, queue size %d/%d",
-			frame.frameNumber, frame.pts,
-			[frame durationIsValid] ? [NSString stringWithFormat:@" dur %.3f ms", frame.duration * 1000.0] : @"",
-			_count, _highWaterMark);
+            [frame setDurationFromNext:next];
+        }
+        FQLog(LOG_I, @"[<- %d / %f%@] dequeue frame, queue size %d/%d",
+            frame.frameNumber, frame.pts,
+            [frame durationIsValid] ? [NSString stringWithFormat:@" dur %.3f ms", frame.duration * 1000.0] : @"",
+            _count, _highWaterMark);
     }
-    os_unfair_lock_unlock(&_lock);
+    return frame;
+}
+
+- (Frame *)dequeue {
+    pthread_mutex_lock(&_mutex);
+    Frame *frame = [self _unsafeDequeue];
+    pthread_mutex_unlock(&_mutex);
     return frame;
 }
 
 - (Frame *)dequeueWithTimeout:(CFTimeInterval)timeout {
-    CFTimeInterval start = CACurrentMediaTime();
-    CFTimeInterval deadline = start + timeout;
-    int round = 0;
-
     if (self.paused) {
         return nil;
     }
 
-    // Always attempt to dequeue at least once
-    do {
-        if (round > 0) {
-            usleep(100); // 0.1ms
-        }
-        Frame *frame = [self dequeue];
-        if (frame) {
-            return frame;
-        }
-        round++;
-    } while (CACurrentMediaTime() < deadline);
-
-    FQLog(LOG_I, @"dequeueWithTimeout timed out after %.3f ms", (CACurrentMediaTime() - start) * 1000.0);
-    return nil;
+    pthread_mutex_lock(&_mutex);
+    if (_count == 0 && timeout > 0 && !self.paused) {
+        // One wait: a frame or stop() wakes it early, so there's no polling. A spurious wakeup
+        // just returns nil early, which the render loop treats like a timeout.
+        struct timespec ts = TimespecFromInterval(timeout);
+        pthread_cond_timedwait_relative_np(&_cond, &_mutex, &ts);
+    }
+    Frame *frame = self.paused ? nil : [self _unsafeDequeue];
+    pthread_mutex_unlock(&_mutex);
+    return frame;
 }
 
 - (NSUInteger)count {
-    os_unfair_lock_lock(&_lock);
+    pthread_mutex_lock(&_mutex);
     NSUInteger c = _count;
-    os_unfair_lock_unlock(&_lock);
+    pthread_mutex_unlock(&_mutex);
     return c;
 }
 
@@ -288,61 +303,78 @@
 }
 
 - (void)clear {
-    os_unfair_lock_lock(&_lock);
-    _head = _tail = _count = 0;
-    _frameDropMetrics = [[FloatBuffer alloc] initWithCapacity:512];
-    os_unfair_lock_unlock(&_lock);
-}
-
-- (CFTimeInterval)_unsafeEstimatedFramerate {
-    static CFTimeInterval lastTime = 0;
-    static int lastFrames = 0;
-    static CFTimeInterval estimate = 0;
-
-    CFTimeInterval now = CACurrentMediaTime();
-    if (now - lastTime > 1.0) {
-        estimate = (_framesIn - lastFrames) / (now - lastTime);
-//		FQLog(LOG_I, @"fps calc using framesIn %d - lastFrames %d / now %f - lastTime %f = %.1f fps",
-//		              _framesIn, lastFrames, now, lastTime, estimate);
-        lastTime   = now;
-        lastFrames = _framesIn;
+    pthread_mutex_lock(&_mutex);
+    for (int i = 0; i < _capacity; i++) {
+        [_buffer replaceObjectAtIndex:i withObject:[NSNull null]];
     }
-    return estimate;
+    _head = _tail = _count = 0;
+    _droppedLast = NO;
+    _ptsCorrection = CMTimeMake(0, 90000);
+    _frameDropMetrics = [[FloatBuffer alloc] initWithCapacity:512];
+    _framesIn = 0;
+    _fpsWindowStart = 0;
+    _fpsWindowFrames = 0;
+    _fpsEstimate = 0;
+    pthread_mutex_unlock(&_mutex);
 }
 
 - (CFTimeInterval)estimatedFramerate {
-    os_unfair_lock_lock(&_lock);
-    CFTimeInterval fps = [self _unsafeEstimatedFramerate];
-    os_unfair_lock_unlock(&_lock);
+    pthread_mutex_lock(&_mutex);
+    CFTimeInterval fps = _fpsEstimate;
+    pthread_mutex_unlock(&_mutex);
     return fps;
 }
 
 - (int)currentSoftCap {
-    os_unfair_lock_lock(&_lock);
+    pthread_mutex_lock(&_mutex);
     int cap = _currentSoftCap;
-    os_unfair_lock_unlock(&_lock);
+    pthread_mutex_unlock(&_mutex);
     return cap;
 }
 
 - (void)stop {
-    // new frames will no longer be coming in, make sure consumer side is not left waiting
-    self.paused = YES;
-    Log(LOG_I, @"FrameQueue stopped");
-    dispatch_semaphore_signal(_frameSemaphore);
+    [self stopForOwner:nil];
 }
 
 - (void)start {
-    // (re)start for a new renderer
+    [self startForOwner:nil];
+}
+
+- (void)startForOwner:(id)owner {
+    // (re)start for a new renderer, without frames left from the last one
+    [self clear];
+    pthread_mutex_lock(&_mutex);
+    _owner = owner;
     self.paused = NO;
+    pthread_mutex_unlock(&_mutex);
     Log(LOG_I, @"FrameQueue started");
+}
+
+- (void)stopForOwner:(id)owner {
+    pthread_mutex_lock(&_mutex);
+    id current = _owner;
+    if (owner != nil && current != nil && owner != current) {
+        pthread_mutex_unlock(&_mutex);
+        Log(LOG_W, @"FrameQueue stop from an old session ignored");
+        return;
+    }
+    _owner = nil;
+    // new frames will no longer be coming in, make sure consumer side is not left waiting
+    self.paused = YES;
+    pthread_cond_broadcast(&_cond);
+    pthread_mutex_unlock(&_mutex);
+    [self clear];
+    Log(LOG_I, @"FrameQueue stopped");
 }
 
 // For use with NSLog("%@", franeQueue);
 - (NSString *)description {
+    pthread_mutex_lock(&_mutex);
     __block NSMutableArray *parts = [NSMutableArray arrayWithCapacity:_count];
     [self _enumerateFrames:^(Frame *frame, NSUInteger idx, BOOL *stop) {
         [parts addObject:[frame description]];
     }];
+    pthread_mutex_unlock(&_mutex);
     return [NSString stringWithFormat:@"[%@]", [parts componentsJoinedByString:@",\n"]];
 }
 

@@ -6,8 +6,14 @@
 #import <MetalKit/MetalKit.h>
 #import <simd/simd.h>
 #import "ImGuiPlots.h"
+#import "FrameQueue.h"
+#import "PacingPolicy.h"
+#import <os/signpost.h>
 
 #include <Limelight.h>
+
+#undef LOG_FILE_CATEGORY
+#define LOG_FILE_CATEGORY LOGCAT_VIDEO
 
 #define MAX_VIDEO_PLANES 3
 
@@ -79,7 +85,28 @@ static const NSUInteger MaxFramesInFlight = 3;
 // best to tone-map Windows content
 static BOOL useEDR = NO;
 
-CFStringRef __currentColorSpace;
+// The layer's colorspace name, for the stats overlay. Guarded by @synchronized on the class,
+// because a new renderer can start while the old one is being freed (from VoidLink).
+static NSString *__currentColorSpace;
+
+static void SetCurrentColorSpaceName(CFStringRef name) {
+    @synchronized([MetalVideoRenderer class]) {
+        __currentColorSpace = name ? [(__bridge NSString *)name copy] : nil;
+    }
+}
+
+typedef struct {
+    CVMetalTextureRef textures[MAX_VIDEO_PLANES];
+} FrameTextures;
+
+static void ReleaseTextures(CVMetalTextureRef *textures, size_t count) {
+    for (size_t i = 0; i < count; i++) {
+        if (textures[i]) {
+            CFRelease(textures[i]);
+            textures[i] = NULL;
+        }
+    }
+}
 
 @implementation MetalVideoRenderer {
     dispatch_queue_t _sq;
@@ -91,7 +118,6 @@ CFStringRef __currentColorSpace;
     id<MTLRenderPipelineState> _videoPipelineState[MAX_VIDEO_PLANES];
     MTLRenderPassDescriptor *_renderPassDescriptor;
     CVMetalTextureCacheRef _textureCache;
-    CVMetalTextureRef _cvMetalTextures[MAX_VIDEO_PLANES];
 
     float _currentEDRHeadroom;
     int _lastColorSpace;
@@ -123,6 +149,7 @@ CFStringRef __currentColorSpace;
         _lastPresented = 0.0f;
         _inFlightSemaphore = dispatch_semaphore_create(MaxFramesInFlight);
         _isStopping = NO;
+        _minimumPresentDuration = PacingMinimumPresentDuration(PresentTimingNearestRefresh, framerate, framerate);
 
         CFStringRef keys[1] = {kCVMetalTextureUsage};
         NSUInteger values[1] = {MTLTextureUsageShaderRead};
@@ -159,11 +186,32 @@ CFStringRef __currentColorSpace;
         _renderPassDescriptor = nil;
     }
     if (_textureCache) {
-        _textureCache = nil;
+        // A CF object: setting it to nil leaked it
+        CFRelease(_textureCache);
+        _textureCache = NULL;
     }
-    if (__currentColorSpace) {
-        CFRelease(__currentColorSpace);
+    // __currentColorSpace isn't cleared here: the next renderer may already have set it
+}
+
+// Layer properties can only be changed on the main thread. The render thread used to
+// dispatch_sync there, which deadlocked when the main thread was waiting for the render thread
+// to finish (MetalView shutdown). This waits in short steps and gives up once the renderer is
+// stopping, cancelling the block if it hasn't started.
+- (BOOL)performOnMainAndWait:(dispatch_block_t)work {
+    if ([NSThread isMainThread]) {
+        work();
+        return YES;
     }
+    dispatch_block_t block = dispatch_block_create(0, work);
+    dispatch_async(dispatch_get_main_queue(), block);
+    while (dispatch_block_wait(block, dispatch_time(DISPATCH_TIME_NOW, 10 * NSEC_PER_MSEC)) != 0) {
+        if (self.isStopping) {
+            dispatch_block_cancel(block);
+            Log(LOG_W, @"[MetalVideoRenderer] stopping, layer change on the main thread abandoned");
+            return NO;
+        }
+    }
+    return YES;
 }
 
 #if !TARGET_OS_TV
@@ -188,14 +236,19 @@ CFStringRef __currentColorSpace;
 }
 
 - (void)applyEDRFromFrame:(Frame *)frame withColorspace:(int)colorspace toLayer:(CAMetalLayer *)layer {
+    // Guards from VoidLink. EDR itself stays off (useEDR) until phase 4.
+    if (!frame || !layer) {
+        Log(LOG_E, @"applyEDRFromFrame called with nil frame or layer");
+        return;
+    }
     [self reportMaxEDRHeadroom];
     [self setInitialEDRMetadata];
 
     CFDictionaryRef ext = [frame getFormatDescExtensions];
-    CFStringRef frame_trc = CFDictionaryGetValue(ext, kCVImageBufferTransferFunctionKey);
+    CFStringRef frame_trc = ext ? CFDictionaryGetValue(ext, kCVImageBufferTransferFunctionKey) : NULL;
 
     // These can only be changed on the main thread
-    dispatch_sync(dispatch_get_main_queue(), ^{
+    [self performOnMainAndWait:^{
         layer.wantsExtendedDynamicRangeContent = YES;
         layer.pixelFormat = MTLPixelFormatRGBA16Float;
 
@@ -217,8 +270,8 @@ CFStringRef __currentColorSpace;
         layer.colorspace = colorspace;
         CGColorSpaceRelease(colorspace);
 
-        CFDataRef masteringDisplayColorVolume = CVBufferCopyAttachment(frame.pixelBuffer, kCVImageBufferMasteringDisplayColorVolumeKey, nil);
-        CFDataRef contentLightLevel = CVBufferCopyAttachment(frame.pixelBuffer, kCVImageBufferContentLightLevelInfoKey, nil);
+        CFDataRef masteringDisplayColorVolume = frame.pixelBuffer ? CVBufferCopyAttachment(frame.pixelBuffer, kCVImageBufferMasteringDisplayColorVolumeKey, nil) : NULL;
+        CFDataRef contentLightLevel = frame.pixelBuffer ? CVBufferCopyAttachment(frame.pixelBuffer, kCVImageBufferContentLightLevelInfoKey, nil) : NULL;
         if (masteringDisplayColorVolume) {
             // This tone-mapper does receive the host's max nits in MDCV when connecting to Windows,
             // but I think using this for tone-mapping would break apps not using system calibration (most apps).
@@ -230,8 +283,16 @@ CFStringRef __currentColorSpace;
                                                                 maxLuminance:1000.0f
                                                           opticalOutputScale:100.0f];
         }
-        LogOnce(LOG_I, @"EDRMetadata set to colorspace %@, transfer function %@, %@", layer.colorspace, frame_trc, layer.EDRMetadata);
-    });
+        // The copies are ours to release (they leaked before)
+        if (masteringDisplayColorVolume) {
+            CFRelease(masteringDisplayColorVolume);
+        }
+        if (contentLightLevel) {
+            CFRelease(contentLightLevel);
+        }
+        LogOnce(LOG_I, @"EDRMetadata set to colorspace %@, transfer function %@, %@", layer.colorspace,
+                frame_trc ? (__bridge NSString *)frame_trc : @"<none>", layer.EDRMetadata);
+    }];
 }
 #endif
 
@@ -240,18 +301,24 @@ CFStringRef __currentColorSpace;
 
     // FQLog(LOG_I, @"%@", ext);
 
+    *isFullRange = NO;
+    // No extensions, for example while the decoder is being rebuilt: use the defaults (VoidLink)
+    if (!ext) {
+        return COLORSPACE_REC_601;
+    }
+
     // Full Range boolean
     CFBooleanRef fullRangeRef = CFDictionaryGetValue(ext, kCMFormatDescriptionExtension_FullRangeVideo);
-    *isFullRange = NO;
     if (fullRangeRef && CFGetTypeID(fullRangeRef) == CFBooleanGetTypeID()) {
         *isFullRange = CFBooleanGetValue(fullRangeRef);
     }
 
     // Colorspace
     CFStringRef frame_color = CFDictionaryGetValue(ext, kCVImageBufferColorPrimariesKey);
-    if (CFEqual(frame_color, kCVImageBufferColorPrimaries_ITU_R_709_2)) {
+    // CFEqual crashes on NULL, and the key can be missing
+    if (frame_color && CFEqual(frame_color, kCVImageBufferColorPrimaries_ITU_R_709_2)) {
         return COLORSPACE_REC_709;
-    } else if (CFEqual(frame_color, kCVImageBufferColorPrimaries_ITU_R_2020)) {
+    } else if (frame_color && CFEqual(frame_color, kCVImageBufferColorPrimaries_ITU_R_2020)) {
         return COLORSPACE_REC_2020;
     }
     return COLORSPACE_REC_601;
@@ -274,8 +341,8 @@ CFStringRef __currentColorSpace;
                 break;
             case COLORSPACE_REC_2020: {
                 CFDictionaryRef ext = [frame getFormatDescExtensions];
-                CFStringRef frame_trc = CFDictionaryGetValue(ext, kCVImageBufferTransferFunctionKey);
-                if (CFEqual(frame_trc, kCVImageBufferTransferFunction_SMPTE_ST_2084_PQ)) {
+                CFStringRef frame_trc = ext ? CFDictionaryGetValue(ext, kCVImageBufferTransferFunctionKey) : NULL;
+                if (frame_trc && CFEqual(frame_trc, kCVImageBufferTransferFunction_SMPTE_ST_2084_PQ)) {
                     isHDR = YES;
                     newColorSpace = CGColorSpaceCreateWithName(kCGColorSpaceITUR_2100_PQ);
                 } else {
@@ -309,46 +376,47 @@ CFStringRef __currentColorSpace;
                     @"Frame pixel format %@ - changing MetalLayer's pixel format to %@",
                     layer.pixelFormat == MTLPixelFormatBGRA8Unorm         ? @"MTLPixelFormatBGRA8Unorm"
                         : layer.pixelFormat == MTLPixelFormatBGR10A2Unorm ? @"MTLPixelFormatBGR10A2Unorm"
-                                                                          : [NSString stringWithFormat:@"Unknown: %lu", layer.pixelFormat],
+                                                                          : [NSString stringWithFormat:@"Unknown: %lu", (unsigned long)layer.pixelFormat],
                     newPixelFormat == MTLPixelFormatBGRA8Unorm         ? @"MTLPixelFormatBGRA8Unorm"
                         : newPixelFormat == MTLPixelFormatBGR10A2Unorm ? @"MTLPixelFormatBGR10A2Unorm"
-                                                                       : [NSString stringWithFormat:@"Unknown: %lu", (unsigned long)layer.pixelFormat]);
+                                                                       : [NSString stringWithFormat:@"Unknown: %lu", (unsigned long)newPixelFormat]);
             }
 
 #if TARGET_OS_TV
             // These can only be changed on the main thread
-            dispatch_sync(dispatch_get_main_queue(), ^{
+            [self performOnMainAndWait:^{
                 layer.colorspace = newColorSpace;
                 layer.pixelFormat = newPixelFormat;
-            });
+            }];
 #else
             if (useEDR && [CAEDRMetadata isAvailable]) {
                 [self applyEDRFromFrame:frame withColorspace:colorspace toLayer:layer];
             } else {
                 // These can only be changed on the main thread
-                dispatch_sync(dispatch_get_main_queue(), ^{
+                [self performOnMainAndWait:^{
                     if (isHDR) {
                         layer.wantsExtendedDynamicRangeContent = YES;
                     }
                     layer.colorspace = newColorSpace;
                     layer.pixelFormat = newPixelFormat;
-                });
+                }];
             }
 #endif
-            if (__currentColorSpace) {
-                CFRelease(__currentColorSpace);
+            if (newColorSpace) {
+                SetCurrentColorSpaceName(CGColorSpaceGetName(newColorSpace));
             }
-            __currentColorSpace = CGColorSpaceCopyName(newColorSpace);
             CGColorSpaceRelease(newColorSpace);
         }
 
         // Create the new colorspace parameter buffer for our fragment shader
         MTLResourceOptions bufferOptions = MTLResourceStorageModeShared;
-        _CscParamsBuffer = [_device newBufferWithBytes:(void *)&paramBuffer length:sizeof(paramBuffer) options:bufferOptions];
-        if (!_CscParamsBuffer) {
+        // Keep the old buffer if this fails (VoidLink)
+        id<MTLBuffer> cscBuffer = [_device newBufferWithBytes:(void *)&paramBuffer length:sizeof(paramBuffer) options:bufferOptions];
+        if (!cscBuffer) {
             Log(LOG_E, @"Failed to create CSC parameters buffer");
             return NO;
         }
+        _CscParamsBuffer = cscBuffer;
 
         _lastColorSpace = colorspace;
         _lastFullRange = fullRange;
@@ -419,28 +487,41 @@ CFStringRef __currentColorSpace;
     return YES;
 }
 
-- (void)renderFrame:(Frame *)frame toLayer:(CAMetalLayer *)layer {
+- (BOOL)renderFrame:(Frame *)frame toLayer:(CAMetalLayer *)layer {
     @autoreleasepool {
         if (self.isStopping) {
-            Log(LOG_I, @"[MetalVideoRenderer] isStopping");
-            return;
+            return NO;
+        }
+        if (self.isPaused) {
+            // Inactive (Control Center, the app switcher): no GPU work. The frame is let go, so
+            // the queue doesn't fill up while we wait.
+            return NO;
         }
 
         // Handle changes to the frame's colorspace from last time we rendered
         BOOL layerDidChange = NO;
         if (![self updateColorSpaceForFrame:frame toLayer:layer layerDidChange:&layerDidChange]) {
-            return;
+            return NO;
         }
 
         // Handle changes to the video size or drawable size
         if (![self updateVideoRegionSizeForFrame:frame toLayer:layer]) {
-            return;
+            return NO;
         }
 
         FQLog(LOG_I, @"[%d / %.3f ms] Metal frame rendering", frame.frameNumber, frame.pts);
 
-        size_t planes = CVPixelBufferGetPlaneCount(frame.pixelBuffer);
-        assert(planes <= MAX_VIDEO_PLANES);
+        CVPixelBufferRef pixelBuffer = frame.pixelBuffer;
+        if (!pixelBuffer) {
+            Log(LOG_W, @"Frame %d has no pixel buffer, skipping it", frame.frameNumber);
+            return NO;
+        }
+
+        size_t planes = CVPixelBufferGetPlaneCount(pixelBuffer);
+        if (planes == 0 || planes > MAX_VIDEO_PLANES) {
+            LogOnce(LOG_E, @"Unsupported plane count: %zu", planes);
+            return NO;
+        }
 
         if (layerDidChange && frame.frameNumber > 1) {
             Log(LOG_I, @"Metal frame changed layer's colorspace and/or pixel format");
@@ -477,14 +558,18 @@ CFStringRef __currentColorSpace;
             _videoPipelineState[planes] = [_device newRenderPipelineStateWithDescriptor:pipelineDesc error:&error];
             if (!_videoPipelineState[planes]) {
                 Log(LOG_E, @"Failed to create video pipeline state: %@", error);
-                return;
+                return NO;
             }
         }
 
+        // The textures belong to this frame and are released when its command buffer completes.
+        // They used to live in an ivar that the next frame overwrote, which only worked while
+        // every frame waited for the GPU (waitUntilCompleted).
+        CVMetalTextureRef textures[MAX_VIDEO_PLANES] = {NULL};
         for (size_t i = 0; i < planes; i++) {
             MTLPixelFormat fmt;
 
-            switch (CVPixelBufferGetPixelFormatType(frame.pixelBuffer)) {
+            switch (CVPixelBufferGetPixelFormatType(pixelBuffer)) {
                 case kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange:
                 case kCVPixelFormatType_444YpCbCr8BiPlanarVideoRange:
                 case kCVPixelFormatType_420YpCbCr8BiPlanarFullRange:
@@ -500,38 +585,63 @@ CFStringRef __currentColorSpace;
                     break;
 
                 default:
-                    Log(LOG_E, @"Unknown pixel format: %@", CVPixelBufferGetPixelFormatType(frame.pixelBuffer));
-                    return;
+                    // %@ with an integer crashed here
+                    Log(LOG_E, @"Unknown pixel format: 0x%08x", (unsigned int)CVPixelBufferGetPixelFormatType(pixelBuffer));
+                    ReleaseTextures(textures, planes);
+                    return NO;
             }
 
             CVReturn err = CVMetalTextureCacheCreateTextureFromImage(kCFAllocatorDefault,
                                                                      _textureCache,
-                                                                     frame.pixelBuffer,
+                                                                     pixelBuffer,
                                                                      NULL,
                                                                      fmt,
-                                                                     CVPixelBufferGetWidthOfPlane(frame.pixelBuffer, i),
-                                                                     CVPixelBufferGetHeightOfPlane(frame.pixelBuffer, i),
+                                                                     CVPixelBufferGetWidthOfPlane(pixelBuffer, i),
+                                                                     CVPixelBufferGetHeightOfPlane(pixelBuffer, i),
                                                                      i,
-                                                                     &_cvMetalTextures[i]);
-            if (err != kCVReturnSuccess) {
+                                                                     &textures[i]);
+            if (err != kCVReturnSuccess || !textures[i]) {
                 Log(LOG_E, @"CVMetalTextureCacheCreateTextureFromImage() failed: %d", err);
-                return;
+                ReleaseTextures(textures, planes);
+                return NO;
             }
+        }
+
+        // Bound the frames in flight. The slot is taken only when a frame is about to be drawn,
+        // and given back by the command buffer's completion handler or on any failure below, so
+        // a frame that isn't drawn can't leak it (VoidLink tracked this by hand).
+        if (dispatch_semaphore_wait(_inFlightSemaphore, dispatch_time(DISPATCH_TIME_NOW, 100 * NSEC_PER_MSEC)) != 0) {
+            Log(LOG_W, @"[MetalVideoRenderer] no free frame slot after 100 ms, skipping frame %d", frame.frameNumber);
+            ReleaseTextures(textures, planes);
+            return NO;
+        }
+        if (self.isStopping) {
+            dispatch_semaphore_signal(_inFlightSemaphore);
+            ReleaseTextures(textures, planes);
+            return NO;
         }
 
         id<CAMetalDrawable> drawable = [layer nextDrawable];
         if (!drawable) {
             Log(LOG_E, @"Failed to get nextDrawable");
-            return;
+            dispatch_semaphore_signal(_inFlightSemaphore);
+            ReleaseTextures(textures, planes);
+            return NO;
         }
         _renderPassDescriptor.colorAttachments[0].texture = drawable.texture;
 
         id<MTLCommandBuffer> commandBuffer = [_commandQueue commandBuffer];
-        id<MTLRenderCommandEncoder> renderEncoder = [commandBuffer renderCommandEncoderWithDescriptor:_renderPassDescriptor];
+        id<MTLRenderCommandEncoder> renderEncoder = commandBuffer ? [commandBuffer renderCommandEncoderWithDescriptor:_renderPassDescriptor] : nil;
+        if (!renderEncoder) {
+            Log(LOG_E, @"Failed to create a command buffer or encoder");
+            dispatch_semaphore_signal(_inFlightSemaphore);
+            ReleaseTextures(textures, planes);
+            return NO;
+        }
 
         [renderEncoder setRenderPipelineState:_videoPipelineState[planes]];
         for (size_t i = 0; i < planes; i++) {
-            [renderEncoder setFragmentTexture:CVMetalTextureGetTexture(_cvMetalTextures[i]) atIndex:i];
+            [renderEncoder setFragmentTexture:CVMetalTextureGetTexture(textures[i]) atIndex:i];
         }
 
         [renderEncoder setVertexBuffer:_VideoVertexBuffer offset:0 atIndex:0];
@@ -545,57 +655,80 @@ CFStringRef __currentColorSpace;
         [renderEncoder drawPrimitives:MTLPrimitiveTypeTriangleStrip vertexStart:0 vertexCount:4];
         [renderEncoder endEncoding];
 
+        // Signposts: one "present" interval per frame, from commit until the compositor shows it
+        os_log_t pacingLog = LogHandle(LOGCAT_PACING);
+        os_signpost_id_t presentId = os_signpost_id_generate(pacingLog);
+        os_signpost_interval_begin(pacingLog, presentId, "present", "frame %d", frame.frameNumber);
+
 #if !TARGET_OS_SIMULATOR
         // Why can't the simulator support this?
-        __block MetalVideoRenderer *strongSelf = self;
+        __weak MetalVideoRenderer *weakSelf = self;
+        PacingStats *pacingStats = [FrameQueue sharedInstance].pacingStats;
+        int frameNumber = frame.frameNumber;
         [drawable addPresentedHandler:^(id<MTLDrawable> d) {
+            CFTimeInterval presentedTime = d.presentedTime;
+            os_signpost_interval_end(pacingLog, presentId, "present", "frame %d shown %d", frameNumber, presentedTime > 0);
+            // presentedTime is 0 when the compositor skipped this drawable
+            [pacingStats notePresentedAt:presentedTime];
+            MetalVideoRenderer *strongSelf = weakSelf;
+            if (!strongSelf || presentedTime <= 0) {
+                return;
+            }
             if (strongSelf.lastPresented > 0.0f) {
-                CFTimeInterval frametime = d.presentedTime - strongSelf.lastPresented;
+                CFTimeInterval frametime = presentedTime - strongSelf.lastPresented;
                 [[ImGuiPlots sharedInstance] observeFloat:PLOT_FRAMETIME value:(frametime * 1000.0)];
             }
-            strongSelf.lastPresented = d.presentedTime;
+            strongSelf.lastPresented = presentedTime;
         }];
 #endif
 
-        // signal semaphore, compute GPU time average, and clear textures
-        __block dispatch_semaphore_t block_semaphore = _inFlightSemaphore;
+        // Signal the semaphore, compute GPU time average, and release this frame's textures.
+        // The frame is kept alive until the GPU is done with its pixel buffer.
+        dispatch_semaphore_t block_semaphore = _inFlightSemaphore;
+        CVMetalTextureCacheRef textureCache = _textureCache;
+        CFRetain(textureCache);
+        // A struct, because a block can't capture a C array
+        FrameTextures frameTextures = {{NULL}};
+        for (size_t i = 0; i < planes; i++) {
+            frameTextures.textures[i] = textures[i];
+        }
+        __weak MetalVideoRenderer *weakRenderer = self;
+        Frame *retainedFrame = frame;
         [commandBuffer addCompletedHandler:^(id<MTLCommandBuffer> cb) {
-            dispatch_semaphore_signal(block_semaphore);
-
             const CFTimeInterval GPUTime = cb.GPUEndTime - cb.GPUStartTime;
-            const double alpha = 0.25f;
-            self->_averageGPUTime = (GPUTime * alpha) + (self->_averageGPUTime * (1.0 - alpha));
-
-            // Free textures after completion of rendering
-            for (size_t i = 0; i < planes; i++) {
-                if (self->_cvMetalTextures[i]) {
-                    CFRelease(self->_cvMetalTextures[i]);
-                    self->_cvMetalTextures[i] = nil;
-                }
+            MetalVideoRenderer *renderer = weakRenderer;
+            if (renderer && GPUTime > 0) {
+                const double alpha = 0.25f;
+                renderer.averageGPUTime = (GPUTime * alpha) + (renderer.averageGPUTime * (1.0 - alpha));
             }
 
-            CVMetalTextureCacheFlush(self->_textureCache, 0);
+            // Free textures after completion of rendering
+            FrameTextures done = frameTextures;
+            ReleaseTextures(done.textures, MAX_VIDEO_PLANES);
+            CVMetalTextureCacheFlush(textureCache, 0);
+            CFRelease(textureCache);
+            (void)retainedFrame;
+
+            dispatch_semaphore_signal(block_semaphore);
         }];
 
 #if TARGET_OS_SIMULATOR
         [commandBuffer presentDrawable:drawable];
 #else
-        // present for a minimum duration for best frame pacing
-        [commandBuffer presentDrawable:drawable afterMinimumDuration:1.0f / _framerate];
+        // Present for a minimum duration for frame pacing. See PacingMinimumPresentDuration: the
+        // old 1/fps hold sat exactly on a refresh boundary at 120 FPS on a 120 Hz display.
+        [commandBuffer presentDrawable:drawable afterMinimumDuration:_minimumPresentDuration];
 #endif
 
+        // No waitUntilCompleted: the in-flight semaphore already bounds the work queued on the GPU,
+        // and waiting here held the render thread for the whole GPU pass of every frame.
         [commandBuffer commit];
-        [commandBuffer waitUntilCompleted];
+        return YES;
     }
 }
 
 - (void)waitToRenderTo:(nonnull CAMetalLayer *)layer {
-    // Wait to ensure only `MaxFramesInFlight` number of frames are getting processed
-    // by any stage in the Metal pipeline (CPU, GPU, Metal, Drivers, etc.).
-    if (!self.isStopping) {
-        dispatch_time_t timeout = dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.1f * NSEC_PER_SEC));  // 100ms
-        dispatch_semaphore_wait(_inFlightSemaphore, timeout);
-    }
+    // The frame slot is now taken in renderFrame, once there is a frame to draw
 }
 
 - (void)shutdown {
@@ -606,6 +739,12 @@ CFStringRef __currentColorSpace;
         // Ensure no rendering is in flight
         for (NSUInteger i = 0; i < MaxFramesInFlight; i++) {
             dispatch_semaphore_signal(_inFlightSemaphore);
+        }
+
+        // Drop cached textures (VoidLink). The pipelines go with the renderer, since the render
+        // thread may still be using them.
+        if (_textureCache) {
+            CVMetalTextureCacheFlush(_textureCache, 0);
         }
     }
 }
@@ -619,10 +758,9 @@ CFStringRef __currentColorSpace;
 }
 
 + (NSString *)currentColorSpace {
-    if (__currentColorSpace) {
-        return (__bridge NSString *)__currentColorSpace;
+    @synchronized([MetalVideoRenderer class]) {
+        return __currentColorSpace;
     }
-    return nil;
 }
 
 @end
