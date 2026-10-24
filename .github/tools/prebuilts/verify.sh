@@ -132,9 +132,11 @@ sha256() {
     fi
 }
 
-# The SHA-256 SHA256SUMS records for a path in the repo
+# The SHA-256 SHA256SUMS records for a path in the repo. The path is everything after the hash
+# and its separator, so paths with spaces (like ios/Moonlight TV/...) match too.
 recorded() {
-    tr -d '\r' < "$SUMS" | awk -v p="$1" '$2 == p || $2 == "*" p { print $1; exit }'
+    tr -d '\r' < "$SUMS" | awk -v p="$1" '{ h = $1; sub(/^[0-9a-f]+ [ *]/, "") }
+        $0 == p { print h; exit }'
 }
 
 find_python() {

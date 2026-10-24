@@ -722,6 +722,31 @@ if [ $status -ne 0 ]; then
 fi
 ok "check-version.sh tells good release tags and version bumps from bad ones"
 
+# 16. prebuilts/verify.sh sums, in a made-up repo: a listed binary file whose path has a space
+# (like ios/Moonlight TV/...) counts as listed, and an unlisted one is still caught
+begin
+work="$(mktemp -d)"
+vr="$work/repo"
+mkdir -p "$vr/.github/tools/prebuilts" "$vr/Some Folder"
+cp "$HERE/prebuilts/verify.sh" "$vr/.github/tools/prebuilts/"
+printf 'listed\000binary\n' > "$vr/Some Folder/listed.bin"
+printf 'unlisted\000binary\n' > "$vr/Some Folder/unlisted.bin"
+printf '%s  %s\n' "$(sha256sum "$vr/Some Folder/listed.bin" | cut -d' ' -f1)" "Some Folder/listed.bin" \
+    > "$vr/.github/tools/prebuilts/SHA256SUMS"
+git -C "$vr" init -q
+git -C "$vr" add -A
+set +e
+sums_out=$(sh "$vr/.github/tools/prebuilts/verify.sh" --work "$work/w" sums 2>&1)
+set -e
+if printf '%s\n' "$sums_out" | grep -qE 'Some Folder/listed[.]bin +binary file not listed'; then
+    printf '%s\n' "$sums_out" >&2
+    fail "verify.sh sums says a listed file whose path has a space isn't listed"
+fi
+printf '%s\n' "$sums_out" | grep -qE 'Some Folder/unlisted[.]bin +binary file not listed' ||
+    fail "verify.sh sums missed an unlisted binary file in a folder with a space"
+rm -rf "$work"
+ok "verify.sh sums finds listed and unlisted binary files, spaces in paths too"
+
 if [ $failures -ne 0 ]; then
     echo "$failures problem(s)" >&2
     exit 1
