@@ -20,11 +20,36 @@ steps and the checksums for each version.
   simulator by GitHub Actions. It hasn't run on an iPad yet. The plan is
   [docs/ios/port-plan.md](docs/ios/port-plan.md), and the Mac steps are
   [docs/ios/mac-runbook.md](docs/ios/mac-runbook.md).
+- **iOS: an app log in Release builds.** Logs go to the system log with a category per area
+  (stream, video, pacing, network, input, audio), with signposts around decode, enqueue, drop and
+  present. Extra detail is behind "Verbose logging" in Starwire's page in iOS Settings.
+- **iOS: frame pacing measurements.** Every 5 seconds the log, and the statistics overlay, say
+  how frames arrived and why they were dropped. iOS Settings has test choices for present timing,
+  drop policy and frames to buffer, and a "Use a virtual display" switch for Vibeshine.
+- **iOS: unit tests on the simulator in CI,** including Andy Grundman's frame queue tests, and a
+  UI test the Mac runs on the iPad.
+
+### Changed
+
+- **iOS: moonlight-common-c now comes from the owner's fork** (`starwire-ios`), which is Nonary's
+  pinned commit plus five official fixes, including the RFI and partial IDR frame loss fixes.
 
 ### Fixed
 
 - **Prebuilt file check:** `verify.sh` now finds files listed in `SHA256SUMS` whose path has a
   space.
+- **iOS: stream stability fixes, not yet tried on the iPad.**
+  - Each frame is held on screen for the nearest whole number of refreshes. Holding it for a full
+    1/120 s could make it miss a refresh at 120 FPS.
+  - The renderer no longer waits for the GPU after every frame, and no longer polls for frames.
+  - It could deadlock on the main thread when a stream stopped during a color change.
+  - It could crash on a frame with no color information or an unknown pixel format.
+  - A stream stopping late could stop or draw into the next one, and a stream closed while it
+    was launching still connected (fixes from daniel-zn's Artemis iOS).
+  - Two error alerts could open at once.
+  - The app uses the UIScene lifecycle that iOS will require.
+  - A paired PC is checked over HTTPS, so a PC whose plain HTTP port doesn't answer isn't shown
+    as offline.
 
 ## [0.2.1] - 2026-10-23
 
