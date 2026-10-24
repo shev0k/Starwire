@@ -122,6 +122,14 @@ jobs:
             echo "== $f: $(grep -c ' warning: ' "$f" || true) warning lines, $(grep -c ' error: ' "$f" || true) error lines"
             grep ' error: ' "$f" | sort -u | head -50 || true
           done | tee logs/summary.txt
+          # Errors and failed tests as annotations too, so they show on the run page without
+          # downloading the logs
+          for f in logs/build-*.log logs/unit-tests.log; do
+            [ -f "$f" ] || continue
+            grep -E ' error: |: error: -\[' "$f" | sort -u | head -30 | while IFS= read -r line; do
+              echo "::error title=$(basename "$f")::${line}"
+            done || true
+          done
           if [ -f logs/unit-tests.log ]; then
             grep -E "Test Suite '(All tests|.*\.xctest)'|Executed [0-9]+ tests|error: -\[|failed \(" logs/unit-tests.log | tail -40 | tee -a logs/summary.txt || true
           fi
