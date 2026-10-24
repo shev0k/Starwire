@@ -31,5 +31,7 @@
 @property int supportedVideoFormats;
 @property BOOL multiController;
 @property NSData* serverCert;
+// Ask Vibeshine to stream a virtual display (launch parameter virtualDisplay=1)
+@property BOOL virtualDisplay;
 
 @end

@@ -8,10 +8,14 @@
 
 #import "TemporaryHost.h"
 
+@class HttpManager;
+
 @interface DiscoveryWorker : NSOperation
 
 - (id) initWithHost:(TemporaryHost*)host uniqueId:(NSString*)uniqueId;
 - (void) discoverHost;
 - (TemporaryHost*) getHost;
+// The HttpManager a poll of this address uses
++ (HttpManager*) serverInfoManagerForAddress:(NSString*)address host:(TemporaryHost*)host;
 
 @end

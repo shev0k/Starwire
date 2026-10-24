@@ -13,6 +13,9 @@
 #import "HttpRequest.h"
 #import "DataManager.h"
 
+#undef LOG_FILE_CATEGORY
+#define LOG_FILE_CATEGORY LOGCAT_NETWORK
+
 @implementation DiscoveryWorker {
     TemporaryHost* _host;
     NSString* _uniqueId;
@@ -125,8 +128,18 @@ static const float POLL_RATE = 2.0f; // Poll every 2 seconds
     }
 }
 
+// Starwire: a paired host is polled over HTTPS with its pinned certificate, on the HTTPS port it
+// told us before. The poll used to pass port 0, so every poll first asked plain HTTP
+// /serverinfo (port 47989) for the HTTPS port. When HTTP timed out, the host showed as offline
+// and HTTPS was never tried, even though streaming over HTTPS worked.
++ (HttpManager*) serverInfoManagerForAddress:(NSString*)address host:(TemporaryHost*)host {
+    NSData* cert = host.serverCert;
+    unsigned short httpsPort = cert != nil ? host.httpsPort : 0;
+    return [[HttpManager alloc] initWithAddress:address httpsPort:httpsPort serverCert:cert];
+}
+
 - (ServerInfoResponse*) requestInfoAtAddress:(NSString*)address cert:(NSData*)cert {
-    HttpManager* hMan = [[HttpManager alloc] initWithAddress:address httpsPort:0 serverCert:cert];
+    HttpManager* hMan = [DiscoveryWorker serverInfoManagerForAddress:address host:_host];
     ServerInfoResponse* response = [[ServerInfoResponse alloc] init];
     [hMan executeRequestSynchronously:[HttpRequest requestForResponse:response
                                                        withUrlRequest:[hMan newServerInfoRequest:true]

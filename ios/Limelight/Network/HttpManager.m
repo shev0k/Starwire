@@ -17,6 +17,9 @@
 
 #include <Limelight.h>
 
+#undef LOG_FILE_CATEGORY
+#define LOG_FILE_CATEGORY LOGCAT_NETWORK
+
 #define SHORT_TIMEOUT_SEC 2
 #define NORMAL_TIMEOUT_SEC 5
 #define LONG_TIMEOUT_SEC 60
@@ -84,9 +87,10 @@
             _baseHTTPSURL = [NSString stringWithFormat:@"https://%@:%u", _urlSafeHostName, _host.httpsPort];
         }
         else {
-            // Query the host to retrieve the HTTPS port
+            // Query the host to retrieve the HTTPS port. Starwire: honor fastFail here too, so a
+            // poll that has to ask over HTTP waits 2 seconds, not 5.
             ServerInfoResponse* serverInfoResponse = [[ServerInfoResponse alloc] init];
-            [self executeRequestSynchronously:[HttpRequest requestForResponse:serverInfoResponse withUrlRequest:[self newHttpServerInfoRequest:false]]];
+            [self executeRequestSynchronously:[HttpRequest requestForResponse:serverInfoResponse withUrlRequest:[self newHttpServerInfoRequest:fastFail]]];
             TemporaryHost* dummyHost = [[TemporaryHost alloc] init];
             if (![serverInfoResponse isStatusOk]) {
                 return NO;
@@ -105,6 +109,19 @@
     return YES;
 }
 
+// Logs now reach Release builds, so the stream's input key never goes into them
++ (NSString*) redactSecrets:(NSString*)text {
+    static NSRegularExpression* rikey;
+    static dispatch_once_t once;
+    dispatch_once(&once, ^{
+        rikey = [NSRegularExpression regularExpressionWithPattern:@"rikey=[0-9A-Fa-f]+" options:0 error:nil];
+    });
+    if (text == nil) {
+        return nil;
+    }
+    return [rikey stringByReplacingMatchesInString:text options:0 range:NSMakeRange(0, text.length) withTemplate:@"rikey=<redacted>"];
+}
+
 - (void) executeRequestSynchronously:(HttpRequest*)request {
     // This is a special case to handle failure of HTTPS port fetching
     if (!request.request) {
@@ -120,19 +137,25 @@
     __block NSError* respError = nil;
     __block dispatch_semaphore_t requestLock = dispatch_semaphore_create(0);
     
-    Log(LOG_D, @"Making Request: %@", request);
+    Log(LOG_D, @"Making Request: %@", [HttpManager redactSecrets:request.request.URL.absoluteString]);
     NSURLSession* urlSession = [NSURLSession sessionWithConfiguration:[NSURLSessionConfiguration ephemeralSessionConfiguration] delegate:self delegateQueue:nil];
     [[urlSession dataTaskWithRequest:request.request completionHandler:^(NSData * __nullable data, NSURLResponse * __nullable response, NSError * __nullable error) {
         
         if (error != NULL) {
-            Log(LOG_D, @"Connection error: %@", error);
+            Log(LOG_W, @"Request to %@ failed: %@ (%ld)", [HttpManager redactSecrets:request.request.URL.absoluteString],
+                error.domain, (long)error.code);
             respError = error;
         }
         else {
             Log(LOG_D, @"Received response: %@", response);
 
             if (data != NULL) {
+#if defined(DEBUG)
                 Log(LOG_D, @"\n\nReceived data: %@\n\n", [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding]);
+#else
+                // Pairing responses carry the pairing secrets, so Release logs only the size
+                Log(LOG_D, @"Received %lu bytes", (unsigned long)data.length);
+#endif
                 if ([[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding] != nil) {
                     requestResp = [HttpManager fixXmlVersion:data];
                 } else {
@@ -269,7 +292,7 @@
     // indicated by a negative version in the last field.
     int fps = (config.frameRate > 60 && ![config.appVersion containsString:@".-"]) ? 0 : config.frameRate;
     
-    NSString* urlString = [NSString stringWithFormat:@"%@/%@?uniqueid=%@&appid=%@&mode=%dx%dx%d&additionalStates=1&sops=%d&rikey=%@&rikeyid=%d%@&localAudioPlayMode=%d&surroundAudioInfo=%d&remoteControllersBitmap=%d&gcmap=%d&gcpersist=%d%s",
+    NSString* urlString = [NSString stringWithFormat:@"%@/%@?uniqueid=%@&appid=%@&mode=%dx%dx%d&additionalStates=1&sops=%d&rikey=%@&rikeyid=%d%@&localAudioPlayMode=%d&surroundAudioInfo=%d&remoteControllersBitmap=%d&gcmap=%d&gcpersist=%d%@%s",
                            _baseHTTPSURL, verb, _uniqueId,
                            config.appID,
                            config.width, config.height, fps,
@@ -280,8 +303,10 @@
                            SURROUNDAUDIOINFO_FROM_AUDIO_CONFIGURATION(config.audioConfiguration),
                            config.gamepadMask, config.gamepadMask,
                            !config.multiController ? 1 : 0,
+                           // Vibeshine: stream a virtual display instead of the PC's monitor
+                           config.virtualDisplay ? @"&virtualDisplay=1" : @"",
                            LiGetLaunchUrlQueryParameters()];
-    Log(LOG_I, @"Requesting: %@", urlString);
+    Log(LOG_I, @"Requesting: %@", [HttpManager redactSecrets:urlString]);
     // This blocks while the app is launching
     return [self createRequestFromString:urlString timeout:LONG_TIMEOUT_SEC];
 }

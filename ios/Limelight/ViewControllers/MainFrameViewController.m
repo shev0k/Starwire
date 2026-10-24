@@ -27,6 +27,7 @@
 #import "IdManager.h"
 #import "ConnectionHelper.h"
 
+#import "PacingPolicy.h"
 #if !TARGET_OS_TV
 #import "SettingsViewController.h"
 #else
@@ -659,6 +660,8 @@ static NSMutableSet* hostList;
 
     // multiController must be set before calling getConnectedGamepadMask
     _streamConfig.multiController = streamSettings.multiController;
+    // Set in iOS Settings for now; the app's own settings get it in phase 2
+    _streamConfig.virtualDisplay = StreamUsesVirtualDisplay([NSUserDefaults standardUserDefaults]);
     _streamConfig.gamepadMask = [ControllerSupport getConnectedGamepadMask:_streamConfig];
 
     int numberOfChannels = [streamSettings.audioConfig intValue];
