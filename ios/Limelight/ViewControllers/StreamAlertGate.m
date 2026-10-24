@@ -7,6 +7,7 @@
 
 @implementation StreamAlertGate {
     BOOL _shown;
+    BOOL _exiting;
     NSMutableArray<NSString *> *_suppressed;
 }
 

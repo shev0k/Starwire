@@ -14,6 +14,7 @@
 #ifndef Limelight_Logger_h
 #define Limelight_Logger_h
 
+#import <Foundation/Foundation.h>
 #import <dispatch/dispatch.h>
 #import <stdarg.h>
 #import <os/log.h>
