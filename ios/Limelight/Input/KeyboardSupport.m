@@ -9,12 +9,8 @@
 #import "KeyboardSupport.h"
 #include <Limelight.h>
 
-// Starwire: Nonary's moonlight-common-c (mac-pyrowave) branched before upstream's f900dd4, which
-// added this flag for keys sent with the 0xE0 scancode prefix. Same value as upstream. Going by
-// its code, Vibeshine (af1a0842) picks extended keys by VK code and ignores this bit.
-#ifndef MODIFIER_EXTENDED
-#define MODIFIER_EXTENDED 0x10
-#endif
+#undef LOG_FILE_CATEGORY
+#define LOG_FILE_CATEGORY LOGCAT_INPUT
 
 @implementation KeyboardSupport
 

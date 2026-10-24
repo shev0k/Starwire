@@ -4,8 +4,8 @@
 	branch = main
 [submodule "ios/moonlight-common/moonlight-common-c"]
 	path = ios/moonlight-common/moonlight-common-c
-	url = https://github.com/Nonary/moonlight-common-c.git
-	branch = mac-pyrowave
+	url = https://github.com/shev0k/moonlight-common-c.git
+	branch = starwire-ios
 [submodule "ios/X1Kit"]
 	path = ios/X1Kit
 	url = https://github.com/cgutman/X1Kit.git
