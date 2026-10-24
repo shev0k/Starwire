@@ -9,6 +9,7 @@
 #import "Connection.h"
 #import "Plot.h"
 #import "Utils.h"
+#import "SessionOwnership.h"
 #import "CoreAudioHelpers.h"
 
 #import <VideoToolbox/VideoToolbox.h>
@@ -18,6 +19,9 @@
 
 #include "Limelight.h"
 #include "opus_multistream.h"
+
+#undef LOG_FILE_CATEGORY
+#define LOG_FILE_CATEGORY LOGCAT_STREAM
 
 @implementation Connection {
     SERVER_INFORMATION _serverInfo;
@@ -29,6 +33,12 @@
     char _appVersionString[32];
     char _gfeVersionString[32];
     char _rtspSessionUrl[128];
+    // This connection's renderer and callbacks. The statics the C callbacks use are set from
+    // these under initLock in -main and cleared after this connection stops, so a connection
+    // that is still stopping can't stop the next one's renderer or call into it.
+    // From daniel-zn's Artemis iOS (commit 696ffae).
+    VideoDecoderRenderer* _myRenderer;
+    id<ConnectionCallbacks> _myCallbacks;
 }
 
 static NSLock* initLock;
@@ -46,6 +56,9 @@ static bool audioIsStopping = false;
 static CoreAudioRenderer* audioRenderer;
 
 static BandwidthTracker *bwTracker;
+
+// Which Connection owns common-c's single global connection and the statics above
+static SessionOwnership* ownership;
 
 int DrDecoderSetup(int videoFormat, int width, int height, int redrawRate, void* context, int drFlags)
 {
@@ -344,10 +357,18 @@ void ClConnectionTerminated(int errorCode)
 
 void ClLogMessage(const char* format, ...)
 {
+    // moonlight-common-c's messages go to the "stream" log category, so Release builds keep them
+    char message[1024];
     va_list va;
     va_start(va, format);
-    vfprintf(stderr, format, va);
+    vsnprintf(message, sizeof(message), format, va);
     va_end(va);
+
+    size_t len = strlen(message);
+    while (len > 0 && (message[len - 1] == '\n' || message[len - 1] == '\r')) {
+        message[--len] = 0;
+    }
+    os_log(LogHandle(LOGCAT_STREAM), "%{public}s", message);
 }
 
 void ClRumble(unsigned short controllerNumber, unsigned short lowFreqMotor, unsigned short highFreqMotor)
@@ -387,14 +408,25 @@ void ClSetControllerLED(uint16_t controllerNumber, uint8_t r, uint8_t g, uint8_t
     // thread-safe and done outside initLock on purpose, since we
     // won't be able to acquire it if LiStartConnection is in
     // progress.
-    LiInterruptConnection();
+    // A connection stopped before -main runs never starts
+    [ownership cancel:self];
+    if ([ownership isCurrent:self]) {
+        LiInterruptConnection();
+    }
 
     // We dispatch this async to get out because this can be invoked
     // on a thread inside common and we don't want to deadlock. It also avoids
     // blocking on the caller's thread waiting to acquire initLock.
+    //
+    // Starwire: only this connection is stopped. A stop that arrives late, after the next
+    // stream has started, used to stop that stream instead.
     dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_HIGH, 0), ^{
         [initLock lock];
-        LiStopConnection();
+        if ([ownership endIfCurrent:self]) {
+            LiStopConnection();
+            renderer = nil;
+            _callbacks = nil;
+        }
         [initLock unlock];
     });
 }
@@ -407,6 +439,9 @@ void ClSetControllerLED(uint16_t controllerNumber, uint8_t r, uint8_t g, uint8_t
     // or deinitializing a connection at a time.
     if (initLock == nil) {
         initLock = [[NSLock alloc] init];
+    }
+    if (ownership == nil) {
+        ownership = [[SessionOwnership alloc] init];
     }
 
     if (videoStatsLock == nil) {
@@ -442,8 +477,9 @@ void ClSetControllerLED(uint16_t controllerNumber, uint8_t r, uint8_t g, uint8_t
     }
     _serverInfo.serverCodecModeSupport = config.serverCodecModeSupport;
 
-    renderer = myRenderer;
-    _callbacks = callbacks;
+    // Set in -main, under initLock, once this connection owns common-c
+    _myRenderer = myRenderer;
+    _myCallbacks = callbacks;
 
     // Check for low power mode which limits framerate to 60
     if (config.frameRate > 60 && [[NSProcessInfo processInfo] isLowPowerModeEnabled]) {
@@ -526,6 +562,13 @@ void ClSetControllerLED(uint16_t controllerNumber, uint8_t r, uint8_t g, uint8_t
 -(void) main
 {
     [initLock lock];
+    if (![ownership begin:self]) {
+        [initLock unlock];
+        Log(LOG_I, @"Connection was stopped before it started; not connecting");
+        return;
+    }
+    renderer = _myRenderer;
+    _callbacks = _myCallbacks;
     LiStartConnection(&_serverInfo,
                       &_streamConfig,
                       &_clCallbacks,

@@ -17,8 +17,13 @@
 #import "HttpResponse.h"
 #import "HttpRequest.h"
 #import "IdManager.h"
+#import "FrameQueue.h"
+#import "PacingStats.h"
 
 #include <Limelight.h>
+
+#undef LOG_FILE_CATEGORY
+#define LOG_FILE_CATEGORY LOGCAT_STREAM
 
 @implementation StreamManager {
     StreamConfiguration* _config;
@@ -26,6 +31,9 @@
     UIView* _renderView;
     id<ConnectionCallbacks> _callbacks;
     Connection* _connection;
+    // Set by stopStream: a stream left while it was still launching doesn't connect afterwards.
+    // From daniel-zn's Artemis iOS (commit 696ffae).
+    volatile BOOL _stopped;
 }
 
 - (id) initWithConfig:(StreamConfiguration*)config renderView:(UIView*)view connectionCallbacks:(id<ConnectionCallbacks>)callbacks {
@@ -98,8 +106,17 @@
     // Populate RTSP session URL from launch/resume response
     _config.rtspSessionUrl = sessionUrl;
 
+    if (_stopped) {
+        Log(LOG_I, @"Stream was closed while launching; not connecting");
+        return;
+    }
+
     // Initializing the renderer must be done on the main thread
     dispatch_async(dispatch_get_main_queue(), ^{
+        if (self->_stopped) {
+            Log(LOG_I, @"Stream was closed while launching; not connecting");
+            return;
+        }
         VideoDecoderRenderer* renderer = [[VideoDecoderRenderer alloc] initWithView:self->_renderView callbacks:self->_callbacks streamAspectRatio:(float)self->_config.width / (float)self->_config.height];
         self->_connection = [[Connection alloc] initWithConfig:self->_config renderer:renderer connectionCallbacks:self->_callbacks];
         NSOperationQueue* opQueue = [[NSOperationQueue alloc] init];
@@ -109,6 +126,8 @@
 
 - (void) stopStream
 {
+    // Called on the main thread, like the block that creates the connection
+    _stopped = YES;
     [_connection terminate];
 }
 
@@ -170,6 +189,19 @@ static NSString *interleaveStrings(NSString *str1, NSString *str2) {
     return [result copy];
 }
 
+// One line on why frames were dropped, from the last 5 second pacing window (PacingStats)
+- (NSString*) pacingOverlayLine {
+    PacingStats* pacingStats = [FrameQueue sharedInstance].pacingStats;
+    if (pacingStats == nil) {
+        return @"";
+    }
+    PacingWindow window = [pacingStats lastWindow];
+    if (window.arrivals == 0) {
+        return @"";
+    }
+    return [@"\n" stringByAppendingString:[PacingStats overlayLineForWindow:window]];
+}
+
 - (NSString*) getStatsOverlayText {
     video_stats_t stats;
 
@@ -215,7 +247,7 @@ static NSString *interleaveStrings(NSString *str1, NSString *str2) {
             "%@"
             "Frames dropped by network/pacing jitter: %.1f%% / %.1f%%\n"
             "Average network latency: %@\n"
-            "Decode time: %.2f/%.2f/%.2f ms",
+            "Decode time: %.2f/%.2f/%.2f ms%@",
             _config.width,
             _config.height,
             fps,
@@ -225,7 +257,8 @@ static NSString *interleaveStrings(NSString *str1, NSString *str2) {
             (stats.networkDroppedFrames / stats.totalFrames) * 100.0,
             stats.frameDropMetrics.nsamples > 0 ? (stats.frameDropMetrics.total / stats.frameDropMetrics.nsamples) * 100.0 : 0.0f,
             latencyString,
-            stats.decodeMetrics.min, stats.decodeMetrics.max, stats.decodeMetrics.avg];
+            stats.decodeMetrics.min, stats.decodeMetrics.max, stats.decodeMetrics.avg,
+            [self pacingOverlayLine]];
 
     NSString *audioStatsStr = [_connection getAudioStatsString];
     if (audioStatsStr) {

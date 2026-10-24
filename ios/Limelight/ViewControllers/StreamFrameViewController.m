@@ -16,6 +16,7 @@
 #import "ImGuiRenderer.h"
 #import "RelativeTouchHandler.h"
 #import "MetalVideoRenderer.h"
+#import "StreamAlertGate.h"
 
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -27,6 +28,9 @@
 #import <AVKit/AVDisplayManager.h>
 #import <AVKit/UIWindow.h>
 #endif
+
+#undef LOG_FILE_CATEGORY
+#define LOG_FILE_CATEGORY LOGCAT_STREAM
 
 @interface AVDisplayCriteria()
 @property(readonly) int videoDynamicRange;
@@ -51,6 +55,9 @@
     PlotMetrics _decodeMetrics;
     PlotMetrics _frameDropMetrics;
     PlotMetrics _frameQueueMetrics;
+    // One alert per stream, none while closing (see StreamAlertGate)
+    StreamAlertGate *_alertGate;
+    __weak UIAlertController *_presentedAlert;
 
 #if TARGET_OS_TV
     UITapGestureRecognizer *_menuTapGestureRecognizer;
@@ -104,6 +111,7 @@
     [UIApplication sharedApplication].idleTimerDisabled = YES;
     
     _settings = [[[DataManager alloc] init] getSettings];
+    _alertGate = [[StreamAlertGate alloc] init];
 
     _stageLabel = [[UILabel alloc] init];
     [_stageLabel setUserInteractionEnabled:NO];
@@ -282,6 +290,9 @@
 - (void)willMoveToParentViewController:(UIViewController *)parent {
     // Only cleanup when we're being destroyed
     if (parent == nil) {
+        [_alertGate markExiting];
+        // Stop drawing before the view goes away (VoidLink stops the renderer explicitly too)
+        [self.metalViewController shutdown];
         [_controllerSupport cleanup];
         [UIApplication sharedApplication].idleTimerDisabled = NO;
         [_streamMan stopStream];
@@ -373,6 +384,14 @@
 }
 
 - (void) returnToMainFrame {
+    [_alertGate markExiting];
+    // An alert presented above the stream stays up after the stream screen is popped (for
+    // example when the app goes to the background), so take it down with the stream
+    UIAlertController *alert = _presentedAlert;
+    if (alert != nil && alert.presentingViewController != nil && !alert.isBeingDismissed) {
+        [alert.presentingViewController dismissViewControllerAnimated:NO completion:nil];
+    }
+
     // Reset display mode back to default
     [self updatePreferredDisplayMode:NO];
     
@@ -392,6 +411,9 @@
     if (_inactivityTimer != nil) {
         [_inactivityTimer invalidate];
     }
+
+    // iOS doesn't allow GPU work in the background; stop drawing until we're active again
+    [self.metalViewController pauseRendering];
     
 #if !TARGET_OS_TV
     // Terminate the stream if the app is inactive for 60 seconds
@@ -413,6 +435,8 @@
 }
 
 - (void)applicationDidBecomeActive:(NSNotification *)notification {
+    [self.metalViewController resumeRendering];
+
     // Stop the background timer, since we're foregrounded again
     if (_inactivityTimer != nil) {
         Log(LOG_I, @"Stopping inactivity timer after becoming active again");
@@ -494,6 +518,10 @@
 - (void) connectionStarted {
     Log(LOG_I, @"Connection started");
     dispatch_async(dispatch_get_main_queue(), ^{
+        // The user may have left while it was connecting (daniel-zn's Artemis iOS guards this too)
+        if (self->_alertGate.exiting) {
+            return;
+        }
         // Leave the spinner spinning until it's obscured by
         // the first frame of video.
         self->_stageLabel.hidden = YES;
@@ -584,10 +612,32 @@
         [conTermAlert addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleDefault handler:^(UIAlertAction* action){
             [self returnToMainFrame];
         }]];
-        [self presentViewController:conTermAlert animated:YES completion:nil];
+        [self presentStreamAlert:conTermAlert];
     });
 
     [_streamMan stopStream];
+}
+
+// The view controller that is on top, so the alert never asks a controller that is already
+// presenting something to present again
+- (UIViewController *)topPresenter {
+    UIViewController *top = self.view.window.rootViewController ?: self;
+    while (top.presentedViewController != nil && !top.presentedViewController.isBeingDismissed) {
+        top = top.presentedViewController;
+    }
+    return top;
+}
+
+// Every stream error alert goes through here. One failure can report itself twice (a stage
+// failing, then the connection terminating), which showed two alerts at once: the second one is
+// only logged.
+- (void)presentStreamAlert:(UIAlertController *)alert {
+    if (![_alertGate shouldPresentAlertWithTitle:alert.title ?: @""]) {
+        Log(LOG_W, @"Not showing a second stream alert: %@: %@", alert.title, alert.message);
+        return;
+    }
+    _presentedAlert = alert;
+    [[self topPresenter] presentViewController:alert animated:YES completion:nil];
 }
 
 - (void) stageStarting:(const char*)stageName {
@@ -630,7 +680,7 @@
         [alert addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleDefault handler:^(UIAlertAction* action){
             [self returnToMainFrame];
         }]];
-        [self presentViewController:alert animated:YES completion:nil];
+        [self presentStreamAlert:alert];
     });
     
     [_streamMan stopStream];
@@ -650,18 +700,18 @@
         [alert addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleDefault handler:^(UIAlertAction* action){
             [self returnToMainFrame];
         }]];
-        [self presentViewController:alert animated:YES completion:nil];
+        [self presentStreamAlert:alert];
     });
 }
 
 - (void)rumble:(unsigned short)controllerNumber lowFreqMotor:(unsigned short)lowFreqMotor highFreqMotor:(unsigned short)highFreqMotor {
-    Log(LOG_I, @"Rumble on gamepad %d: %04x %04x", controllerNumber, lowFreqMotor, highFreqMotor);
+    Log(LOG_D, @"Rumble on gamepad %d: %04x %04x", controllerNumber, lowFreqMotor, highFreqMotor);
     
     [_controllerSupport rumble:controllerNumber lowFreqMotor:lowFreqMotor highFreqMotor:highFreqMotor];
 }
 
 - (void) rumbleTriggers:(uint16_t)controllerNumber leftTrigger:(uint16_t)leftTrigger rightTrigger:(uint16_t)rightTrigger {
-    Log(LOG_I, @"Trigger rumble on gamepad %d: %04x %04x", controllerNumber, leftTrigger, rightTrigger);
+    Log(LOG_D, @"Trigger rumble on gamepad %d: %04x %04x", controllerNumber, leftTrigger, rightTrigger);
     
     [_controllerSupport rumbleTriggers:controllerNumber leftTrigger:leftTrigger rightTrigger:rightTrigger];
 }
