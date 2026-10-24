@@ -35,7 +35,8 @@ Copy this file to `<YYYY-MM-DD>-<branch with / as ->.md` and fill in every field
 | --- | --- | --- |
 | `swift test` for StarwireKit | n passed, n failed | |
 | Simulator build | pass / fail | |
-| App tests on the iPad | none yet / n passed, n failed | |
+| Unit tests on the simulator (`StarwireTests`) | n passed, n failed | |
+| Device-run UI tests on the iPad (`StarwireDeviceRun`) | n passed, n failed | |
 
 ## Stream
 
@@ -55,6 +56,30 @@ Copy this file to `<YYYY-MM-DD>-<branch with / as ->.md` and fill in every field
 | Stopping the stream | clean / crashed / hung |
 
 Screenshots: list the files next to this report.
+
+## Pacing
+
+One row per A/B run (see the runbook's "The A/B runs"). Write "not run" for a row that wasn't.
+
+| Run | Settings | Pacing drops, at 60 s / end / mean | Pacing line (bursts, drops after burst, held 2+, skipped) | Latency, decode |
+| --- | --- | --- | --- | --- |
+| A | frame, alternate, buffer 2 | | | |
+| B | nearest, alternate, buffer 2 | | | |
+| C | nearest, newest, buffer 2 | | | |
+| D | nearest, alternate, buffer 3 | | | |
+| E | B plus virtual display | | | |
+
+What the numbers say about the cause, and the best setting found.
+
+## Stability, serverinfo and logs
+
+| Check | Result | Notes |
+| --- | --- | --- |
+| Streams in a row (`testStreamsInARow`) | n of 10 | alerts, crashes |
+| Background and resume (`testBackgroundAndResume`) | pass / fail | |
+| PC shown online in the app | yes / no | |
+| curl HTTP 47989 / HTTPS 47984 serverinfo from the Mac | code and time for each | |
+| App log lines visible in Release | yes / no | one line quoted |
 
 ## Problems
 

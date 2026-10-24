@@ -258,6 +258,17 @@ Goal: an iPad build that streams from Vibeshine, before any new features.
   - On the iPad: pair, stream 10 times in a row, and background and resume the app, all with no
     crash or stuck session.
 
+Phase 1 is done in two parts, after the first device run
+([device-runs/2026-10-24-feature-ios-phase-0.md](device-runs/2026-10-24-feature-ios-phase-0.md)):
+- **1a (`feature/ios-phase-1a`):** an app log in Release builds, the cause of the pacing drops
+  that run found, the renderer fixes, the UIScene lifecycle and daniel-zn's race fixes, the
+  double alert, serverinfo over the network, common-c with the official loss fixes, and an
+  XCTest unit target plus the device-run UI tests. A minimal virtual display setting for the
+  A/B runs. Mac steps: [mac-runbook.md](mac-runbook.md) section 7a.
+- **1b:** the client key and certificate in the Keychain, the Swift protocol seams with fakes and
+  the demo mode, StarwireKit settings, and pairing (PIN flow, pair-state debounce, pinned
+  certificate grace, MAC preservation).
+
 ### Phase 2: Vibeshine features (M)
 - Launch options:
   - virtual display on, off or host default

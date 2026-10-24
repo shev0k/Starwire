@@ -7,6 +7,8 @@ installed on the iPad and tested against the PC. The plan is [port-plan.md](port
 Written 25 Oct 2026, before any of it was run on the Mac. Fixed after the first run
 ([device-runs/2026-10-24-feature-ios-phase-0.md](device-runs/2026-10-24-feature-ios-phase-0.md)).
 When a run shows something else wrong here, fix this page in the same branch as that run's report.
+The test commands in section 6, "Reading the app's log" and section 7a were written for
+`feature/ios-phase-1a` before that branch ran on the Mac.
 
 ## Rules for every run
 
@@ -169,9 +171,35 @@ xcrun devicectl device process launch --console --terminate-existing --environme
 ```
 
 Without `OS_ACTIVITY_DT_MODE`, `--console` shows nothing, because the app logs through the system
-log. Even with it, a Release build shows only system lines: `Logger.h` compiles the app's own
-`Log()` calls out unless `DEBUG` is set. Build Debug when you need the app's log. The log stops
-when the app is closed on the iPad; a copy started from the home screen isn't logged.
+log. The log stops when the app is closed on the iPad; a copy started from the home screen isn't
+logged this way (see "Reading the app's log" below for that).
+
+### Reading the app's log
+
+From `feature/ios-phase-1a` on, Release builds log too. Every line is in the unified log under
+the subsystem `io.github.shev0k.starwire`, with one category per area: `app`, `stream`, `video`,
+`pacing`, `network`, `input` and `audio`. Extra detail (LOG_D lines) needs "Verbose logging" on in
+iOS Settings > Apps > Starwire, and a restart of the app.
+
+- While the app runs from `devicectl ... --console` (above), its lines are in the terminal.
+- For a run started any other way (from the home screen, or by `xcodebuild test`), collect the
+  iPad's log afterwards and filter it. `log collect` may ask for the Mac's admin password:
+
+  ```bash
+  sudo log collect --device-udid "$IPAD_UDID" --last 30m --output ../build/ipad.logarchive
+  log show ../build/ipad.logarchive --style compact --predicate 'subsystem == "io.github.shev0k.starwire"' > ../build/app-log.txt
+  grep "pacing window" ../build/app-log.txt
+  ```
+
+  `$IPAD_UDID` is the iPad's UDID (`xcrun xctrace list devices` shows it in brackets), which isn't
+  always the identifier `devicectl` prints. If `log collect` doesn't work, say so in the report;
+  the overlay samples below carry the same pacing numbers.
+
+Logs never contain the pairing PIN or the stream's input key (`rikey` is shown as
+`<redacted>`). They do contain the PC's addresses: remove those before quoting lines in a report.
+
+Signposts for Instruments (decode, enqueue, drop and present) are in the `pacing` category, for
+when a run needs a timeline: Instruments > Logging > os_signpost, recording the iPad.
 
 ## 6. Run the tests
 
@@ -187,8 +215,53 @@ The same simulator build as CI, to tell a Mac-only problem from a code problem:
 xcodebuild -project Starwire.xcodeproj -scheme Starwire -configuration Debug -destination "generic/platform=iOS Simulator" -derivedDataPath ../build/DerivedData CODE_SIGNING_ALLOWED=NO build 2>&1 | tee ../build/simulator-build.log
 ```
 
-The app target has no XCTest or UI tests yet. Phase 1 adds them; this section then gets their
-command.
+The app's unit tests (`StarwireTests`), the same ones CI runs. They need a simulator, not the iPad:
+
+```bash
+xcrun simctl list devices available | grep -E "iPad|iPhone" | head
+xcodebuild -project Starwire.xcodeproj -scheme Starwire -configuration Debug -destination "platform=iOS Simulator,name=<a name from the list>" -derivedDataPath ../build/DerivedData CODE_SIGNING_ALLOWED=NO test 2>&1 | tee ../build/unit-tests.log
+grep -E "Executed [0-9]+ tests|error: -\[" ../build/unit-tests.log
+```
+
+### The device-run UI tests
+
+`StarwireDeviceRun` (in `ios/Tests/DeviceRun`) drives the app on the iPad against the PC, so nobody
+has to sit at the iPad. It needs the PC awake and paired, and Statistics Overlay on in the app's
+settings. It has three tests:
+
+| Test | What it does |
+| --- | --- |
+| `testStreamAndSample` | Starts the app tile, reads the statistics overlay every 15 seconds for `STARWIRE_SECONDS` (default 300), takes screenshots at the start and end, stops with an edge swipe, and checks the app list is back with no alert |
+| `testBackgroundAndResume` | Starts a stream, switches to the Settings app for 10 seconds, comes back, checks the app list is showing with no alert, then streams and stops once more |
+| `testStreamsInARow` | Starts and stops `STARWIRE_STREAMS` streams (default 10), 10 seconds each, checking for an alert and that the app is still running after each |
+
+Options are environment variables with a `TEST_RUNNER_` prefix, which `xcodebuild` passes to the
+test. The test turns them into the app's launch arguments; the app has no code for tests.
+
+| Variable | Values |
+| --- | --- |
+| `TEST_RUNNER_STARWIRE_APP` | app tile to start, default `Desktop` |
+| `TEST_RUNNER_STARWIRE_SECONDS` | stream length for `testStreamAndSample` |
+| `TEST_RUNNER_STARWIRE_STREAMS` | streams for `testStreamsInARow` |
+| `TEST_RUNNER_STARWIRE_PRESENT_TIMING` | `nearest` (default) or `frame` (the old rule) |
+| `TEST_RUNNER_STARWIRE_DROP_POLICY` | `alternate` (default, the old one) or `newest` |
+| `TEST_RUNNER_STARWIRE_BUFFER` | frames to buffer, `1` to `3`; unset uses the app's setting |
+| `TEST_RUNNER_STARWIRE_VIRTUAL_DISPLAY` | `1` to stream a Vibeshine virtual display |
+
+One run, from `ios/`:
+
+```bash
+TEST_RUNNER_STARWIRE_PRESENT_TIMING=nearest xcodebuild test -project Starwire.xcodeproj -scheme StarwireDeviceRun -configuration Release -destination "id=$IPAD_UDID" -derivedDataPath ../build/DerivedData -allowProvisioningUpdates -allowProvisioningDeviceRegistration DEVELOPMENT_TEAM="$STARWIRE_TEAM" CODE_SIGN_STYLE=Automatic -resultBundlePath ../build/run-B.xcresult -only-testing:StarwireDeviceRun/StreamDeviceRunTests/testStreamAndSample 2>&1 | tee ../build/run-B.log
+grep -A8 "\[device-run\]" ../build/run-B.log
+```
+
+- `xcodebuild test` installs the app over the old copy, which keeps the pairing. It also installs
+  the test runner (`io.github.shev0k.starwire.devicerun.xctrunner`), a second free-signed app.
+- A result bundle path must be new for each run: delete the old `.xcresult` or use a new name.
+- The overlay samples are the `[device-run]` lines in the log, and attachments in the result
+  bundle (`open ../build/run-B.xcresult`).
+- On the iPad Pro, `XCUIDevice.shared.press(.home)` didn't send the app to the background in the
+  first run; activating the Settings app does, which is what the test uses.
 
 ## 7. The device checks for this phase
 
@@ -213,17 +286,101 @@ The overlay's FPS is frames shown: frames received minus network drops minus pac
 (`getStatsOverlayText` in `StreamManager.m`). To get the frames received, divide by
 (1 - pacing drops).
 
-These checks can be run without anyone at the iPad by a UI test (XCUITest). The first run used a
-local one, not in git: a spec `ios/devicerun.yml` that includes `project.yml` and adds a
-`bundle.ui-testing` target, generated with `xcodegen generate --spec devicerun.yml` and run with
-`xcodebuild test -configuration Release -destination "id=$IPAD"`. The overlay is a plain label, so
-the test reads its text. `xcodebuild test` installs over the app and keeps the pairing. On the
-iPad Pro, `XCUIDevice.shared.press(.home)` did not send the app to the background; activating the
-Settings app (`com.apple.Preferences`) did. The UI test's runner is a second signed app, which
-counts toward a free account's 3 apps.
+These checks can be run without anyone at the iPad by the device-run UI tests (section 6). The
+first run used a local copy of them (`ios/devicerun.yml`); from `feature/ios-phase-1a` they are in
+git, so that local spec isn't needed any more.
 
 The renderer in this build is Andy Grundman's Metal one (it replaced upstream's
 `AVSampleBufferDisplayLayer` renderer), so a working stream is a working Metal path.
+
+## 7a. Phase 1a checks (`feature/ios-phase-1a`)
+
+Phase 1a is done when, on the iPad:
+- pacing drops are under 1% at 120 FPS with moving content, or the report explains with
+  measurements why not and names the best setting found;
+- 10 streams in a row, plus background and resume, end with no crash and no double alert;
+- the PC shows as online (serverinfo works over the network);
+- the app's own log lines are readable from a Release build.
+
+### What the first run showed, and what this branch changes
+
+At 2420x1668, 120 FPS, HEVC, 70 Mbps with testufo.com moving on the PC, the overlay showed 0%
+network drops but 12.1% to 13.5% pacing drops, steady for 5 minutes, with a frame queue of 1.5 to
+1.9 and "Frames to buffer" at 2. About 120 FPS arrived and about 105 FPS were shown.
+
+A drop that steady, with no network loss, looks like the screen taking frames more slowly than
+they arrive, not like bursty arrival: with a queue of 2 and a consumer that can only take one
+frame per refresh, any refresh where the previous frame stays up twice leaves one frame too
+many, and the queue drops it. The code has a likely cause. Every frame was presented with
+`presentDrawable:afterMinimumDuration:1/fps`. At 120 FPS on a 120 Hz screen that is exactly one
+refresh, so a frame that comes up a few microseconds short of a full refresh has to wait for the
+next one and stays up for two. About 15 such refreshes a second would explain 120 in and 105
+out.
+
+This branch:
+- holds each frame for the frame interval minus half a refresh ("nearest" present timing), so
+  at 120 on 120 Hz a frame stays up for one refresh, and at 60 on 120 Hz for two;
+- counts, for every 5 second window, how frames arrived (bursts under half a frame apart, on
+  time, late) and how many refreshes each frame stayed up, and gives every drop a reason
+  (incoming frame dropped, or oldest dropped to make room) and says whether it came right after a
+  burst. The log has the full line (`pacing window ...` in the `pacing` category); the overlay's
+  last line is the short version:
+  `Pacing: bursts x%, drops after burst n, held 2+ refreshes y%, skipped n`;
+- keeps the old behaviour one setting away, for the A/B runs below.
+
+How to read a window:
+
+| What the numbers show | What it means |
+| --- | --- |
+| "held 2+ refreshes" about equal to the drop rate, few bursts | The screen is the bottleneck (the present-timing theory) |
+| Many bursts and most drops "after burst", "held 2+" near 0 | Frames arrive in clumps (host capture timing or Wi-Fi); a deeper buffer or a virtual display may help |
+| "skipped" above 0 | The compositor threw drawables away: frames lost without being counted as drops |
+| Drops near 0 but "held 2+" high | Frames arrived late (starved), not dropped: look at network latency |
+
+### The A/B runs
+
+Open https://www.testufo.com on the PC's streamed screen first (ask the owner), or any video at
+120 FPS. Keep the app's settings as in the first run: Safe Area (2420x1668), 120 FPS, HEVC,
+70 Mbps, Frames to buffer 2, Statistics Overlay on. Run `testStreamAndSample` once per row, 300
+seconds each, with only the listed variables set:
+
+| Run | Variables | Why |
+| --- | --- | --- |
+| A | `TEST_RUNNER_STARWIRE_PRESENT_TIMING=frame` | The old rule: should reproduce about 12% |
+| B | none (nearest, alternate, buffer from the app) | The fix |
+| C | `TEST_RUNNER_STARWIRE_DROP_POLICY=newest` | Keep the newest frame instead of alternating |
+| D | `TEST_RUNNER_STARWIRE_BUFFER=3` | A deeper queue; adds about 8 ms of latency, so only worth it if it removes drops B can't |
+| E | `TEST_RUNNER_STARWIRE_VIRTUAL_DISPLAY=1` | Vibeshine captures a 120 Hz virtual display instead of the 480 Hz monitor, which may even out arrival |
+
+Run A and B always. Run C, D and E if B is still at 1% or more, or if B's windows show bursts.
+E changes what the PC shows: tell the owner first, and open testufo.com on the virtual display.
+
+For each run, put in the report: the drop percentage from the overlay at about 60 s and at the
+end, the mean over all samples, the pacing line, the network latency, and the decode time. If
+the log could be collected, add two `pacing window` lines (PC addresses removed). Then say which
+setting was best. The goal is under 1% pacing drops without a deeper buffer than 2.
+
+### Stability, serverinfo and logs
+
+1. `testStreamsInARow` (10 streams) and `testBackgroundAndResume`. Report pass or fail, any alert
+   text, and any crash (Xcode's Organizer, or the log's `stream` category).
+2. serverinfo: with the app open on its PC list, the PC must show as online. From the Mac, also
+   check both ports the app uses, with the PC's LAN address:
+
+   ```bash
+   curl -s -m 5 -o /dev/null -w "http %{http_code} %{time_total}s\n" "http://<PC LAN address>:47989/serverinfo"
+   curl -sk -m 5 -o /dev/null -w "https %{http_code} %{time_total}s\n" "https://<PC LAN address>:47984/serverinfo"
+   ```
+
+   The first run's app log showed every HTTP request to 47989 timing out while pairing and
+   streaming worked. This branch polls a paired PC over HTTPS (47984) with its pinned
+   certificate, so the app no longer depends on 47989. If curl shows HTTP timing out too, the PC
+   side is worth a look (Vibeshine serves HTTP serverinfo on one shared worker thread, which an
+   encoder probe can hold up); note it in the report, but it's not this branch's to fix.
+   An HTTPS answer of 401 or 403 from curl is normal: curl has no client certificate.
+3. Logs: start the app with `devicectl ... --console` (section 5) on a Release build and confirm
+   lines from the app itself appear, for example `Pacing: frames to buffer 2, drop policy
+   alternate, present timing nearest`. Quote one in the report.
 
 ## 8. Write the report
 
