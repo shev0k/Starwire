@@ -15,6 +15,9 @@
 
 #include <dispatch/dispatch.h>
 
+#undef LOG_FILE_CATEGORY
+#define LOG_FILE_CATEGORY LOGCAT_NETWORK
+
 @implementation PairManager {
     HttpManager* _httpManager;
     NSData* _clientCert;
@@ -92,7 +95,8 @@
     NSData* salt = [Utils randomBytes:16];
     NSData* saltedPIN = [self concatData:salt with:[PIN dataUsingEncoding:NSUTF8StringEncoding]];
 
-    Log(LOG_I, @"PIN: %@, salt %@", PIN, salt);
+    // The PIN and salt are never logged: logs reach Release builds now
+    Log(LOG_I, @"Starting pairing");
     
     HttpResponse* pairResp = [[HttpResponse alloc] init];
     [_httpManager executeRequestSynchronously:[HttpRequest requestForResponse:pairResp withUrlRequest:[_httpManager newPairRequest:salt clientCert:_clientCert]]];

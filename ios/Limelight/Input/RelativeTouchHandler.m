@@ -10,6 +10,9 @@
 
 #include <Limelight.h>
 
+#undef LOG_FILE_CATEGORY
+#define LOG_FILE_CATEGORY LOGCAT_INPUT
+
 static const int REFERENCE_WIDTH = 1280;
 static const int REFERENCE_HEIGHT = 720;
 

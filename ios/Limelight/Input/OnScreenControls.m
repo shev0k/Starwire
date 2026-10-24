@@ -12,6 +12,9 @@
 #import "Controller.h"
 #include "Limelight.h"
 
+#undef LOG_FILE_CATEGORY
+#define LOG_FILE_CATEGORY LOGCAT_INPUT
+
 #define UPDATE_BUTTON(x, y) (buttonFlags = \
 (y) ? (buttonFlags | (x)) : (buttonFlags & ~(x)))
 

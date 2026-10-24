@@ -10,6 +10,9 @@
 #import "TemporaryApp.h"
 #import <libxml2/libxml/xmlreader.h>
 
+#undef LOG_FILE_CATEGORY
+#define LOG_FILE_CATEGORY LOGCAT_NETWORK
+
 @implementation HttpResponse {
     NSMutableDictionary* _elements;
 }

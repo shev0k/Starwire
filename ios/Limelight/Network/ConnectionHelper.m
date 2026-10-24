@@ -12,6 +12,9 @@
 #import "PairManager.h"
 #import "DiscoveryManager.h"
 
+#undef LOG_FILE_CATEGORY
+#define LOG_FILE_CATEGORY LOGCAT_NETWORK
+
 @implementation ConnectionHelper
 
 +(AppListResponse*) getAppListForHost:(TemporaryHost*)host {

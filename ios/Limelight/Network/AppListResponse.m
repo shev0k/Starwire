@@ -11,6 +11,9 @@
 #import "DataManager.h"
 #import <libxml2/libxml/xmlreader.h>
 
+#undef LOG_FILE_CATEGORY
+#define LOG_FILE_CATEGORY LOGCAT_NETWORK
+
 @implementation AppListResponse {
     NSMutableSet* _appList;
 }

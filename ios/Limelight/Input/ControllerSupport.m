@@ -17,6 +17,9 @@
 @import GameController;
 @import AudioToolbox;
 
+#undef LOG_FILE_CATEGORY
+#define LOG_FILE_CATEGORY LOGCAT_INPUT
+
 static const double MOUSE_SPEED_DIVISOR = 1.25;
 
 @implementation ControllerSupport {

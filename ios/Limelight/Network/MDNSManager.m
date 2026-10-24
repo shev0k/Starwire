@@ -13,6 +13,9 @@
 
 #include <Limelight.h>
 
+#undef LOG_FILE_CATEGORY
+#define LOG_FILE_CATEGORY LOGCAT_NETWORK
+
 @implementation MDNSManager {
     NSNetServiceBrowser* mDNSBrowser;
     NSMutableArray* services;

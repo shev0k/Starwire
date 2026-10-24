@@ -15,6 +15,9 @@
 #import "AbsoluteTouchHandler.h"
 #import "KeyboardInputField.h"
 
+#undef LOG_FILE_CATEGORY
+#define LOG_FILE_CATEGORY LOGCAT_INPUT
+
 static const double X1_MOUSE_SPEED_DIVISOR = 2.5;
 
 @implementation StreamView {

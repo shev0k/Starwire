@@ -11,6 +11,9 @@
 
 #include <stdexcept>
 
+#undef LOG_FILE_CATEGORY
+#define LOG_FILE_CATEGORY LOGCAT_AUDIO
+
 #define kMaxBufferSize 4096
 #define kBufferSizeFactor 1 // buffer will be 5ms * this
 #define BUFFER_DURATION_MS 50 // XXX allow users to configure this

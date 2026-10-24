@@ -14,6 +14,9 @@
 #import <arpa/inet.h>
 #import <netdb.h>
 
+#undef LOG_FILE_CATEGORY
+#define LOG_FILE_CATEGORY LOGCAT_NETWORK
+
 @implementation WakeOnLanManager
 
 static const int numStaticPorts = 2;

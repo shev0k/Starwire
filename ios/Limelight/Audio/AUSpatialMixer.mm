@@ -5,6 +5,9 @@
 
 #include "CoreAudioHelpers.h"
 
+#undef LOG_FILE_CATEGORY
+#define LOG_FILE_CATEGORY LOGCAT_AUDIO
+
 AUSpatialMixer::AUSpatialMixer()
     : m_HeadTracking(false),
       m_PersonalizedHRTF(false),

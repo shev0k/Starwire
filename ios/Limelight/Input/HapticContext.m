@@ -11,6 +11,9 @@
 @import CoreHaptics;
 @import GameController;
 
+#undef LOG_FILE_CATEGORY
+#define LOG_FILE_CATEGORY LOGCAT_INPUT
+
 @implementation HapticContext {
     GCControllerPlayerIndex _playerIndex;
     CHHapticEngine* _hapticEngine API_AVAILABLE(ios(13.0), tvos(14.0));

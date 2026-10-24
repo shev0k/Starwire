@@ -4,6 +4,9 @@
 
 #include <Limelight.h>
 
+#undef LOG_FILE_CATEGORY
+#define LOG_FILE_CATEGORY LOGCAT_AUDIO
+
 @implementation CoreAudioRenderer
 {
     OutputAU m_OutputAU;
