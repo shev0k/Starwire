@@ -23,6 +23,8 @@ static NSString* DB_NAME = @"Limelight_iOS.sqlite";
 #endif
 
 - (BOOL)application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary *)launchOptions {
+    // Verbose logging may have been switched on in iOS Settings
+    LogReloadSettings();
 #if !TARGET_OS_TV
     UIApplicationShortcutItem* shortcut = [launchOptions valueForKey:UIApplicationLaunchOptionsShortcutItemKey];
     if (shortcut != nil) {
@@ -39,31 +41,9 @@ static NSString* DB_NAME = @"Limelight_iOS.sqlite";
 }
 #endif
 
-- (void)applicationWillResignActive:(UIApplication *)application
-{
-    // Sent when the application is about to move from active to inactive state. This can occur for certain types of temporary interruptions (such as an incoming phone call or SMS message) or when the user quits the application and it begins the transition to the background state.
-    // Use this method to pause ongoing tasks, disable timers, and throttle down OpenGL ES frame rates. Games should use this method to pause the game.
-    Log(LOG_I, @"TODO: applicationWillResignActive");
-}
-
-- (void)applicationDidEnterBackground:(UIApplication *)application
-{
-    // Use this method to release shared resources, save user data, invalidate timers, and store enough application state information to restore your application to its current state in case it is terminated later.
-    // If your application supports background execution, this method is called instead of applicationWillTerminate: when the user quits.
-    Log(LOG_I, @"TODO: applicationDidEnterBackground");
-}
-
-- (void)applicationWillEnterForeground:(UIApplication *)application
-{
-    // Called as part of the transition from the background to the inactive state; here you can undo many of the changes made on entering the background.
-    Log(LOG_I, @"TODO: applicationWillEnterForeground");
-}
-
-- (void)applicationDidBecomeActive:(UIApplication *)application
-{
-    // Restart any tasks that were paused (or not yet started) while the application was inactive. If the application was previously in the background, optionally refresh the user interface.
-    Log(LOG_I, @"TODO: applicationDidBecomeActive");
-}
+// With the UIScene lifecycle (SceneDelegate) iOS no longer calls the app delegate's
+// resign-active, background, foreground and become-active methods, so they're gone. The stream
+// screen still gets the UIApplication notifications, which iOS keeps posting.
 
 - (void)applicationWillTerminate:(UIApplication *)application
 {
