@@ -71,6 +71,7 @@ seen from a different folder, and got the same result.
 | `gradle-wrapper.jar` | `MATCH` with the checksum Gradle publishes for 7.4.2 |
 | `libpyrowave-shared.so` | `MATCH EXCEPT BUILD ID` on GitHub with NDK 27.0.12077973 (not installed on my PC). See [PyroWave](#pyrowave-from-moonlight-x) |
 | OpenSSL and Opus static libraries | Identical to official Moonlight's files. Not rebuilt here |
+| The iOS app's libraries, fonts and icons under `ios/` | Identical to official moonlight-ios's files. Not rebuilt here |
 
 The first run of `prebuilts.yml` on GitHub, on 23 October 2026 when this page was published,
 gave the same results for everything above and proved PyroWave too: [run 39909763472](https://github.com/SicarioGaming/Starwire/actions/runs/39909763472).
@@ -155,6 +156,23 @@ their hashes but doesn't rebuild them.
 | `opus/armeabi-v7a/libopus.a` | 2130614 | `3925fecb62e4a75095d658bcc1c4e309712a330699825b7790880cf21497719e` |
 | `opus/x86/libopus.a` | 2170094 | `ed39b86eee0868d911516c4034e8395af31aaa7bfb8ac7e4415846b59ee28d1f` |
 | `opus/x86_64/libopus.a` | 3142594 | `7d8214860fdab5a8bf0d15125a2ae7baf80169dc4e6ee1ffa2633bb2e7de7a8b` |
+
+### The iOS app's files, inherited from moonlight-ios
+
+The iPhone and iPad app under `ios/` came into the repo with
+[moonlight-ios](https://github.com/moonlight-stream/moonlight-ios)'s history (commit `02dc978`,
+added on 24 October 2026; see [docs/ios/port-plan.md](ios/port-plan.md)). Its 38 binary files
+have the same git blob IDs as at that commit, so they are upstream's files, unchanged:
+
+- Opus, SDL2 and FFmpeg static libraries for iOS, tvOS and their simulators, in `ios/libs/`.
+  `ios/libs/Build.txt` says they were built from
+  [cgutman/moonlight-mobile-deps](https://github.com/cgutman/moonlight-mobile-deps) on AppVeyor;
+  which commit isn't recorded there.
+- The Roboto fonts in `ios/Limelight/Font/Roboto/` (Apache-2.0).
+- Five PDF icons in `ios/Limelight/Images.xcassets/` and the tvOS settings strings file
+  `ios/Moonlight TV/Settings.bundle/en.lproj/Root.strings` (UTF-16, so git calls it binary).
+
+`SHA256SUMS` lists all 38, so `verify.sh` notices if one changes, but it doesn't rebuild them.
 
 ### The Gradle wrapper
 
