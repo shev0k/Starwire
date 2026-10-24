@@ -55,3 +55,8 @@ keystore.properties
 
 # Maintainer-only notes, drafts and patterns; never published
 private/
+
+# iOS: the project XcodeGen generates from ios/project.yml, and Swift package builds
+ios/Starwire.xcodeproj/
+ios/StarwireKit/.build/
+ios/StarwireKit/.swiftpm/

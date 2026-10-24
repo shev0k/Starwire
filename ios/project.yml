@@ -1,0 +1,160 @@
+# XcodeGen spec for Starwire on iPhone and iPad. Generates Starwire.xcodeproj, which git ignores:
+#
+#   cd ios && xcodegen generate
+#
+# Upstream's Moonlight.xcodeproj and its tvOS target stay as they are, so moonlight-ios can still
+# be merged in. This project builds the same Limelight sources for one iOS 17 app target and
+# Nonary's moonlight-common-c as a static library. Signing is set on the Mac (see
+# docs/ios/mac-runbook.md), so no team is named here.
+
+name: Starwire
+
+options:
+  bundleIdPrefix: io.github.shev0k
+  deploymentTarget:
+    iOS: "17.0"
+  createIntermediateGroups: true
+  groupSortPosition: top
+
+packages:
+  OpenSSL:
+    url: https://github.com/krzyzanowskim/OpenSSL-Package.git
+    from: 3.1.5004
+
+settings:
+  base:
+    CLANG_CXX_LANGUAGE_STANDARD: gnu++17
+    GCC_C_LANGUAGE_STANDARD: gnu11
+    ENABLE_USER_SCRIPT_SANDBOXING: YES
+  configs:
+    Debug:
+      GCC_PREPROCESSOR_DEFINITIONS: ["DEBUG=1", "$(inherited)"]
+    Release:
+      GCC_PREPROCESSOR_DEFINITIONS: ["NDEBUG", "$(inherited)"]
+
+targets:
+  # moonlight-common-c, built the way upstream's moonlight-common.xcodeproj and the library's
+  # own CMakeLists.txt build it: everything in src/ except the debug-only recorder, plus enet and
+  # nanors.
+  moonlight-common:
+    type: library.static
+    platform: iOS
+    sources:
+      - path: moonlight-common/moonlight-common-c/src
+        excludes:
+          - RecorderCallbacks.c
+      - path: moonlight-common/moonlight-common-c/enet
+        includes:
+          - "*.c"
+          - "include/**"
+      - path: moonlight-common/moonlight-common-c/nanors/rs.c
+      - path: moonlight-common/moonlight-common-c/nanors/rs.h
+      - path: moonlight-common/moonlight-common-c/nanors/deps/obl/oblas_common.c
+      - path: moonlight-common/moonlight-common-c/nanors/deps/obl/oblas_lite.c
+    dependencies:
+      # For the OpenSSL headers that PlatformCrypto.c includes
+      - package: OpenSSL
+    settings:
+      base:
+        PRODUCT_NAME: moonlight-common
+        HEADER_SEARCH_PATHS:
+          - "$(SRCROOT)/moonlight-common/moonlight-common-c/enet/include"
+          - "$(SRCROOT)/moonlight-common/moonlight-common-c/nanors"
+          - "$(SRCROOT)/moonlight-common/moonlight-common-c/nanors/deps"
+          - "$(SRCROOT)/moonlight-common/moonlight-common-c/nanors/deps/obl"
+        GCC_PREPROCESSOR_DEFINITIONS: ["HAS_SOCKLEN_T", "__APPLE_USE_RFC_3542", "$(inherited)"]
+        GCC_WARN_64_TO_32_BIT_CONVERSION: NO
+        SKIP_INSTALL: YES
+
+  Starwire:
+    type: application
+    platform: iOS
+    sources:
+      - path: Limelight
+        excludes:
+          - "Limelight-Info.plist"
+          # Upstream doesn't bundle these fonts either
+          - "Font/**"
+      - path: ImGui
+      - path: X1Kit/Sources/X1Kit/X1Kit.swift
+      - path: third_party/imgui/imgui.cpp
+      - path: third_party/imgui/imgui_demo.cpp
+      - path: third_party/imgui/imgui_draw.cpp
+      - path: third_party/imgui/imgui_tables.cpp
+      - path: third_party/imgui/imgui_widgets.cpp
+      - path: iPad.storyboard
+      - path: iPhone.storyboard
+      - path: Launch Screen.xib
+    dependencies:
+      - target: moonlight-common
+      - package: OpenSSL
+      - sdk: libxml2.tbd
+      - sdk: Accelerate.framework
+      - sdk: AudioToolbox.framework
+      - sdk: AVFAudio.framework
+      - sdk: CoreAudio.framework
+      - sdk: CoreData.framework
+      - sdk: CoreFoundation.framework
+      - sdk: CoreGraphics.framework
+      - sdk: CoreMotion.framework
+      - sdk: Foundation.framework
+      - sdk: UIKit.framework
+    settings:
+      base:
+        # Upstream's own Info.plist, used as it is. (XcodeGen's "info" key would rewrite it.)
+        INFOPLIST_FILE: Limelight/Limelight-Info.plist
+        PRODUCT_NAME: Starwire
+        PRODUCT_BUNDLE_IDENTIFIER: io.github.shev0k.starwire
+        TARGETED_DEVICE_FAMILY: "1,2"
+        MARKETING_VERSION: 0.1.0
+        CURRENT_PROJECT_VERSION: 1
+        CODE_SIGN_STYLE: Automatic
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.games
+        GCC_PRECOMPILE_PREFIX_HEADER: YES
+        GCC_PREFIX_HEADER: Limelight/Limelight-Prefix.pch
+        HEADER_SEARCH_PATHS:
+          - "$(inherited)"
+          - "$(SRCROOT)/moonlight-common/moonlight-common-c/src"
+          - "$(SDKROOT)/usr/include/libxml2"
+          - "$(SRCROOT)/libs/**"
+          - "$(SRCROOT)/third_party/imgui"
+          - "$(SRCROOT)/third_party/imgui/backends"
+        USER_HEADER_SEARCH_PATHS:
+          - "$(SRCROOT)/Limelight/**"
+        # Opus, SDL2 and FFmpeg come prebuilt from upstream moonlight-ios (ios/libs/Build.txt).
+        # The search paths pick the device or the simulator copy.
+        OTHER_LDFLAGS: ["$(inherited)", "-lopus", "-lSDL2", "-lavcodec", "-lavformat", "-lavutil"]
+        "LIBRARY_SEARCH_PATHS[sdk=iphoneos*]":
+          - "$(inherited)"
+          - "$(SRCROOT)/libs/opus/lib/iOS"
+          - "$(SRCROOT)/libs/SDL2/lib/iOS"
+          - "$(SRCROOT)/libs/FFmpeg/lib/iOS"
+        "LIBRARY_SEARCH_PATHS[sdk=iphonesimulator*]":
+          - "$(inherited)"
+          - "$(SRCROOT)/libs/opus/lib/iOS-Sim"
+          - "$(SRCROOT)/libs/SDL2/lib/iOS-Sim"
+          - "$(SRCROOT)/libs/FFmpeg/lib/iOS-Sim"
+        OTHER_CPLUSPLUSFLAGS:
+          - "$(OTHER_CFLAGS)"
+          - "-D_POSIX_C_SOURCE=200809L"
+          - "-D_DARWIN_C_SOURCE"
+        SWIFT_VERSION: "5.0"
+        SWIFT_OBJC_BRIDGING_HEADER: Limelight/Input/Moonlight-Bridging-Header.h
+        SWIFT_OBJC_INTERFACE_HEADER_NAME: Moonlight-Swift.h
+        LD_RUNPATH_SEARCH_PATHS: ["$(inherited)", "@executable_path/Frameworks"]
+      configs:
+        Debug:
+          MTL_ENABLE_DEBUG_INFO: INCLUDE_SOURCE
+        Release:
+          MTL_ENABLE_DEBUG_INFO: NO
+
+schemes:
+  Starwire:
+    build:
+      targets:
+        Starwire: all
+    run:
+      config: Debug
+    archive:
+      config: Release
