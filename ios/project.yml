@@ -149,12 +149,72 @@ targets:
         Release:
           MTL_ENABLE_DEBUG_INFO: NO
 
+  # Unit tests, run on the simulator by CI: Andy Grundman's MoonlightTests plus Starwire's own.
+  # They run inside the app (TEST_HOST), so they can use its classes directly.
+  StarwireTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: MoonlightTests
+      - path: Tests/Unit
+    dependencies:
+      - target: Starwire
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        PRODUCT_BUNDLE_IDENTIFIER: io.github.shev0k.starwire.tests
+        TEST_HOST: "$(BUILT_PRODUCTS_DIR)/Starwire.app/Starwire"
+        BUNDLE_LOADER: "$(TEST_HOST)"
+        GCC_PRECOMPILE_PREFIX_HEADER: YES
+        GCC_PREFIX_HEADER: Limelight/Limelight-Prefix.pch
+        HEADER_SEARCH_PATHS:
+          - "$(inherited)"
+          - "$(SRCROOT)/moonlight-common/moonlight-common-c/src"
+          - "$(SDKROOT)/usr/include/libxml2"
+          # The Core Data classes the app target generates (Host+CoreDataClass.h)
+          - "$(CONFIGURATION_TEMP_DIR)/Starwire.build/DerivedSources/CoreDataGenerated/Limelight"
+        USER_HEADER_SEARCH_PATHS:
+          - "$(SRCROOT)/Limelight/**"
+
+  # The Mac's device checks on the iPad against the PC (docs/ios/mac-runbook.md). CI builds them
+  # but can't run them: they need a paired PC.
+  StarwireDeviceRun:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - path: Tests/DeviceRun
+    dependencies:
+      - target: Starwire
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        PRODUCT_BUNDLE_IDENTIFIER: io.github.shev0k.starwire.devicerun
+        TEST_TARGET_NAME: Starwire
+        SWIFT_VERSION: "5.0"
+        CODE_SIGN_STYLE: Automatic
+
 schemes:
   Starwire:
     build:
       targets:
         Starwire: all
+        StarwireTests: [test]
     run:
       config: Debug
+    test:
+      config: Debug
+      targets:
+        - StarwireTests
     archive:
       config: Release
+
+  # xcodebuild test -scheme StarwireDeviceRun -configuration Release -destination "id=$IPAD"
+  StarwireDeviceRun:
+    build:
+      targets:
+        Starwire: all
+        StarwireDeviceRun: [test]
+    test:
+      config: Release
+      targets:
+        - StarwireDeviceRun

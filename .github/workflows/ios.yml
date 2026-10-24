@@ -1,7 +1,8 @@
 name: iOS
 
 # The iPhone and iPad app under ios/: generates the Xcode project from ios/project.yml with
-# XcodeGen, builds it for the iOS simulator in Debug and Release, and runs the StarwireKit tests.
+# XcodeGen, builds it for the iOS simulator in Debug and Release, runs the app's unit tests on a
+# simulator and the StarwireKit tests, and builds the device-run UI tests.
 # Signing and the iPad itself are the Mac's job (docs/ios/mac-runbook.md). Actions are pinned to
 # full commit hashes; the comment says which release each one is.
 on:
@@ -27,7 +28,7 @@ concurrency:
 
 jobs:
   build:
-    name: Simulator builds and StarwireKit tests
+    name: Simulator builds and tests
     runs-on: macos-26
     timeout-minutes: 60
     steps:
@@ -78,6 +79,35 @@ jobs:
             -destination 'generic/platform=iOS Simulator' -derivedDataPath ../build/DerivedData \
             CODE_SIGNING_ALLOWED=NO build 2>&1 | tee ../logs/build-release.log
 
+      # The app's unit tests (StarwireTests) on whichever iPad simulator this Xcode has, else an
+      # iPhone one
+      - name: Unit tests on the simulator
+        working-directory: ios
+        run: |
+          set -o pipefail
+          udid=$(xcrun simctl list devices available -j | python3 -c '
+          import json, sys
+          devices = json.load(sys.stdin)["devices"]
+          ios = [d for runtime, ds in devices.items() if "iOS" in runtime for d in ds]
+          pick = [d for d in ios if "iPad Pro" in d["name"]] or [d for d in ios if "iPhone" in d["name"]]
+          print(pick[0]["udid"] if pick else "")
+          ')
+          if [ -z "$udid" ]; then echo "no iOS simulator available"; exit 1; fi
+          xcrun simctl list devices | grep "$udid" | tee -a ../logs/versions.txt
+          xcodebuild -project Starwire.xcodeproj -scheme Starwire -configuration Debug \
+            -destination "id=$udid" -derivedDataPath ../build/DerivedData \
+            -resultBundlePath ../logs/unit-tests.xcresult \
+            CODE_SIGNING_ALLOWED=NO test 2>&1 | tee ../logs/unit-tests.log
+
+      # The device checks need the iPad and the PC, so CI only checks that they build
+      - name: Build the device-run UI tests
+        working-directory: ios
+        run: |
+          set -o pipefail
+          xcodebuild -project Starwire.xcodeproj -scheme StarwireDeviceRun -configuration Release \
+            -destination 'generic/platform=iOS Simulator' -derivedDataPath ../build/DerivedData \
+            CODE_SIGNING_ALLOWED=NO build-for-testing 2>&1 | tee ../logs/build-device-run.log
+
       - name: StarwireKit tests
         run: |
           set -o pipefail
@@ -87,11 +117,14 @@ jobs:
       - name: Summary
         if: always()
         run: |
-          for f in logs/build-*.log; do
+          for f in logs/build-*.log logs/unit-tests.log; do
             [ -f "$f" ] || continue
             echo "== $f: $(grep -c ' warning: ' "$f" || true) warning lines, $(grep -c ' error: ' "$f" || true) error lines"
             grep ' error: ' "$f" | sort -u | head -50 || true
           done | tee logs/summary.txt
+          if [ -f logs/unit-tests.log ]; then
+            grep -E "Test Suite '(All tests|.*\.xctest)'|Executed [0-9]+ tests|error: -\[|failed \(" logs/unit-tests.log | tail -40 | tee -a logs/summary.txt || true
+          fi
 
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()

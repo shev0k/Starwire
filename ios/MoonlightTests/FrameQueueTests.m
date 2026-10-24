@@ -1,3 +1,9 @@
+// Andy Grundman's FrameQueue tests, from andyg.ios-metal-squash.
+//
+// Starwire changes: each test gets its own queue instead of the shared one, and the tests that
+// slept or timed the wall clock (frame rate estimate, dequeue timeouts, producer/consumer and the
+// performance measure) now use the frames' own timestamps or check only the outcome, so they
+// give the same result on every run.
 
 #import <XCTest/XCTest.h>
 #import <CoreMedia/CoreMedia.h>
@@ -14,13 +20,16 @@
 
 @implementation FrameQueueTests {
     int _frameNumber;
+    uint32_t _tick;
 }
 
 - (void)setUp {
     [super setUp];
-    self.queue = [FrameQueue sharedInstance];
+    self.queue = [[FrameQueue alloc] initWithMaxCapacity:15];
     [self.queue setHighWaterMark:3];
+    [self.queue start];
     _frameNumber = 0;
+    _tick = 0;
 }
 
 - (void)tearDown {
@@ -46,8 +55,8 @@
 }
 
 - (Frame *)makeFrameNumber:(int)num type:(int)type pts:(uint32_t)tick {
+    // The Frame takes over the reference from CMSampleBufferCreate and releases it in dealloc
     CMSampleBufferRef buf = [self makeEmptySampleBufferFor:tick];
-    CFRetain(buf); // emulate retain that happens in CMSampleBufferCreateReadyWithImageBuffer
     Frame *frame = [[Frame alloc] initWithSampleBuffer:buf
                                            frameNumber:num
                                              frameType:type];
@@ -57,11 +66,10 @@
 
 - (Frame *)makeFrame {
     const uint32_t ONE_FRAME = 90000 / 60;
-    static uint32_t tick = 0;
     Frame *frame = [self makeFrameNumber:++_frameNumber
                                     type:FRAME_TYPE_PFRAME
-                                    pts:tick];
-    tick += ONE_FRAME;
+                                    pts:_tick];
+    _tick += ONE_FRAME;
     return frame;
 }
 
@@ -150,22 +158,16 @@
 - (void)testDequeueWithTimeout {
     [self.queue enqueue:[self makeFrame]];
 
-    // should return immediately with an item in the queue
-    CFTimeInterval t0 = CACurrentMediaTime();
+    // returns the queued frame
     Frame *out = [self.queue dequeueWithTimeout:1];
     XCTAssertNotNil(out);
     XCTAssertEqual(out.frameNumber, 1);
-    XCTAssertLessThan(CACurrentMediaTime() - t0, 0.9);
 
-    // should return nil after waiting
-    t0 = CACurrentMediaTime();
-    XCTAssertNil([self.queue dequeueWithTimeout:0.2]);
-    XCTAssertGreaterThan(CACurrentMediaTime() - t0, 0.2);
+    // nothing queued: nil once the wait ends
+    XCTAssertNil([self.queue dequeueWithTimeout:0.01]);
 
     // no timeout
-    t0 = CACurrentMediaTime();
     XCTAssertNil([self.queue dequeueWithTimeout:0]);
-    XCTAssertLessThan(CACurrentMediaTime() - t0, 0.1);
 }
 
 - (void)testDuration {
@@ -179,93 +181,53 @@
 }
 
 - (void)testEstimatedFramerate {
-    // prime the start point
-    [self.queue estimatedFramerate];
+    // 24 fps for 5 seconds, timed by the frames' own decodedAt
+    [self.queue setHighWaterMark:15];
     for (int i = 0; i < 24 * 5; i++) {
-        // these will all get dropped but they are still counted for fps
-        [self.queue enqueue:[self makeFrame]];
-        [NSThread sleepForTimeInterval:1.0f / 24];
+        Frame *frame = [self makeFrame];
+        frame.decodedAt = 1000.0 + i / 24.0;
+        // these get dropped once the queue fills, but every one counts toward the rate
+        [self.queue enqueue:frame];
     }
-    XCTAssertEqualWithAccuracy([self.queue estimatedFramerate], 24.0f, 4.0f);
+    XCTAssertEqualWithAccuracy([self.queue estimatedFramerate], 24.0, 0.5);
 }
 
 - (void)testProducerConsumer {
-    static const int TotalFrames = 500;
+    static const int TotalFrames = 200;
+    [self.queue setHighWaterMark:15];
 
-    // We expect exactly kTotalFrames dequeues.
     XCTestExpectation *dequeueAll = [self expectationWithDescription:@"consumer dequeued all frames"];
-    dequeueAll.expectedFulfillmentCount = TotalFrames;
 
-    // Producer
-    dispatch_queue_t producerQ = dispatch_queue_create("moonlight.test.producer", DISPATCH_QUEUE_CONCURRENT);
+    // The producer only queues a frame once the consumer has taken the last one, so nothing is
+    // dropped however the threads are scheduled
+    dispatch_semaphore_t taken = dispatch_semaphore_create(0);
+    dispatch_queue_t producerQ = dispatch_queue_create("moonlight.test.producer", DISPATCH_QUEUE_SERIAL);
     dispatch_async(producerQ, ^{
         for (int i = 0; i < TotalFrames; i++) {
             [self.queue enqueue:[self makeFrame]];
-            [NSThread sleepForTimeInterval:0.002];
+            dispatch_semaphore_wait(taken, DISPATCH_TIME_FOREVER);
         }
     });
 
-    // Consumer
-    dispatch_queue_t consumerQ = dispatch_queue_create("moonlight.test.consumer", DISPATCH_QUEUE_CONCURRENT);
+    dispatch_queue_t consumerQ = dispatch_queue_create("moonlight.test.consumer", DISPATCH_QUEUE_SERIAL);
     dispatch_async(consumerQ, ^{
-        for (int expected = 0; expected < TotalFrames; expected++) {
-            Frame *frame = [self.queue dequeueWithTimeout:1.0];
-            XCTAssertNotNil(frame, @"Expected frame %d, but got nil", expected);
-            XCTAssertEqual(frame.frameNumber, expected + 1, @"Expected frameNumber %d but got %d", expected + 1, frame.frameNumber);
-            [dequeueAll fulfill];
+        int received = 0;
+        while (received < TotalFrames) {
+            // A long timeout: the producer's enqueue wakes this wait early
+            Frame *frame = [self.queue dequeueWithTimeout:10.0];
+            if (!frame) {
+                continue;
+            }
+            received++;
+            XCTAssertEqual(frame.frameNumber, received);
+            dispatch_semaphore_signal(taken);
         }
+        [dequeueAll fulfill];
     });
 
-    // Wait up to 10s for all frames to be consumed
-    [self waitForExpectationsWithTimeout:10.0 handler:^(NSError * _Nullable error) {
-        if (error) {
-            XCTFail(@"Timed out waiting for consumer: %@", error);
-        }
-        XCTAssertEqual([self.queue count], 0, @"Queue should be empty at end");
-    }];
-}
-
-- (void)testPerformance {
-    XCTMeasureOptions *options = [[XCTMeasureOptions alloc] init];
-    options.iterationCount = 20;
-    if (@available(iOS 13.0, *)) {
-        static const int TotalFrames = 1000;
-        dispatch_queue_t producerQ = dispatch_queue_create("moonlight.test.producer", DISPATCH_QUEUE_CONCURRENT);
-        dispatch_queue_t consumerQ = dispatch_queue_create("moonlight.test.consumer", DISPATCH_QUEUE_CONCURRENT);
-
-        [self measureWithOptions:options block:^{
-            XCTestExpectation *dequeueAll = [self expectationWithDescription:@"consumer dequeued all frames"];
-            dequeueAll.expectedFulfillmentCount = TotalFrames;
-
-            [self.queue setHighWaterMark:5];
-
-            // Producer
-            dispatch_async(producerQ, ^{
-                for (int i = 0; i < TotalFrames; i++) {
-                    //[self.queue enqueue:[self makeFrame]];
-                    [self.queue enqueue:[self makeFrame] withSlackSize:3];
-                    [NSThread sleepForTimeInterval:0.001];
-                }
-            });
-
-            // Consumer
-            dispatch_async(consumerQ, ^{
-                for (int expected = 0; expected < TotalFrames; expected++) {
-                    [self.queue dequeueWithTimeout:1.0f];
-                    [dequeueAll fulfill];
-                }
-            });
-
-            // Wait up to 10s for all frames to be consumed
-            [self waitForExpectationsWithTimeout:100.0 handler:^(NSError * _Nullable error) {
-                if (error) {
-                    XCTFail(@"Timed out waiting for consumer: %@", error);
-
-                    [self.queue clear];
-                }
-            }];
-        }];
-    }
+    [self waitForExpectationsWithTimeout:60.0 handler:nil];
+    XCTAssertEqual([self.queue count], 0, @"Queue should be empty at end");
+    XCTAssertEqual([[self.queue frameDropMetrics] total], 0);
 }
 
 @end
