@@ -2,3 +2,16 @@
 	path = app/src/main/jni/moonlight-core/moonlight-common-c
 	url = https://github.com/SicarioGaming/moonlight-common-c.git
 	branch = main
+[submodule "ios/moonlight-common/moonlight-common-c"]
+	path = ios/moonlight-common/moonlight-common-c
+	url = https://github.com/Nonary/moonlight-common-c.git
+	branch = mac-pyrowave
+[submodule "ios/X1Kit"]
+	path = ios/X1Kit
+	url = https://github.com/cgutman/X1Kit.git
+[submodule "ios/third_party/imgui"]
+	path = ios/third_party/imgui
+	url = https://github.com/ocornut/imgui.git
+[submodule "ios/third_party/implot"]
+	path = ios/third_party/implot
+	url = https://github.com/epezent/implot.git
