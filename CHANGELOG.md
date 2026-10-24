@@ -13,6 +13,19 @@ steps and the checksums for each version.
 
 ## [Unreleased]
 
+### Added
+
+- **The start of Starwire for iPad and iPhone,** under `ios/`: official moonlight-ios with its
+  history, Andy Grundman's Metal renderer and Nonary's moonlight-common-c, built for the iOS
+  simulator by GitHub Actions. It hasn't run on an iPad yet. The plan is
+  [docs/ios/port-plan.md](docs/ios/port-plan.md), and the Mac steps are
+  [docs/ios/mac-runbook.md](docs/ios/mac-runbook.md).
+
+### Fixed
+
+- **Prebuilt file check:** `verify.sh` now finds files listed in `SHA256SUMS` whose path has a
+  space.
+
 ## [0.2.1] - 2026-10-23
 
 The repo changes that followed u/rambo3349's code review went live on GitHub before this release.
