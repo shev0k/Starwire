@@ -17,6 +17,11 @@
 @property (nonatomic, retain) NSNumber * height;
 @property (nonatomic, retain) NSNumber * width;
 @property (nonatomic, retain) NSNumber * audioConfig;
+@property (nonatomic) enum {
+    SPATIAL_FIXED,
+    SPATIAL_HEAD_TRACKED,
+    SPATIAL_DISABLED,
+} spatialAudio;
 @property (nonatomic, retain) NSNumber * onscreenControls;
 @property (nonatomic, retain) NSString * uniqueId;
 @property (nonatomic) enum {
@@ -25,15 +30,18 @@
     CODEC_PREF_HEVC,
     CODEC_PREF_AV1,
 } preferredCodec;
-@property (nonatomic) BOOL useFramePacing;
+@property (nonatomic, retain) NSNumber * frameQueueSize;
 @property (nonatomic) BOOL multiController;
 @property (nonatomic) BOOL swapABXYButtons;
 @property (nonatomic) BOOL playAudioOnPC;
 @property (nonatomic) BOOL optimizeGames;
 @property (nonatomic) BOOL enableHdr;
+@property (nonatomic) BOOL enableYUV444;
 @property (nonatomic) BOOL btMouseSupport;
 @property (nonatomic) BOOL absoluteTouchMode;
 @property (nonatomic) BOOL statsOverlay;
+@property (nonatomic) BOOL enableGraphs;
+@property (nonatomic, retain) NSNumber * graphOpacity;
 
 - (id) initFromSettings:(Settings*)settings;
 

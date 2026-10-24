@@ -10,6 +10,8 @@
 #import "AppDelegate.h"
 
 @interface SettingsViewController : UIViewController
+@property (strong, nonatomic) IBOutlet UISegmentedControl *audioConfigSelector;
+@property (strong, nonatomic) IBOutlet UISegmentedControl *spatialAudioSelector;
 @property (strong, nonatomic) IBOutlet UILabel *bitrateLabel;
 @property (strong, nonatomic) IBOutlet UISlider *bitrateSlider;
 @property (strong, nonatomic) IBOutlet UISegmentedControl *framerateSelector;
@@ -23,10 +25,15 @@
 @property (strong, nonatomic) IBOutlet UISegmentedControl *audioOnPCSelector;
 @property (strong, nonatomic) IBOutlet UISegmentedControl *codecSelector;
 @property (strong, nonatomic) IBOutlet UISegmentedControl *hdrSelector;
-@property (strong, nonatomic) IBOutlet UISegmentedControl *framePacingSelector;
+@property (strong, nonatomic) IBOutlet UILabel *frameQueueSizeLabel;
+@property (strong, nonatomic) IBOutlet UISlider *frameQueueSizeSlider;
 @property (strong, nonatomic) IBOutlet UISegmentedControl *btMouseSelector;
 @property (strong, nonatomic) IBOutlet UISegmentedControl *statsOverlaySelector;
 @property (strong, nonatomic) IBOutlet UIScrollView *scrollView;
+@property (strong, nonatomic) IBOutlet UILabel *enableGraphsLabel;
+@property (strong, nonatomic) IBOutlet UISegmentedControl *enableGraphsSelector;
+@property (strong, nonatomic) IBOutlet UIStepper *graphOpacityStepper;
+@property (strong, nonatomic) IBOutlet UISegmentedControl *yuv444Selector;
 
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wunguarded-availability"

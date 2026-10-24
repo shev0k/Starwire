@@ -13,9 +13,13 @@
 #import <VideoToolbox/VideoToolbox.h>
 #import <AVFoundation/AVFoundation.h>
 
+#include <Limelight.h>
+
 @implementation SettingsViewController {
     NSInteger _bitrate;
     NSInteger _lastSelectedResolutionIndex;
+    NSInteger _frameQueueSize;
+    NSInteger _graphOpacity;
 }
 
 @dynamic overrideUserInterfaceStyle;
@@ -56,13 +60,13 @@ CGSize resolutionTable[RESOLUTION_TABLE_SIZE];
 
 -(int)getSliderValueForBitrate:(NSInteger)bitrate {
     int i;
-    
+
     for (i = 0; i < (sizeof(bitrateTable) / sizeof(*bitrateTable)); i++) {
         if (bitrate <= bitrateTable[i]) {
             return i;
         }
     }
-    
+
     // Return the last entry in the table
     return i - 1;
 }
@@ -71,7 +75,7 @@ CGSize resolutionTable[RESOLUTION_TABLE_SIZE];
 // we'll update content size here.
 -(void)viewDidLayoutSubviews {
     CGFloat highestViewY = 0;
-    
+
     // Enumerate the scroll view's subviews looking for the
     // highest view Y value to set our scroll view's content
     // size.
@@ -84,13 +88,13 @@ CGSize resolutionTable[RESOLUTION_TABLE_SIZE];
             ![view isKindOfClass:[UISlider class]]) {
             continue;
         }
-        
+
         CGFloat currentViewY = view.frame.origin.y + view.frame.size.height;
         if (currentViewY > highestViewY) {
             highestViewY = currentViewY;
         }
     }
-    
+
     // Add a bit of padding so the view doesn't end right at the button of the display
     self.scrollView.contentSize = CGSizeMake(self.scrollView.contentSize.width,
                                              highestViewY + 20);
@@ -99,7 +103,7 @@ CGSize resolutionTable[RESOLUTION_TABLE_SIZE];
 // Adjust the subviews for the safe area on the iPhone X.
 - (void)viewSafeAreaInsetsDidChange {
     [super viewSafeAreaInsetsDidChange];
-    
+
     if (@available(iOS 11.0, *)) {
         for (UIView* view in self.view.subviews) {
             // HACK: The official safe area is much too large for our purposes
@@ -116,13 +120,13 @@ BOOL isCustomResolution(CGSize res) {
     if (res.width == 0 && res.height == 0) {
         return NO;
     }
-    
+
     for (int i = 0; i < RESOLUTION_TABLE_CUSTOM_INDEX; i++) {
         if (res.width == resolutionTable[i].width && res.height == resolutionTable[i].height) {
             return NO;
         }
     }
-    
+
     return YES;
 }
 
@@ -133,12 +137,14 @@ BOOL isCustomResolution(CGSize res) {
     if (@available(iOS 13.0, tvOS 13.0, *)) {
         self.overrideUserInterfaceStyle = UIUserInterfaceStyleDark;
     }
-    
+
     DataManager* dataMan = [[DataManager alloc] init];
     TemporarySettings* currentSettings = [dataMan getSettings];
-    
+
     // Ensure we pick a bitrate that falls exactly onto a slider notch
     _bitrate = bitrateTable[[self getSliderValueForBitrate:[currentSettings.bitrate intValue]]];
+    _frameQueueSize = [currentSettings.frameQueueSize intValue];
+    _graphOpacity = [currentSettings.graphOpacity intValue];
 
     // Get the size of the screen with and without safe area insets
     UIWindow *window = UIApplication.sharedApplication.windows.firstObject;
@@ -146,25 +152,31 @@ BOOL isCustomResolution(CGSize res) {
     CGFloat safeAreaWidth = (window.frame.size.width - window.safeAreaInsets.left - window.safeAreaInsets.right) * screenScale;
     CGFloat fullScreenWidth = window.frame.size.width * screenScale;
     CGFloat fullScreenHeight = window.frame.size.height * screenScale;
-    
+
     self.resolutionDisplayView.layer.cornerRadius = 10;
     self.resolutionDisplayView.clipsToBounds = YES;
     UITapGestureRecognizer *resolutionDisplayViewTap = [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(resolutionDisplayViewTapped:)];
     [self.resolutionDisplayView addGestureRecognizer:resolutionDisplayViewTap];
-    
-    resolutionTable[0] = CGSizeMake(640, 360);
-    resolutionTable[1] = CGSizeMake(1280, 720);
-    resolutionTable[2] = CGSizeMake(1920, 1080);
+
+    resolutionTable[0] = CGSizeMake(1280, 720);
+    resolutionTable[1] = CGSizeMake(1920, 1080);
+    resolutionTable[2] = CGSizeMake(2560, 1440);
     resolutionTable[3] = CGSizeMake(3840, 2160);
     resolutionTable[4] = CGSizeMake(safeAreaWidth, fullScreenHeight);
     resolutionTable[5] = CGSizeMake(fullScreenWidth, fullScreenHeight);
     resolutionTable[6] = CGSizeMake([currentSettings.width integerValue], [currentSettings.height integerValue]); // custom initial value
-    
+
     // Don't populate the custom entry unless we have a custom resolution
     if (!isCustomResolution(resolutionTable[6])) {
         resolutionTable[6] = CGSizeMake(0, 0);
     }
-    
+
+    // Customize framerate list for ProMotion devices
+    if ([[UIScreen mainScreen] maximumFramesPerSecond] >= 90) {
+        [self.framerateSelector setEnabled:YES forSegmentAtIndex:2]; // enable 90
+        [self.framerateSelector setEnabled:YES forSegmentAtIndex:3]; // enable 120
+    }
+
     NSInteger framerate;
     switch ([currentSettings.framerate integerValue]) {
         case 30:
@@ -174,8 +186,11 @@ BOOL isCustomResolution(CGSize res) {
         case 60:
             framerate = 1;
             break;
-        case 120:
+        case 90:
             framerate = 2;
+            break;
+        case 120:
+            framerate = 3;
             break;
     }
 
@@ -186,17 +201,6 @@ BOOL isCustomResolution(CGSize res) {
             resolution = i;
             break;
         }
-    }
-
-    // Only show the 120 FPS option if we have a > 60-ish Hz display
-    bool enable120Fps = false;
-    if (@available(iOS 10.3, tvOS 10.3, *)) {
-        if ([UIScreen mainScreen].maximumFramesPerSecond > 62) {
-            enable120Fps = true;
-        }
-    }
-    if (!enable120Fps) {
-        [self.framerateSelector removeSegmentAtIndex:2 animated:NO];
     }
 
     // Disable codec selector segments for unsupported codecs
@@ -217,20 +221,20 @@ BOOL isCustomResolution(CGSize res) {
         case CODEC_PREF_AUTO:
             [self.codecSelector setSelectedSegmentIndex:self.codecSelector.numberOfSegments - 1];
             break;
-            
+
         case CODEC_PREF_AV1:
             [self.codecSelector setSelectedSegmentIndex:2];
             break;
-            
+
         case CODEC_PREF_HEVC:
             [self.codecSelector setSelectedSegmentIndex:1];
             break;
-            
+
         case CODEC_PREF_H264:
             [self.codecSelector setSelectedSegmentIndex:0];
             break;
     }
-    
+
     if (!VTIsHardwareDecodeSupported(kCMVideoCodecType_HEVC) || !(AVPlayer.availableHDRModes & AVPlayerHDRModeHDR10)) {
         [self.hdrSelector removeAllSegments];
         [self.hdrSelector insertSegmentWithTitle:@"Unsupported on this device" atIndex:0 animated:NO];
@@ -239,15 +243,51 @@ BOOL isCustomResolution(CGSize res) {
     else {
         [self.hdrSelector setSelectedSegmentIndex:currentSettings.enableHdr ? 1 : 0];
     }
-    
+
+    [self.yuv444Selector setSelectedSegmentIndex:currentSettings.enableYUV444 ? 1 : 0];
+    [self.yuv444Selector addTarget:self action:@selector(updateBitrate) forControlEvents:UIControlEventValueChanged];
+
+    NSInteger audioConfigIndex;
+    switch ([currentSettings.audioConfig integerValue]) {
+        default:
+        case 2:
+            audioConfigIndex = 0;
+            // disable spatial audio options for stereo
+            [self.spatialAudioSelector setEnabled:NO forSegmentAtIndex:0];
+            [self.spatialAudioSelector setEnabled:NO forSegmentAtIndex:1];
+            [self.spatialAudioSelector setSelectedSegmentIndex:2];
+            break;
+        case 6:
+            audioConfigIndex = 1;
+            break;
+        case 8:
+            audioConfigIndex = 2;
+            break;
+    }
+
     [self.touchModeSelector setSelectedSegmentIndex:currentSettings.absoluteTouchMode ? 1 : 0];
     [self.touchModeSelector addTarget:self action:@selector(touchModeChanged) forControlEvents:UIControlEventValueChanged];
     [self.statsOverlaySelector setSelectedSegmentIndex:currentSettings.statsOverlay ? 1 : 0];
+    [self.enableGraphsSelector setSelectedSegmentIndex:currentSettings.enableGraphs ? 1 : 0];
+    [self.enableGraphsSelector addTarget:self action:@selector(enableGraphsChanged) forControlEvents:UIControlEventValueChanged];
+    [self enableGraphsChanged];
+    [self.graphOpacityStepper setMinimumValue:0];
+    [self.graphOpacityStepper setMaximumValue:100];
+    [self.graphOpacityStepper setValue:_graphOpacity];
+    [self.graphOpacityStepper addTarget:self action:@selector(graphOpacityStepperMoved) forControlEvents:UIControlEventValueChanged];
+    [self updateGraphOpacityText];
     [self.btMouseSelector setSelectedSegmentIndex:currentSettings.btMouseSupport ? 1 : 0];
     [self.optimizeSettingsSelector setSelectedSegmentIndex:currentSettings.optimizeGames ? 1 : 0];
-    [self.framePacingSelector setSelectedSegmentIndex:currentSettings.useFramePacing ? 1 : 0];
+    [self.frameQueueSizeSlider setMinimumValue:1];
+    [self.frameQueueSizeSlider setMaximumValue:5];
+    [self.frameQueueSizeSlider setValue:_frameQueueSize];
+    [self.frameQueueSizeSlider addTarget:self action:@selector(frameQueueSizeSliderMoved) forControlEvents:UIControlEventValueChanged];
+    [self updateFrameQueueSizeText];
     [self.multiControllerSelector setSelectedSegmentIndex:currentSettings.multiController ? 1 : 0];
     [self.swapABXYButtonsSelector setSelectedSegmentIndex:currentSettings.swapABXYButtons ? 1 : 0];
+    [self.audioConfigSelector setSelectedSegmentIndex:audioConfigIndex];
+    [self.audioConfigSelector addTarget:self action:@selector(newAudioConfigChosen) forControlEvents:UIControlEventValueChanged];
+    [self.spatialAudioSelector setSelectedSegmentIndex:currentSettings.spatialAudio];
     [self.audioOnPCSelector setSelectedSegmentIndex:currentSettings.playAudioOnPC ? 1 : 0];
     NSInteger onscreenControls = [currentSettings.onscreenControls integerValue];
     _lastSelectedResolutionIndex = resolution;
@@ -274,11 +314,12 @@ BOOL isCustomResolution(CGSize res) {
     NSInteger fps = [self getChosenFrameRate];
     NSInteger width = [self getChosenStreamWidth];
     NSInteger height = [self getChosenStreamHeight];
+    BOOL yuv444 = [self.yuv444Selector selectedSegmentIndex] == 1 ? YES : NO;
     NSInteger defaultBitrate;
-    
+
     // This logic is shamelessly stolen from Moonlight Qt:
     // https://github.com/moonlight-stream/moonlight-qt/blob/master/app/settings/streamingpreferences.cpp
-    
+
     // Don't scale bitrate linearly beyond 60 FPS. It's definitely not a linear
     // bitrate increase for frame rate once we get to values that high.
     float frameRateFactor = (fps <= 60 ? fps : (sqrtf(fps / 60.f) * 60.f)) / 30.f;
@@ -325,10 +366,15 @@ BOOL isCustomResolution(CGSize res) {
         }
     }
 
+    if (yuv444) {
+        // This is rough estimation based on the fact that 4:4:4 doubles the amount of raw YUV data compared to 4:2:0
+        resolutionFactor *= 2;
+    }
+
     defaultBitrate = round(resolutionFactor * frameRateFactor) * 1000;
-    _bitrate = MIN(defaultBitrate, 100000);
+    _bitrate = MIN(defaultBitrate, 150000);
     [self.bitrateSlider setValue:[self getSliderValueForBitrate:_bitrate] animated:YES];
-    
+
     [self updateBitrateText];
 }
 
@@ -352,7 +398,7 @@ BOOL isCustomResolution(CGSize res) {
         textField.clearButtonMode = UITextFieldViewModeAlways;
         textField.borderStyle = UITextBorderStyleRoundedRect;
         textField.keyboardType = UIKeyboardTypeNumberPad;
-        
+
         if (resolutionTable[RESOLUTION_TABLE_CUSTOM_INDEX].width == 0) {
             textField.text = @"";
         }
@@ -366,7 +412,7 @@ BOOL isCustomResolution(CGSize res) {
         textField.clearButtonMode = UITextFieldViewModeAlways;
         textField.borderStyle = UITextBorderStyleRoundedRect;
         textField.keyboardType = UIKeyboardTypeNumberPad;
-        
+
         if (resolutionTable[RESOLUTION_TABLE_CUSTOM_INDEX].height == 0) {
             textField.text = @"";
         }
@@ -379,7 +425,7 @@ BOOL isCustomResolution(CGSize res) {
         NSArray * textfields = alertController.textFields;
         UITextField *widthField = textfields[0];
         UITextField *heightField = textfields[1];
-        
+
         long width = [widthField.text integerValue];
         long height = [heightField.text integerValue];
         if (width <= 0 || height <= 0) {
@@ -387,7 +433,7 @@ BOOL isCustomResolution(CGSize res) {
             [self.resolutionSelector setSelectedSegmentIndex:self->_lastSelectedResolutionIndex];
             return;
         }
-        
+
         // H.264 maximum
         int maxResolutionDimension = 4096;
         if (@available(iOS 11.0, tvOS 11.0, *)) {
@@ -396,11 +442,11 @@ BOOL isCustomResolution(CGSize res) {
                 maxResolutionDimension = 8192;
             }
         }
-        
+
         // Cap to maximum valid dimensions
         width = MIN(width, maxResolutionDimension);
         height = MIN(height, maxResolutionDimension);
-        
+
         // Cap to minimum valid dimensions
         width = MAX(width, 256);
         height = MAX(height, 256);
@@ -409,7 +455,7 @@ BOOL isCustomResolution(CGSize res) {
         [self updateBitrate];
         [self updateResolutionDisplayViewText];
         self->_lastSelectedResolutionIndex = [self.resolutionSelector selectedSegmentIndex];
-        
+
         UIAlertController *alertController = [UIAlertController alertControllerWithTitle:@"Custom Resolution Selected" message: @"Custom resolutions are not officially supported by GeForce Experience, so it will not set your host display resolution. You will need to set it manually while in game.\n\nResolutions that are not supported by your client or host PC may cause streaming errors." preferredStyle:UIAlertControllerStyleAlert];
         [alertController addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleDefault handler:nil]];
         [self presentViewController:alertController animated:YES completion:nil];
@@ -437,7 +483,7 @@ BOOL isCustomResolution(CGSize res) {
     CGFloat viewFrameHeight = self.resolutionDisplayView.frame.size.height;
     CGFloat padding = 10;
     CGFloat fontSize = [UIFont smallSystemFontSize];
-    
+
     for (UIView *subview in self.resolutionDisplayView.subviews) {
         [subview removeFromSuperview];
     }
@@ -467,6 +513,19 @@ BOOL isCustomResolution(CGSize res) {
     [self.bitrateLabel setText:[NSString stringWithFormat:bitrateFormat, _bitrate / 1000.]];
 }
 
+- (void) newAudioConfigChosen {
+    // disable spatial audio options if stereo is selected
+    if ([self.audioConfigSelector selectedSegmentIndex] == 0) {
+        [self.spatialAudioSelector setEnabled:NO forSegmentAtIndex:0];
+        [self.spatialAudioSelector setEnabled:NO forSegmentAtIndex:1];
+        [self.spatialAudioSelector setSelectedSegmentIndex:2];
+    }
+    else {
+        [self.spatialAudioSelector setEnabled:YES forSegmentAtIndex:0];
+        [self.spatialAudioSelector setEnabled:YES forSegmentAtIndex:1];
+    }
+}
+
 - (NSInteger) getChosenFrameRate {
     switch ([self.framerateSelector selectedSegmentIndex]) {
         case 0:
@@ -474,6 +533,8 @@ BOOL isCustomResolution(CGSize res) {
         case 1:
             return 60;
         case 2:
+            return 90;
+        case 3:
             return 120;
         default:
             abort();
@@ -489,13 +550,13 @@ BOOL isCustomResolution(CGSize res) {
         switch (self.codecSelector.selectedSegmentIndex) {
             case 0:
                 return CODEC_PREF_H264;
-                
+
             case 1:
                 return CODEC_PREF_HEVC;
-                
+
             case 2:
                 return CODEC_PREF_AV1;
-                
+
             default:
                 abort();
         }
@@ -522,11 +583,63 @@ BOOL isCustomResolution(CGSize res) {
     return resolutionTable[[self.resolutionSelector selectedSegmentIndex]].width;
 }
 
+- (void) frameQueueSizeSliderMoved {
+    assert(self.frameQueueSizeSlider.value >= 0 && self.frameQueueSizeSlider.value <= 5);
+    _frameQueueSize = (int)self.frameQueueSizeSlider.value;
+    [self updateFrameQueueSizeText];
+}
+
+- (void) updateFrameQueueSizeText {
+    [self.frameQueueSizeLabel setText:[NSString stringWithFormat:@"Frames to buffer: %ld", _frameQueueSize ]];
+}
+
+- (void) enableGraphsChanged {
+    [self.graphOpacityStepper setEnabled:[self.enableGraphsSelector selectedSegmentIndex] == 1 ? YES : NO];
+}
+
+- (void) graphOpacityStepperMoved {
+    assert(self.graphOpacityStepper.value >= 0 && self.graphOpacityStepper.value <= 100);
+    _graphOpacity = (int)self.graphOpacityStepper.value;
+    [self updateGraphOpacityText];
+}
+
+- (void) updateGraphOpacityText {
+    [self.enableGraphsLabel setText:[NSString stringWithFormat:@"Performance Graphs - Opacity: %ld%%", _graphOpacity ]];
+}
+
+- (NSInteger) getChosenAudioConfig {
+    switch ([self.audioConfigSelector selectedSegmentIndex]) {
+        case 0:
+            return 2;
+        case 1:
+            return 6;
+        case 2:
+            return 8;
+        default:
+            abort();
+    }
+}
+
+- (uint32_t) getChosenSpatialAudio {
+    switch (self.spatialAudioSelector.selectedSegmentIndex) {
+        case 0:
+            return SPATIAL_FIXED;
+        case 1:
+            return SPATIAL_HEAD_TRACKED;
+        case 2:
+            return SPATIAL_DISABLED;
+        default:
+            abort();
+    }
+}
+
 - (void) saveSettings {
     DataManager* dataMan = [[DataManager alloc] init];
     NSInteger framerate = [self getChosenFrameRate];
     NSInteger height = [self getChosenStreamHeight];
     NSInteger width = [self getChosenStreamWidth];
+    NSInteger audioConfig = [self getChosenAudioConfig];
+    uint32_t spatialAudio = [self getChosenSpatialAudio];
     NSInteger onscreenControls = [self.onscreenControlSelector selectedSegmentIndex];
     BOOL optimizeGames = [self.optimizeSettingsSelector selectedSegmentIndex] == 1;
     BOOL multiController = [self.multiControllerSelector selectedSegmentIndex] == 1;
@@ -534,26 +647,31 @@ BOOL isCustomResolution(CGSize res) {
     BOOL audioOnPC = [self.audioOnPCSelector selectedSegmentIndex] == 1;
     uint32_t preferredCodec = [self getChosenCodecPreference];
     BOOL btMouseSupport = [self.btMouseSelector selectedSegmentIndex] == 1;
-    BOOL useFramePacing = [self.framePacingSelector selectedSegmentIndex] == 1;
     BOOL absoluteTouchMode = [self.touchModeSelector selectedSegmentIndex] == 1;
     BOOL statsOverlay = [self.statsOverlaySelector selectedSegmentIndex] == 1;
+    BOOL enableGraphs = [self.enableGraphsSelector selectedSegmentIndex] == 1;
     BOOL enableHdr = [self.hdrSelector selectedSegmentIndex] == 1;
+    BOOL enableYUV444 = [self.yuv444Selector selectedSegmentIndex] == 1;
     [dataMan saveSettingsWithBitrate:_bitrate
                            framerate:framerate
                               height:height
                                width:width
-                         audioConfig:2 // Stereo
+                         audioConfig:audioConfig
+                        spatialAudio:spatialAudio
                     onscreenControls:onscreenControls
                        optimizeGames:optimizeGames
                      multiController:multiController
                      swapABXYButtons:swapABXYButtons
                            audioOnPC:audioOnPC
                       preferredCodec:preferredCodec
-                      useFramePacing:useFramePacing
+                      frameQueueSize:_frameQueueSize
                            enableHdr:enableHdr
+                        enableYUV444:enableYUV444
                       btMouseSupport:btMouseSupport
                    absoluteTouchMode:absoluteTouchMode
-                        statsOverlay:statsOverlay];
+                        statsOverlay:statsOverlay
+                        enableGraphs:enableGraphs
+                        graphOpacity:_graphOpacity];
 }
 
 - (void)didReceiveMemoryWarning {

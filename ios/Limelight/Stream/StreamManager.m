@@ -9,6 +9,7 @@
 #import "StreamManager.h"
 #import "CryptoManager.h"
 #import "HttpManager.h"
+#import "Plot.h"
 #import "Utils.h"
 
 #import "StreamView.h"
@@ -39,10 +40,10 @@
 
 - (void)main {
     [CryptoManager generateKeyPairUsingSSL];
-    
+
     HttpManager* hMan = [[HttpManager alloc] initWithAddress:_config.host httpsPort:_config.httpsPort
                                                      serverCert:_config.serverCert];
-    
+
     ServerInfoResponse* serverInfoResp = [[ServerInfoResponse alloc] init];
     [hMan executeRequestSynchronously:[HttpRequest requestForResponse:serverInfoResp withUrlRequest:[hMan newServerInfoRequest:false]
                                        fallbackError:401 fallbackRequest:[hMan newHttpServerInfoRequest]]];
@@ -58,13 +59,13 @@
         [_callbacks launchFailed:@"Failed to connect to PC"];
         return;
     }
-    
+
     if (![pairStatus isEqualToString:@"1"]) {
         // Not paired
         [_callbacks launchFailed:@"Device not paired to PC"];
         return;
     }
-    
+
     // Only perform this check on GFE (as indicated by MJOLNIR in state value)
     if ((_config.width > 4096 || _config.height > 4096) && [serverState containsString:@"MJOLNIR"]) {
         // Pascal added support for 8K HEVC encoding support. Maxwell 2 could encode HEVC but only up to 4K.
@@ -75,11 +76,11 @@
             return;
         }
     }
-    
+
     // Populate the config's version fields from serverinfo
     _config.appVersion = appversion;
     _config.gfeVersion = gfeVersion;
-    
+
     // resumeApp and launchApp handle calling launchFailed
     NSString* sessionUrl;
     if ([serverState hasSuffix:@"_SERVER_BUSY"]) {
@@ -93,13 +94,13 @@
             return;
         }
     }
-    
+
     // Populate RTSP session URL from launch/resume response
     _config.rtspSessionUrl = sessionUrl;
-    
+
     // Initializing the renderer must be done on the main thread
     dispatch_async(dispatch_get_main_queue(), ^{
-        VideoDecoderRenderer* renderer = [[VideoDecoderRenderer alloc] initWithView:self->_renderView callbacks:self->_callbacks streamAspectRatio:(float)self->_config.width / (float)self->_config.height useFramePacing:self->_config.useFramePacing];
+        VideoDecoderRenderer* renderer = [[VideoDecoderRenderer alloc] initWithView:self->_renderView callbacks:self->_callbacks streamAspectRatio:(float)self->_config.width / (float)self->_config.height];
         self->_connection = [[Connection alloc] initWithConfig:self->_config renderer:renderer connectionCallbacks:self->_callbacks];
         NSOperationQueue* opQueue = [[NSOperationQueue alloc] init];
         [opQueue addOperation:self->_connection];
@@ -124,7 +125,7 @@
         Log(LOG_E, @"Failed to parse game session");
         return FALSE;
     }
-    
+
     *sessionUrl = [launchResp getStringTag:@"sessionUrl0"];
     return TRUE;
 }
@@ -142,22 +143,44 @@
         Log(LOG_E, @"Failed to parse resume response");
         return FALSE;
     }
-    
+
     *sessionUrl = [resumeResp getStringTag:@"sessionUrl0"];
     return TRUE;
 }
 
+// quick hack for both stats
+#define COLUMN_WIDTH 30
+static NSString *interleaveStrings(NSString *str1, NSString *str2) {
+    // Split the strings into arrays of lines
+    NSArray *lines1 = [str1 componentsSeparatedByString:@"\n"];
+    NSArray *lines2 = [str2 componentsSeparatedByString:@"\n"];
+
+    NSUInteger maxLines = MAX(lines1.count, lines2.count);
+    NSMutableString *result = [NSMutableString string];
+
+    for (NSUInteger i = 0; i < maxLines; i++) {
+        NSString *line1 = (i < lines1.count) ? lines1[i] : @"";
+        NSString *line2 = (i < lines2.count) ? lines2[i] : @"";
+
+        NSString *formattedLine = [NSString stringWithFormat:@"%-*s%@\n", COLUMN_WIDTH, [line1 UTF8String], line2];
+
+        [result appendString:formattedLine];
+    }
+
+    return [result copy];
+}
+
 - (NSString*) getStatsOverlayText {
     video_stats_t stats;
-    
+
     if (!_connection) {
         return nil;
     }
-    
+
     if (![_connection getVideoStats:&stats]) {
         return nil;
     }
-    
+
     uint32_t rtt, variance;
     NSString* latencyString;
     if (LiGetEstimatedRttInfo(&rtt, &variance)) {
@@ -166,27 +189,51 @@
     else {
         latencyString = @"N/A";
     }
-    
+
     NSString* hostProcessingString;
     if (stats.framesWithHostProcessingLatency != 0) {
-        hostProcessingString = [NSString stringWithFormat:@"\nHost processing latency min/max/avg: %.1f/%.1f/%.1f ms",
+        hostProcessingString = [NSString stringWithFormat:@"Host processing latency min/max/avg: %.1f/%.1f/%.1f ms\n",
                                 stats.minHostProcessingLatency / 10.f,
                                 stats.maxHostProcessingLatency / 10.f,
                                 (float)stats.totalHostProcessingLatency / stats.framesWithHostProcessingLatency / 10.f];
     }
     else {
-        hostProcessingString = @"";
+        // If all frames are duplicates this can happen, but let's avoid having the whole stats area change height
+        hostProcessingString = @"Host processing latency min/max/avg: -/-/- ms\n";
     }
-    
+
     float interval = stats.endTime - stats.startTime;
-    return [NSString stringWithFormat:@"Video stream: %dx%d %.2f FPS (Codec: %@)\nFrames dropped by your network connection: %.2f%%\nAverage network latency: %@%@",
+    float scalePlotMetrics = stats.frameDropMetrics.nsamples > 0 ? ((float)stats.frameDropMetrics.nsamples / stats.totalFrames) : 1.0f;
+    float fps = (stats.totalFrames - stats.networkDroppedFrames - (stats.frameDropMetrics.total / scalePlotMetrics)) / interval;
+
+    BandwidthTracker *bwTracker = [_connection getBwTracker];
+    double avgVideoMbps = bwTracker.averageMbps;
+    double peakVideoMbps = bwTracker.peakMbps;
+
+    NSString *videoStatsStr = [NSString stringWithFormat:@"Video stream: %dx%d %.2f FPS (Codec: %@)\n"
+            "Bitrate: %.1f Mbps, Peak: %.1f, Frame queue: %.1f\n"
+            "%@"
+            "Frames dropped by network/pacing jitter: %.1f%% / %.1f%%\n"
+            "Average network latency: %@\n"
+            "Decode time: %.2f/%.2f/%.2f ms",
             _config.width,
             _config.height,
-            stats.totalFrames / interval,
+            fps,
             [_connection getActiveCodecName],
-            stats.networkDroppedFrames / interval,
+            avgVideoMbps, peakVideoMbps, stats.frameQueueMetrics.avg,
+            hostProcessingString,
+            (stats.networkDroppedFrames / stats.totalFrames) * 100.0,
+            stats.frameDropMetrics.nsamples > 0 ? (stats.frameDropMetrics.total / stats.frameDropMetrics.nsamples) * 100.0 : 0.0f,
             latencyString,
-            hostProcessingString];
+            stats.decodeMetrics.min, stats.decodeMetrics.max, stats.decodeMetrics.avg];
+
+    NSString *audioStatsStr = [_connection getAudioStatsString];
+    if (audioStatsStr) {
+        return interleaveStrings(videoStatsStr, audioStatsStr); // XXX clean up
+    }
+    else {
+        return videoStatsStr;
+    }
 }
 
 @end

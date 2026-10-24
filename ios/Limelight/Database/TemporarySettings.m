@@ -13,9 +13,9 @@
 
 - (id) initFromSettings:(Settings*)settings {
     self = [self init];
-    
+
     self.parent = settings;
-    
+
 #if TARGET_OS_TV
     // Apply default values from our Root.plist
     NSString* settingsBundle = [[NSBundle mainBundle] pathForResource:@"Settings" ofType:@"bundle"];
@@ -29,23 +29,26 @@
         }
     }
     [[NSUserDefaults standardUserDefaults] registerDefaults:defaultsToRegister];
-    
+
     self.bitrate = [NSNumber numberWithInteger:[[NSUserDefaults standardUserDefaults] integerForKey:@"bitrate"]];
     assert([self.bitrate intValue] != 0);
-    self.framerate = [NSNumber numberWithInteger:[[NSUserDefaults standardUserDefaults] integerForKey:@"framerate"]];
-    assert([self.framerate intValue] != 0);
+    self.framerate = [NSNumber numberWithDouble:[[NSUserDefaults standardUserDefaults] doubleForKey:@"framerate"]];
+    assert([self.framerate doubleValue] != 0.0);
     self.audioConfig = [NSNumber numberWithInteger:[[NSUserDefaults standardUserDefaults] integerForKey:@"audioConfig"]];
     assert([self.audioConfig intValue] != 0);
     self.preferredCodec = (typeof(self.preferredCodec))[[NSUserDefaults standardUserDefaults] integerForKey:@"preferredCodec"];
-    self.useFramePacing = [[NSUserDefaults standardUserDefaults] integerForKey:@"useFramePacing"] != 0;
+    self.frameQueueSize = [NSNumber numberWithInteger:[[NSUserDefaults standardUserDefaults] integerForKey:@"frameQueueSize"]];
     self.playAudioOnPC = [[NSUserDefaults standardUserDefaults] boolForKey:@"audioOnPC"];
     self.enableHdr = [[NSUserDefaults standardUserDefaults] boolForKey:@"enableHdr"];
+    self.enableYUV444 = [[NSUserDefaults standardUserDefaults] boolForKey:@"enableYUV444"];
     self.optimizeGames = [[NSUserDefaults standardUserDefaults] boolForKey:@"optimizeGames"];
     self.multiController = [[NSUserDefaults standardUserDefaults] boolForKey:@"multipleControllers"];
     self.swapABXYButtons = [[NSUserDefaults standardUserDefaults] boolForKey:@"swapABXYButtons"];
     self.btMouseSupport = [[NSUserDefaults standardUserDefaults] boolForKey:@"btMouseSupport"];
     self.statsOverlay = [[NSUserDefaults standardUserDefaults] boolForKey:@"statsOverlay"];
-    
+    self.enableGraphs = [[NSUserDefaults standardUserDefaults] boolForKey:@"enableGraphs"];
+    self.graphOpacity = [NSNumber numberWithInteger:[[NSUserDefaults standardUserDefaults] integerForKey:@"graphOpacity"]];
+
     NSInteger _screenSize = [[NSUserDefaults standardUserDefaults] integerForKey:@"streamResolution"];
     switch (_screenSize) {
         case 0:
@@ -74,10 +77,12 @@
     self.height = settings.height;
     self.width = settings.width;
     self.audioConfig = settings.audioConfig;
+    self.spatialAudio = settings.spatialAudio;
     self.preferredCodec = settings.preferredCodec;
-    self.useFramePacing = settings.useFramePacing;
+    self.frameQueueSize = settings.frameQueueSize;
     self.playAudioOnPC = settings.playAudioOnPC;
     self.enableHdr = settings.enableHdr;
+    self.enableYUV444 = settings.enableYUV444;
     self.optimizeGames = settings.optimizeGames;
     self.multiController = settings.multiController;
     self.swapABXYButtons = settings.swapABXYButtons;
@@ -85,9 +90,11 @@
     self.btMouseSupport = settings.btMouseSupport;
     self.absoluteTouchMode = settings.absoluteTouchMode;
     self.statsOverlay = settings.statsOverlay;
+    self.enableGraphs = settings.enableGraphs;
+    self.graphOpacity = settings.graphOpacity;
 #endif
     self.uniqueId = settings.uniqueId;
-    
+
     return self;
 }
 
