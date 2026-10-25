@@ -111,6 +111,13 @@ jobs:
             -destination 'generic/platform=iOS Simulator' -derivedDataPath ../build/DerivedData \
             CODE_SIGNING_ALLOWED=NO build-for-testing 2>&1 | tee ../logs/build-device-run.log
 
+      # Starwire's translations come from Android's strings.xml files; the catalog in the repo
+      # must be what the script writes
+      - name: String Catalog
+        run: |
+          python3 -m unittest discover -s ios/scripts/tests -v
+          python3 ios/scripts/strings-to-xcstrings.py --check
+
       - name: StarwireKit tests
         run: |
           set -o pipefail

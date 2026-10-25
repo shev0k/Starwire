@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  iOS-only strings, English only, in the same format as Android's strings.xml.
+  strings-to-xcstrings.py merges them into Localizable.xcstrings with Android's strings.
+  A key must not also exist in app/src/main/res/values/strings.xml: that is an error.
+-->
+<resources/>

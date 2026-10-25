@@ -117,6 +117,10 @@ steps and the checksums for each version.
   iPad used for this batch has no Pencil.
 - **iOS: hide the PC's cursor,** with Android's record of what was hidden, so a crash or a
   dropped connection can't leave the cursor hidden.
+- **iOS: Starwire's translations.** A script converts Starwire for Android's strings into an Xcode
+  String Catalog: 28 languages besides English, with the same keys as Android. Strings only on
+  iOS go in `ios/Strings/strings-ios.xml`. The catalog is in the repo and CI checks it is current.
+  No iOS screen looks the strings up yet, and the catalog hasn't been built in Xcode.
 
 ### Changed
 
