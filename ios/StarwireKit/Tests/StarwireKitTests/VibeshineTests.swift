@@ -259,7 +259,7 @@ final class VibeshineClientTests: XCTestCase {
         try await client.sleep()
         XCTAssertEqual(transport.requests.map(\.method), [.get, .post])
         XCTAssertEqual(transport.requests.last?.pathAndQuery,
-                       "/power-actions/v1/sleep?token=3f7a0c2d9e8b4a1f6c5d0e9b8a7f6e5d4c3b2a1f0e9d8c7b6a5f4e3d2c1b0a99")
+                       "/power-actions/v1/sleep?token=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef")
     }
 
     func testSleepNotAllowedSendsNothing() async throws {

@@ -192,8 +192,8 @@ final class GameSettingsTests: XCTestCase {
     }
 
     func testGamesAreSavedUnderAndroidsKeys() {
-        let key = GameSettings.key(hostUUID: "94C08D2A-821A-5520-230E-5ADE8FA90AC8", appID: "881448767")
-        XCTAssertEqual(key, "94C08D2A-821A-5520-230E-5ADE8FA90AC8:881448767")
+        let key = GameSettings.key(hostUUID: "6B1C3A4E-0000-4000-8000-00000000F1C5", appID: "881448767")
+        XCTAssertEqual(key, "6B1C3A4E-0000-4000-8000-00000000F1C5:881448767")
         games.set(GameSettings(fps: 90, useGlobalSettings: false), forKey: key)
         XCTAssertEqual(games.settings(forKey: key).fps, 90)
         games.set(GameSettings(), forKey: key)

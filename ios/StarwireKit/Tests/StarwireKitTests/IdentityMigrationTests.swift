@@ -3,8 +3,8 @@ import XCTest
 
 final class IdentityMigrationTests: XCTestCase {
     private let identity: [IdentityItem: Data] = [
-        .certificate: Data("-----BEGIN CERTIFICATE-----\nMIIC\n-----END CERTIFICATE-----\n".utf8),
-        .privateKey: Data("-----BEGIN RSA PRIVATE KEY-----\nMIIE\n-----END RSA PRIVATE KEY-----\n".utf8),
+        .certificate: Data("test certificate".utf8),
+        .privateKey: Data("test key".utf8),
         .pkcs12: Data([0x30, 0x82, 0x09, 0x01, 0x02, 0x03]),
     ]
 
