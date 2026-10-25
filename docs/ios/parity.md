@@ -3,7 +3,7 @@
 This table tracks which Starwire for Android features and settings the planned iOS client will
 have. It comes from [port-plan.md](port-plan.md), the Android README and the two Android
 preference files, as of 25 Oct 2026 (phase 0), with statuses updated by each device run (last:
-[batch 2](device-runs/2026-10-25-feature-ios-batch-2.md)). Rows marked "check" are open questions for the phase that builds them.
+[batch 3](device-runs/2026-10-25-feature-ios-batch-3.md)). Rows marked "check" are open questions for the phase that builds them.
 
 Status values:
 
@@ -40,35 +40,35 @@ when there is no phase because the feature can't exist or the host lacks it.
 | Controller navigation of every screen | 3 | planned | |
 | Custom resolutions and frame rates | 3 | planned | |
 | Auto-resume stream after sleep | 1 | planned | The stream stops in the background except in picture in picture. Check how resume should work |
-| Stream menu as a side panel, opened by the floating button, a three-finger tap or holding a controller button | 5 | planned | Custom side panel, not action sheets |
-| Floating menu button, with a saved spot per orientation | 5 | planned | |
-| Stream menu on/off switches and the game's cover in the header | 5 | planned | |
-| Keyboard and the on-screen full keyboard (82 keys, sticky modifiers, vibration) | 5 | planned | Text input through the system keyboard. Vibration via Core Haptics on iPhone only (check) |
-| Shortcuts page (14 built in, including Task Manager) | 5 | planned | |
-| Custom shortcuts imported from a file | 5 | planned | Same JSON format, through the Files app |
-| Custom commands in the stream menu, with close, disconnect or quit after | 5 | planned | |
+| Stream menu as a side panel, opened by the floating button, a three-finger tap or holding a controller button | 5 | verified | A right-side sheet like Android's, from StarwireKit's StreamMenu. The floating button and the three-finger tap opened it on the iPad 10th gen: [batch 3](device-runs/2026-10-25-feature-ios-batch-3.md). Holding Select, Start, Guide or LB+RB is built and unit tested (Android's hold-back rules); hands-on with a controller pending |
+| Floating menu button, with a saved spot per orientation | 5 | verified | Dragged and kept its landscape spot on the iPad 10th gen: [batch 3](device-runs/2026-10-25-feature-ios-batch-3.md). Portrait not tried |
+| Stream menu on/off switches and the game's cover in the header | 5 | built | The Stats, On-screen Controls and Pan/Zoom switches worked on the iPad 10th gen ([batch 3](device-runs/2026-10-25-feature-ios-batch-3.md)). The header shows the game's name, the resolution and frame rate, and Android's tint as a swatch: no cover art yet (phase 3 brings the covers) |
+| Keyboard and the on-screen full keyboard (82 keys, sticky modifiers, vibration) | 5 | verified | Android's layout has 80 keys (its XML has 82 with two commented out). Keys, a held Shift locking, and the system keyboard (text as UTF-8, Return as Enter) reached the PC on the iPad 10th gen: [batch 3](device-runs/2026-10-25-feature-ios-batch-3.md). Key vibration needs a vibration motor: iPhone only |
+| Shortcuts page (14 built in, including Task Manager) | 5 | verified | Android's 14 plus Task Manager on the main page. Esc reached the PC from the page on the iPad 10th gen ([batch 3](device-runs/2026-10-25-feature-ios-batch-3.md)); every shortcut's packets are unit tested. Keys that change the PC (Win, Task Manager) weren't pressed in the device run |
+| Custom shortcuts imported from a file | 5 | built | Starwire's JSON (`VK_` names or hex, 50 shortcuts of up to 8 keys), from the Files app through Manage on the menu's Shortcuts page. Parsing and limits unit tested; the picker not tried on the iPad |
+| Custom commands in the stream menu, with close, disconnect or quit after | 5 | built | Android's format and timings, with an editor under Manage on the Shortcuts page (iOS has no settings screen of its own until phase 3). Unit tested; not tried on the iPad |
 | Custom command that ends with "Sleep" | - | not possible | iOS apps can't lock or sleep the device |
-| Monitor switcher (Monitor 1 to 6) | 5 | planned | Sends Ctrl+Alt+Shift+F1 to F6 |
-| Touch modes: multi-touch, direct, natural trackpad, gaming trackpad, disabled, swapped clicks | 5 | planned | |
-| Trackpad sensitivity | 5 | planned | |
-| Pinch to zoom anytime, and Pan/Zoom mode | 5 | planned | |
-| Long-press to right-click | 5 | planned | |
-| Hide PC cursor, with the "Fix PC cursor" button | 5 | planned | Crash-safe ledger. Needs a host that supports it (check with Vibeshine) |
-| On-screen controller with a layout editor | 5 | planned | Real editor: key grid, drag, resize |
-| Apple Pencil | 5 | planned | Pencil pressure curves from VoidLink. Not on Android |
-| Hardware keyboard and mouse, with pointer lock | 5 | planned | iPad full screen only |
-| Back and forward mouse buttons, high-resolution scroll | 5 | planned | |
-| Remote desktop mouse mode (absolute mouse) | 5 | planned | |
+| Monitor switcher (Monitor 1 to 6) | 5 | built | Sends Ctrl+Alt+Shift+F1 to F6, unit tested. Not pressed in the device run (it would switch what the PC streams). Whether Vibeshine switches displays on these keys is not checked |
+| Touch modes: multi-touch, direct, natural trackpad, gaming trackpad, disabled, swapped clicks | 5 | verified | Ported from Android's touch contexts with their timings (StarwireKit, tested with injected time). All six on the iPad 10th gen: clicks, drags, the two-finger right click, long press, swapped clicks, touches passed through to Vibeshine and nothing sent when disabled: [batch 3](device-runs/2026-10-25-feature-ios-batch-3.md). Android's multi-touch passthrough never runs (its handler only fires for another view); iOS sends the touches |
+| Trackpad sensitivity | 5 | built | 25 to 300% in iOS Settings, and the menu's Sensitivity switch, as on Android. The scaling is unit tested; the switch wasn't used in the device run |
+| Pinch to zoom anytime, and Pan/Zoom mode | 5 | verified | A pinch and Pan/Zoom mode sent nothing to the PC, and a double tap reset the zoom, on the iPad 10th gen: [batch 3](device-runs/2026-10-25-feature-ios-batch-3.md). The zoom maths (one VideoGeometry for the picture and every input) is unit tested |
+| Long-press to right-click | 5 | verified | Direct touch, on the iPad 10th gen: [batch 3](device-runs/2026-10-25-feature-ios-batch-3.md). The gaming trackpad's hold is unit tested |
+| Hide PC cursor, with the "Fix PC cursor" button | 5 | built | Ctrl+Alt+Shift+N, with Android's crash-safe record per PC. Unit tested; not tried: whether Vibeshine has this toggle is not checked |
+| On-screen controller with a layout editor | 5 | verified | Android's layout and stick maths. A and the left stick reached the PC, the editor moved a control and Reset put it back, on the iPad 10th gen: [batch 3](device-runs/2026-10-25-feature-ios-batch-3.md). Resizing and the opacity slider not tried on the device |
+| Apple Pencil | 5 | built | Pressure through VoidLink's curves (Linear, Soft, Firm in iOS Settings), tilt and hover. Unit tested. Not tried: the iPad 10th gen used for batch 3 has no Pencil. Needs the iPad Pro |
+| Hardware keyboard and mouse, with pointer lock | 5 | built | moonlight-ios's keyboard and GCMouse handling with pointer lock. Not tried: no keyboard or mouse in batch 3 |
+| Back and forward mouse buttons, high-resolution scroll | 5 | built | Back and forward follow "Enable back and forward mouse buttons" (off by default, as on Android). Not tried on the device |
+| Remote desktop mouse mode (absolute mouse) | 5 | built | The gaming trackpad sends moves as positions, unit tested |
 | Root evdev mouse capture | - | not possible | No root access on iOS |
-| Multiple controllers, deadzone, flip face buttons, analog scrolling | 5 | planned | GameController framework |
-| Mouse emulation and touchpad as mouse | 5 | planned | |
-| Gamepad motion sensors, with the device gyro as fallback | 5 | planned | |
-| Rumble, trigger rumble, adaptive triggers, LED and battery | 5 | planned | |
-| Emulated rumble with device vibration | 5 | planned | Core Haptics on iPhone. iPads have no vibration motor (check) |
-| DualSense waveform haptics (Vibeshine packet 0x5601) | 5 | planned | Converted to Core Haptics patterns. Close, not identical |
+| Multiple controllers, deadzone, flip face buttons, analog scrolling | 5 | built | Android's rules (StarwireKit GamepadProcessor), unit tested. Hands-on with the DualSense, Apex 5 and grip pending |
+| Mouse emulation and touchpad as mouse | 5 | built | Unit tested. Hands-on pending |
+| Gamepad motion sensors, with the device gyro as fallback | 5 | built | Controllers' own sensors (moonlight-ios), and the device's through Core Motion with Android's axis table. Unit tested. Hands-on pending |
+| Rumble, trigger rumble, adaptive triggers, LED and battery | 5 | built | Rumble, trigger rumble, LED and battery from moonlight-ios; adaptive triggers decoded as VoidLink does (unit tested). Hands-on pending |
+| Emulated rumble with device vibration | 5 | built | Core Haptics on a device with a vibration motor. iPads have none, so iPhone only; not tried |
+| DualSense waveform haptics (Vibeshine packet 0x5601) | 5 | built | The PCM becomes intensity, sharpness and transients every 10 ms (unit tested), played on the grips with Core Haptics. Close, not identical. Not tried: needs a game with DualSense haptics and Vibeshine's haptics component |
 | Playing raw waveforms on the DualSense's actuators | - | not possible | No public iOS API |
 | Xbox 360 / One USB gamepad driver | - | not possible | No raw USB access. Controllers iOS supports still work over Bluetooth or USB-C |
-| System Home-button gesture disabled while streaming | 5 | planned | |
+| System Home-button gesture disabled while streaming | 5 | built | moonlight-ios turns off the system gestures of every controller element. Hands-on pending |
 | Metal renderer with host frame timing | 4 | planned | Replaces the Vulkan renderer. "Host-timed" is rebuilt on RTP timestamps |
 | Pacing modes: Latency, Balanced, Cap FPS, Smoothness | 4 | planned | Rebuilt on the Metal presenter |
 | Warp Drive and Warp 2 pacing | 4 | planned | Asks for 2x or 4x FPS and shows the newest frame |
@@ -171,54 +171,54 @@ Notes column says so.
 
 | Key | Setting (title) | Default | Phase | Status | Notes |
 |---|---|---|---|---|---|
-| `seekbar_deadzone` | Adjust analog stick deadzone | 7 | 5 | planned | |
-| `checkbox_multi_controller` | Automatic gamepad presence detection | true | 5 | planned | GameController framework |
+| `seekbar_deadzone` | Adjust analog stick deadzone | 7 | 5 | built | |
+| `checkbox_multi_controller` | Automatic gamepad presence detection | true | 5 | built | GameController framework |
 | `checkbox_usb_driver` | Xbox 360/One USB gamepad driver | true | - | not possible | No raw USB access. Controllers iOS supports still work |
 | `checkbox_usb_bind_all` | Override native Xbox gamepad support | false | - | not possible | Needs the USB driver |
-| `analog_scrolling` | Use an analog stick to scroll | right | 5 | planned | |
-| `checkbox_vibrate_fallback` | Emulate rumble support with vibration | false | 5 | planned | Core Haptics. iPads have no motor (check) |
-| `seekbar_vibrate_fallback_strength` | Adjust emulated rumble intensity | 100 | 5 | planned | |
-| `checkbox_flip_face_buttons` | Flip face buttons | false | 5 | planned | |
-| `checkbox_gamepad_touchpad_as_mouse` | Always control mouse with touchpad | false | 5 | planned | |
-| `checkbox_gamepad_motion_sensors` | Allow use of gamepad motion sensors | true | 5 | planned | |
-| `checkbox_gamepad_motion_fallback` | Emulate gamepad motion sensor support | false | 5 | planned | Uses the device gyro |
+| `analog_scrolling` | Use an analog stick to scroll | right | 5 | built | |
+| `checkbox_vibrate_fallback` | Emulate rumble support with vibration | false | 5 | built | Core Haptics. iPads have no motor (check) |
+| `seekbar_vibrate_fallback_strength` | Adjust emulated rumble intensity | 100 | 5 | built | |
+| `checkbox_flip_face_buttons` | Flip face buttons | false | 5 | built | |
+| `checkbox_gamepad_touchpad_as_mouse` | Always control mouse with touchpad | false | 5 | built | |
+| `checkbox_gamepad_motion_sensors` | Allow use of gamepad motion sensors | true | 5 | built | |
+| `checkbox_gamepad_motion_fallback` | Emulate gamepad motion sensor support | false | 5 | built | Uses the device gyro |
 
 ### Overlay Menu
 
 | Key | Setting (title) | Default | Phase | Status | Notes |
 |---|---|---|---|---|---|
-| `overlay_trigger_button` | Menu trigger button | select | 5 | planned | Hold a controller button to open the stream menu |
-| `overlay_hold_duration` | Trigger button hold duration | 1500 | 5 | planned | Milliseconds |
-| `checkbox_enable_floating_button` | Floating menu button | true | 5 | planned | |
-| `overlay_custom_commands` | Overlay menu commands | n/a | 5 | planned | Custom commands. The "Sleep" last step is not possible |
-| `import_shortcuts_file` | Import shortcuts from a file | n/a | 5 | planned | Files app |
-| `clear_imported_shortcuts` | Remove imported shortcuts | n/a | 5 | planned | |
+| `overlay_trigger_button` | Menu trigger button | select | 5 | built | Hold a controller button to open the stream menu |
+| `overlay_hold_duration` | Trigger button hold duration | 1500 | 5 | built | Milliseconds |
+| `checkbox_enable_floating_button` | Floating menu button | true | 5 | verified | |
+| `overlay_custom_commands` | Overlay menu commands | n/a | 5 | built | Custom commands. The "Sleep" last step is not possible |
+| `import_shortcuts_file` | Import shortcuts from a file | n/a | 5 | built | Files app |
+| `clear_imported_shortcuts` | Remove imported shortcuts | n/a | 5 | built | |
 
 ### Input Settings
 
 | Key | Setting (title) | Default | Phase | Status | Notes |
 |---|---|---|---|---|---|
-| `checkbox_touchscreen_trackpad` | Use the touchscreen as a trackpad | true | 5 | planned | Touch modes |
-| `checkbox_long_press_right_click` | Long-press to right-click | true | 5 | planned | |
-| `checkbox_pinch_to_zoom` | Pinch to zoom anytime | true | 5 | planned | |
-| `hide_cursor_mode` | Hide PC cursor | never | 5 | planned | Crash-safe ledger. Check host support |
-| `seekbar_touch_sensitivity` | Trackpad sensitivity | 100 | 5 | planned | |
-| `checkbox_keyboard_vibrate` | Keyboard key vibration | true | 5 | planned | Core Haptics on iPhone only (check) |
-| `checkbox_sticky_modifier_keys` | Sticky modifier keys | true | 5 | planned | |
-| `seekbar_keyboard_opacity` | On-screen full keyboard opacity | 90 | 5 | planned | |
-| `checkbox_mouse_nav_buttons` | Enable back and forward mouse buttons | false | 5 | planned | |
-| `checkbox_absolute_mouse_mode` | Remote desktop mouse mode | false | 5 | planned | |
+| `checkbox_touchscreen_trackpad` | Use the touchscreen as a trackpad | true | 5 | verified | Touch modes |
+| `checkbox_long_press_right_click` | Long-press to right-click | true | 5 | verified | |
+| `checkbox_pinch_to_zoom` | Pinch to zoom anytime | true | 5 | verified | |
+| `hide_cursor_mode` | Hide PC cursor | never | 5 | built | Crash-safe ledger. Check host support |
+| `seekbar_touch_sensitivity` | Trackpad sensitivity | 100 | 5 | built | |
+| `checkbox_keyboard_vibrate` | Keyboard key vibration | true | 5 | built | Core Haptics on iPhone only (check) |
+| `checkbox_sticky_modifier_keys` | Sticky modifier keys | true | 5 | verified | |
+| `seekbar_keyboard_opacity` | On-screen full keyboard opacity | 90 | 5 | built | |
+| `checkbox_mouse_nav_buttons` | Enable back and forward mouse buttons | false | 5 | built | |
+| `checkbox_absolute_mouse_mode` | Remote desktop mouse mode | false | 5 | built | |
 
 ### On-screen Controls Settings
 
 | Key | Setting (title) | Default | Phase | Status | Notes |
 |---|---|---|---|---|---|
-| `checkbox_show_onscreen_controls` | Show on-screen controls | false | 5 | planned | |
-| `checkbox_vibrate_osc` | Enable vibration | true | 5 | planned | Core Haptics on iPhone only (check) |
-| `checkbox_only_show_L3R3` | Only show L3 and R3 | false | 5 | planned | |
-| `checkbox_show_guide_button` | Show Guide Button | true | 5 | planned | |
-| `seekbar_osc_opacity` | Change opacity | 90 | 5 | planned | |
-| (no key) | Clear saved on-screen controls layout | n/a | 5 | planned | `ConfirmDeleteOscPreference` has no `android:key`. Resets the layout editor |
+| `checkbox_show_onscreen_controls` | Show on-screen controls | false | 5 | verified | |
+| `checkbox_vibrate_osc` | Enable vibration | true | 5 | built | Core Haptics on iPhone only (check) |
+| `checkbox_only_show_L3R3` | Only show L3 and R3 | false | 5 | built | |
+| `checkbox_show_guide_button` | Show Guide Button | true | 5 | built | |
+| `seekbar_osc_opacity` | Change opacity | 90 | 5 | built | |
+| (no key) | Clear saved on-screen controls layout | n/a | 5 | verified | `ConfirmDeleteOscPreference` has no `android:key`. Reset in the layout editor put the controls back on the iPad 10th gen |
 
 ### Host Settings
 
