@@ -414,6 +414,21 @@ static const double kMs = 1000.0;
     XCTAssertTrue([summary containsString:@"shown for 4.2/8.3/12.5/16.7/20.8/25+ ms: 0.0/100.0/0.0/0.0/0.0/0.0%"], @"%@", summary);
 }
 
+// A freeze shows in the summary as a long arrival gap or a long shown time, so a run can tell
+// frames that came late from frames that came on time and were shown late
+- (void)testSummaryLineShowsArrivalGapsAndLongestShown {
+    PacingStats *stats = [self stats120];
+    [stats noteArrivalAt:1.0];
+    [stats noteArrivalAt:1.0 + 1 / 120.0];
+    [stats noteArrivalAt:1.1];
+    [stats notePresentedAt:1.01];
+    [stats notePresentedAt:1.01 + 1 / 120.0];
+    [stats notePresentedAt:1.11];
+    NSString *summary = [stats summaryLineForWindow:[stats totalWindow]];
+    XCTAssertTrue([summary containsString:@"arrival late 0, gaps 1, max gap 91.7 ms; shown 3,"], @"%@", summary);
+    XCTAssertTrue([summary containsString:@"mean 50.00 ms, max 91.7 ms,"], @"%@", summary);
+}
+
 #pragma mark - Display presenter
 
 - (void)testPresenterSettings {

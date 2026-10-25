@@ -334,13 +334,16 @@ static double MeanLatencyMs(PacingWindow w) {
     int drops = TotalDrops(w);
     int refreshes = w.refreshesWithFrame + w.refreshesWithoutFrame;
     return [NSString stringWithFormat:
-            @"Pacing summary (%@): %.0f s, in %d, drops %.2f%% (incoming %d, oldest %d, replaced %d), shown %d, "
-            "shown for %@, mean %.2f ms, off grid %.1f%%, late %d, skipped %d; "
+            @"Pacing summary (%@): %.0f s, in %d, drops %.2f%% (incoming %d, oldest %d, replaced %d), "
+            "arrival late %d, gaps %d, max gap %.1f ms; shown %d, "
+            "shown for %@, mean %.2f ms, max %.1f ms, off grid %.1f%%, late %d, skipped %d; "
             "refresh mean %.2f ms, off grid %.1f%%; refreshes without a new frame %.1f%%; drawable wait mean %.2f ms; "
             "decode to screen mean %.1f ms, max %.1f ms",
             self.presenterName, w.windowSeconds, w.arrivals, Percent(drops, w.arrivals),
-            w.drops[PacingDropIncoming], w.drops[PacingDropOldest], w.drops[PacingDropReplaced], w.presented,
-            [self histogramOf:w.shown], MeanMs(w.shown), Percent(w.shown.offGrid, w.shown.total), w.presentLate, w.presentSkipped,
+            w.drops[PacingDropIncoming], w.drops[PacingDropOldest], w.drops[PacingDropReplaced],
+            w.arrivalLate, w.arrivalGaps, w.maxArrivalGapMs, w.presented,
+            [self histogramOf:w.shown], MeanMs(w.shown), w.shown.maxSeconds * 1000.0,
+            Percent(w.shown.offGrid, w.shown.total), w.presentLate, w.presentSkipped,
             MeanMs(w.refresh), Percent(w.refresh.offGrid, w.refresh.total),
             Percent(w.refreshesWithoutFrame, refreshes),
             w.drawableWaits > 0 ? w.drawableWaitSeconds * 1000.0 / w.drawableWaits : 0.0,

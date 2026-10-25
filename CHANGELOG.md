@@ -28,7 +28,8 @@ steps and the checksums for each version.
   drop policy and frames to buffer, and a "Use a virtual display" switch for Vibeshine.
 - **iOS: on-screen timing in the statistics overlay.** How long each frame stayed on screen, in
   steps of 4.2 ms (8.3, 12.5, 16.7 ms and so on), the display's refresh interval, the time from
-  decoding to the screen, and a summary line for the whole stream. Not yet tried on the iPad.
+  decoding to the screen, and a summary line for the whole stream. The summary line also counts
+  gaps of more than 2.5 frames between arriving frames, and the longest time a frame stayed up.
 - **iOS: a display-driven presenter, as a test choice.** "Presenter" in iOS Settings draws the
   newest frame at each display refresh from a CAMetalDisplayLink, as Nonary's moonlight-qt does on
   macOS. The old render loop stays the default until a run on the iPad shows which is better.
