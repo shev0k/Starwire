@@ -95,6 +95,62 @@ final class DesignDeviceRunTests: XCTestCase {
         shot("12 settings, search")
     }
 
+    /// iPadOS windowing can leave the app in a window smaller than the screen: move the window to
+    /// the top-left corner and drag its resize corner to the bottom right, so it fills the screen.
+    func testFillTheScreen() throws {
+        launch()
+        let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
+        let screen = springboard.frame
+        let window = app.windows.allElementsBoundByIndex.map(\.frame).max { $0.width * $0.height < $1.width * $1.height } ?? .zero
+        print("[device-run] screen \(screen.size), window \(window)")
+        guard window.width > 0, window.width * window.height < screen.width * screen.height * 0.95 else {
+            // Already as big as the screen
+            print("[device-run] the app already fills the screen")
+            return
+        }
+        // The window's controls (iPadOS's three dots at its top left): open them, then Fill
+        let controlsLabel = NSPredicate(format: "label CONTAINS[c] 'window' OR label CONTAINS[c] 'fill' OR label CONTAINS[c] 'full screen' OR label CONTAINS[c] 'zoom' OR label CONTAINS[c] 'maximi'")
+        for source in [app!, springboard] {
+            for button in source.buttons.matching(controlsLabel).allElementsBoundByIndex {
+                print("[device-run] control \(button.label) \(button.identifier) \(button.frame)")
+            }
+        }
+        app.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(dx: 42, dy: 17)).tap()
+        sleep(1)
+        for source in [app!, springboard] {
+            for button in source.buttons.matching(controlsLabel).allElementsBoundByIndex {
+                print("[device-run] control after tap \(button.label) \(button.identifier) \(button.frame)")
+            }
+        }
+        shot("window controls")
+        let fill = [app!, springboard].lazy.map { $0.buttons.matching(NSPredicate(format: "identifier == 'Zoom-button' OR label CONTAINS[c] 'fill' OR label CONTAINS[c] 'full screen'")).firstMatch }
+            .first { $0.exists }
+        if let fill {
+            print("[device-run] tapping \(fill.label)")
+            fill.tap()
+            sleep(1)
+            let filled = app.windows.allElementsBoundByIndex.map(\.frame).max { $0.width * $0.height < $1.width * $1.height } ?? .zero
+            print("[device-run] window after Fill: \(filled)")
+            shot("after fill")
+            return
+        }
+        func point(_ x: CGFloat, _ y: CGFloat) -> XCUICoordinate {
+            springboard.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(dx: x, dy: y))
+        }
+        // The window's top bar, then its bottom-right resize corner
+        point(window.midX, window.minY + 12).press(forDuration: 0.4, thenDragTo: point(window.width / 2 + 2, 12))
+        sleep(1)
+        let moved = app.windows.allElementsBoundByIndex.map(\.frame).max { $0.width * $0.height < $1.width * $1.height } ?? .zero
+        // The screen's size comes as the panel is mounted (portrait); the window's in the app's terms
+        let wide = CGSize(width: max(screen.width, screen.height), height: min(screen.width, screen.height))
+        let target = window.width > window.height ? wide : CGSize(width: wide.height, height: wide.width)
+        point(moved.maxX - 6, moved.maxY - 6).press(forDuration: 0.4, thenDragTo: point(target.width - 1, target.height - 1))
+        sleep(1)
+        let after = app.windows.allElementsBoundByIndex.map(\.frame).max { $0.width * $0.height < $1.width * $1.height } ?? .zero
+        print("[device-run] window after: \(after)")
+        shot("fill the screen")
+    }
+
     // MARK: Helpers
 
     private func tap(_ identifier: String) {
