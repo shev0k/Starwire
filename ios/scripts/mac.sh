@@ -18,6 +18,7 @@
 #                                           TEST_RUNNER_STARWIRE_VAR. The [device-run] lines and the
 #                                           summary come back to build/mac/<label>.txt
 #   ios/scripts/mac.sh unit                 the app's unit tests on a simulator
+#   ios/scripts/mac.sh ci                   every check GitHub's iOS workflow runs, on the Mac
 #   ios/scripts/mac.sh snapshots [record]   the screens' snapshot tests on an iPhone and an iPad
 #                                           simulator; "record" writes new pictures
 #   ios/scripts/mac.sh log [seconds] [args] start the app with its console log for N seconds (20),
@@ -221,6 +222,45 @@ echo "test $label, exit $(cat build/runs/$label.done)"
 grep -E "\[device-run\]|^ *(Video stream|Network:|Pacing|Shown for|Frames dropped|Average network|Decode time|Frame queue)|error:|Test Case .*(passed|failed|skipped)|\*\* TEST" "build/runs/$label.log" || true
 ' "$label" | tee "$OUT/$label.txt"
     exit "$done_status"
+    ;;
+
+ci)
+    # The same checks as .github/workflows/ios.yml, on the Mac, so GitHub's runners are only
+    # needed at the end of a batch. Each step's log is in build/ci/ on the Mac; a summary line per
+    # step comes back. It doesn't stop at the first failure, so one run shows everything.
+    remote '
+mkdir -p build/ci
+log=$PWD/build/ci
+results=""
+step() {
+    local name=$1
+    shift
+    if (set -o pipefail; "$@" > "$log/$name.log" 2>&1); then
+        results+="$name: passed"$'"'"'\n'"'"'
+    else
+        results+="$name: FAILED (build/ci/$name.log)"$'"'"'\n'"'"'
+        grep -E "error:|failed \(|\*\* .* FAILED" "$log/$name.log" | sort -u | head -15
+    fi
+}
+cd ios
+step generate xcodegen generate --spec project.yml
+step build-debug caffeinate -i xcodebuild -project Starwire.xcodeproj -scheme Starwire -configuration Debug \
+    -destination "generic/platform=iOS Simulator" -derivedDataPath ../build/ci/DerivedData CODE_SIGNING_ALLOWED=NO build
+step build-release caffeinate -i xcodebuild -project Starwire.xcodeproj -scheme Starwire -configuration Release \
+    -destination "generic/platform=iOS Simulator" -derivedDataPath ../build/ci/DerivedData CODE_SIGNING_ALLOWED=NO build
+udid=$(xcrun simctl list devices available | grep -E "iPad Pro" | head -1 | grep -Eo "[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}")
+step unit-tests caffeinate -i xcodebuild -project Starwire.xcodeproj -scheme Starwire -configuration Debug \
+    -destination "id=$udid" -derivedDataPath ../build/ci/DerivedDataTests -collect-test-diagnostics never CODE_SIGN_IDENTITY=- test
+step build-device-run caffeinate -i xcodebuild -project Starwire.xcodeproj -scheme StarwireDeviceRun -configuration Release \
+    -destination "generic/platform=iOS Simulator" -derivedDataPath ../build/ci/DerivedData CODE_SIGNING_ALLOWED=NO build-for-testing
+cd ..
+step script-tests python3 -m unittest discover -s ios/scripts/tests
+step string-catalog python3 ios/scripts/strings-to-xcstrings.py --check
+step starwirekit caffeinate -i swift test --package-path ios/StarwireKit --scratch-path build/ci/kit
+grep -hE "Executed [0-9]+ tests" "$log/unit-tests.log" "$log/starwirekit.log" | tail -2
+printf "%s" "$results"
+! printf "%s" "$results" | grep -q FAILED
+'
     ;;
 
 unit)
