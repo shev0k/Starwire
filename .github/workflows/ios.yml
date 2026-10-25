@@ -67,9 +67,11 @@ jobs:
         working-directory: ios
         run: |
           set -o pipefail
+          # Signed ad hoc like the unit tests below, which reuse this build: different signing
+          # settings would leave them a stale precompiled header
           xcodebuild -project Starwire.xcodeproj -scheme Starwire -configuration Debug \
             -destination 'generic/platform=iOS Simulator' -derivedDataPath ../build/DerivedData \
-            CODE_SIGNING_ALLOWED=NO build 2>&1 | tee ../logs/build-debug.log
+            CODE_SIGN_IDENTITY=- build 2>&1 | tee ../logs/build-debug.log
 
       - name: Build for the simulator (Release)
         working-directory: ios
