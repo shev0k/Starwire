@@ -38,16 +38,32 @@ NS_ASSUME_NONNULL_BEGIN
 
 @end
 
-// moonlight-common-c's input calls. They do nothing without a stream.
+// moonlight-common-c's input calls, one for each InputEvent case in StarwireKit. They do nothing
+// without a stream. Values are passed through as the library takes them.
 @interface StarwireInputFacade : NSObject
 
 + (void)mouseMoveX:(short)dx y:(short)dy;
++ (void)mousePositionX:(short)x y:(short)y width:(short)width height:(short)height;
++ (void)mouseMoveAsPositionX:(short)dx y:(short)dy width:(short)width height:(short)height;
 // button: 1 left, 2 middle, 3 right, 4 back, 5 forward
 + (void)mouseButton:(int)button down:(BOOL)down;
+// 120 per notch
 + (void)scroll:(short)amount;
-+ (void)key:(short)code down:(BOOL)down modifiers:(char)modifiers;
-// phase: 0 down, 1 move, 2 up, 3 cancel. x and y from 0 to 1 across the video.
-+ (void)touchID:(uint32_t)pointerID phase:(int)phase x:(float)x y:(float)y;
++ (void)hScroll:(short)amount;
++ (void)key:(short)code down:(BOOL)down modifiers:(char)modifiers flags:(char)flags;
++ (void)text:(NSString *)text;
+// type: LI_TOUCH_EVENT_*. x and y from 0 to 1 across the video.
++ (void)touchType:(uint8_t)type pointerID:(uint32_t)pointerID x:(float)x y:(float)y pressure:(float)pressure
+     contactMajor:(float)contactMajor contactMinor:(float)contactMinor rotation:(uint16_t)rotation;
++ (void)penType:(uint8_t)type tool:(uint8_t)tool buttons:(uint8_t)buttons x:(float)x y:(float)y pressure:(float)pressure
+       rotation:(uint16_t)rotation tilt:(uint8_t)tilt;
++ (void)controller:(short)number activeMask:(short)activeMask buttons:(int)buttons leftTrigger:(unsigned char)leftTrigger
+      rightTrigger:(unsigned char)rightTrigger leftX:(short)leftX leftY:(short)leftY rightX:(short)rightX rightY:(short)rightY;
++ (void)controllerArrival:(uint8_t)number activeMask:(uint16_t)activeMask type:(uint8_t)type buttons:(uint32_t)buttons
+             capabilities:(uint16_t)capabilities;
++ (void)controllerMotion:(uint8_t)number sensor:(uint8_t)sensor x:(float)x y:(float)y z:(float)z;
++ (void)controllerBattery:(uint8_t)number state:(uint8_t)state percent:(uint8_t)percent;
++ (void)controllerTouch:(uint8_t)number type:(uint8_t)type pointerID:(uint32_t)pointerID x:(float)x y:(float)y pressure:(float)pressure;
 
 @end
 

@@ -146,6 +146,14 @@
     LiSendMouseMoveEvent(dx, dy);
 }
 
++ (void)mousePositionX:(short)x y:(short)y width:(short)width height:(short)height {
+    LiSendMousePositionEvent(x, y, width, height);
+}
+
++ (void)mouseMoveAsPositionX:(short)dx y:(short)dy width:(short)width height:(short)height {
+    LiSendMouseMoveAsMousePositionEvent(dx, dy, width, height);
+}
+
 + (void)mouseButton:(int)button down:(BOOL)down {
     LiSendMouseButtonEvent(down ? BUTTON_ACTION_PRESS : BUTTON_ACTION_RELEASE, button);
 }
@@ -154,16 +162,51 @@
     LiSendHighResScrollEvent(amount);
 }
 
-+ (void)key:(short)code down:(BOOL)down modifiers:(char)modifiers {
-    LiSendKeyboardEvent(code, down ? KEY_ACTION_DOWN : KEY_ACTION_UP, modifiers);
++ (void)hScroll:(short)amount {
+    LiSendHighResHScrollEvent(amount);
 }
 
-+ (void)touchID:(uint32_t)pointerID phase:(int)phase x:(float)x y:(float)y {
-    static const uint8_t types[] = { LI_TOUCH_EVENT_DOWN, LI_TOUCH_EVENT_MOVE, LI_TOUCH_EVENT_UP, LI_TOUCH_EVENT_CANCEL };
-    if (phase < 0 || phase > 3) {
-        return;
++ (void)key:(short)code down:(BOOL)down modifiers:(char)modifiers flags:(char)flags {
+    LiSendKeyboardEvent2(code, down ? KEY_ACTION_DOWN : KEY_ACTION_UP, modifiers, flags);
+}
+
++ (void)text:(NSString *)text {
+    const char *utf8 = text.UTF8String;
+    if (utf8 != NULL && utf8[0] != 0) {
+        LiSendUtf8TextEvent(utf8, (unsigned int)strlen(utf8));
     }
-    LiSendTouchEvent(types[phase], pointerID, x, y, 0, 0, 0, LI_ROT_UNKNOWN);
+}
+
++ (void)touchType:(uint8_t)type pointerID:(uint32_t)pointerID x:(float)x y:(float)y pressure:(float)pressure
+     contactMajor:(float)contactMajor contactMinor:(float)contactMinor rotation:(uint16_t)rotation {
+    LiSendTouchEvent(type, pointerID, x, y, pressure, contactMajor, contactMinor, rotation);
+}
+
++ (void)penType:(uint8_t)type tool:(uint8_t)tool buttons:(uint8_t)buttons x:(float)x y:(float)y pressure:(float)pressure
+       rotation:(uint16_t)rotation tilt:(uint8_t)tilt {
+    LiSendPenEvent(type, tool, buttons, x, y, pressure, 0, 0, rotation, tilt);
+}
+
++ (void)controller:(short)number activeMask:(short)activeMask buttons:(int)buttons leftTrigger:(unsigned char)leftTrigger
+      rightTrigger:(unsigned char)rightTrigger leftX:(short)leftX leftY:(short)leftY rightX:(short)rightX rightY:(short)rightY {
+    LiSendMultiControllerEvent(number, activeMask, buttons, leftTrigger, rightTrigger, leftX, leftY, rightX, rightY);
+}
+
++ (void)controllerArrival:(uint8_t)number activeMask:(uint16_t)activeMask type:(uint8_t)type buttons:(uint32_t)buttons
+             capabilities:(uint16_t)capabilities {
+    LiSendControllerArrivalEvent(number, activeMask, type, buttons, capabilities);
+}
+
++ (void)controllerMotion:(uint8_t)number sensor:(uint8_t)sensor x:(float)x y:(float)y z:(float)z {
+    LiSendControllerMotionEvent(number, sensor, x, y, z);
+}
+
++ (void)controllerBattery:(uint8_t)number state:(uint8_t)state percent:(uint8_t)percent {
+    LiSendControllerBatteryEvent(number, state, percent);
+}
+
++ (void)controllerTouch:(uint8_t)number type:(uint8_t)type pointerID:(uint32_t)pointerID x:(float)x y:(float)y pressure:(float)pressure {
+    LiSendControllerTouchEvent(number, type, pointerID, x, y, pressure);
 }
 
 @end

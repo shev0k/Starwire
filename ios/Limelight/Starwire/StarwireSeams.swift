@@ -66,21 +66,55 @@ final class LiveStreamSession: StreamSession {
     }
 }
 
-/// Input to the PC through moonlight-common-c.
+/// Input to the PC through moonlight-common-c: each InputEvent is one library call.
 final class LiveInputSink: InputSink {
     func send(_ event: InputEvent) {
         switch event {
         case .mouseMove(let dx, let dy):
             StarwireInputFacade.mouseMoveX(Int16(clamping: dx), y: Int16(clamping: dy))
+        case .mousePosition(let x, let y, let width, let height):
+            StarwireInputFacade.mousePositionX(Int16(clamping: x), y: Int16(clamping: y), width: Int16(clamping: width),
+                                               height: Int16(clamping: height))
+        case .mouseMoveAsPosition(let dx, let dy, let width, let height):
+            StarwireInputFacade.mouseMoveAsPositionX(Int16(clamping: dx), y: Int16(clamping: dy), width: Int16(clamping: width),
+                                                     height: Int16(clamping: height))
         case .mouseButton(let button, let down):
             StarwireInputFacade.mouseButton(Int32(button), down: down)
         case .scroll(let amount):
             StarwireInputFacade.scroll(Int16(clamping: amount))
-        case .key(let code, let down, let modifiers):
-            StarwireInputFacade.key(Int16(clamping: code), down: down, modifiers: CChar(truncatingIfNeeded: modifiers))
-        case .touch(let id, let phase, let x, let y):
-            let phases: [TouchPhase: Int32] = [.down: 0, .move: 1, .up: 2, .cancel: 3]
-            StarwireInputFacade.touchID(UInt32(truncatingIfNeeded: id), phase: phases[phase] ?? 3, x: Float(x), y: Float(y))
+        case .hScroll(let amount):
+            StarwireInputFacade.hScroll(Int16(clamping: amount))
+        case .key(let code, let down, let modifiers, let flags):
+            StarwireInputFacade.key(Int16(clamping: code), down: down, modifiers: CChar(truncatingIfNeeded: modifiers),
+                                    flags: CChar(truncatingIfNeeded: flags))
+        case .text(let text):
+            StarwireInputFacade.text(text)
+        case .touch(let id, let phase, let x, let y, let pressure, let major, let minor, let rotation):
+            StarwireInputFacade.touchType(UInt8(phase.rawValue), pointerID: UInt32(truncatingIfNeeded: id), x: Float(x), y: Float(y),
+                                          pressure: Float(pressure), contactMajor: Float(major), contactMinor: Float(minor),
+                                          rotation: UInt16(truncatingIfNeeded: rotation))
+        case .pen(let phase, let tool, let buttons, let x, let y, let pressure, let rotation, let tilt):
+            StarwireInputFacade.penType(UInt8(phase.rawValue), tool: UInt8(tool.rawValue), buttons: UInt8(truncatingIfNeeded: buttons),
+                                        x: Float(x), y: Float(y), pressure: Float(pressure),
+                                        rotation: UInt16(truncatingIfNeeded: rotation), tilt: UInt8(truncatingIfNeeded: tilt))
+        case .controller(let state):
+            StarwireInputFacade.controller(Int16(truncatingIfNeeded: state.number), activeMask: Int16(truncatingIfNeeded: state.activeMask),
+                                           buttons: Int32(truncatingIfNeeded: state.buttons),
+                                           leftTrigger: UInt8(clamping: state.leftTrigger), rightTrigger: UInt8(clamping: state.rightTrigger),
+                                           leftX: Int16(clamping: state.leftX), leftY: Int16(clamping: state.leftY),
+                                           rightX: Int16(clamping: state.rightX), rightY: Int16(clamping: state.rightY))
+        case .controllerArrival(let number, let mask, let type, let buttons, let capabilities):
+            StarwireInputFacade.controllerArrival(UInt8(truncatingIfNeeded: number), activeMask: UInt16(truncatingIfNeeded: mask),
+                                                  type: UInt8(type.rawValue), buttons: UInt32(truncatingIfNeeded: buttons),
+                                                  capabilities: UInt16(truncatingIfNeeded: capabilities))
+        case .controllerMotion(let number, let sensor, let x, let y, let z):
+            StarwireInputFacade.controllerMotion(UInt8(truncatingIfNeeded: number), sensor: UInt8(sensor.rawValue), x: x, y: y, z: z)
+        case .controllerBattery(let number, let state, let percent):
+            StarwireInputFacade.controllerBattery(UInt8(truncatingIfNeeded: number), state: UInt8(state.rawValue),
+                                                  percent: UInt8(clamping: percent))
+        case .controllerTouch(let number, let phase, let id, let x, let y, let pressure):
+            StarwireInputFacade.controllerTouch(UInt8(truncatingIfNeeded: number), type: UInt8(phase.rawValue),
+                                                pointerID: UInt32(truncatingIfNeeded: id), x: Float(x), y: Float(y), pressure: Float(pressure))
         }
     }
 }

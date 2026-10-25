@@ -116,18 +116,140 @@ public protocol InputSink: AnyObject {
     func send(_ event: InputEvent)
 }
 
+/// One input call to moonlight-common-c. Each case is one `LiSend...` function, with its
+/// values as the library takes them, so a recording sink shows the exact packets a gesture makes.
 public enum InputEvent: Equatable, Sendable {
+    /// `LiSendMouseMoveEvent`
     case mouseMove(dx: Int, dy: Int)
-    /// Buttons: 1 left, 2 middle, 3 right, 4 back, 5 forward (moonlight-common-c's numbers).
+    /// `LiSendMousePositionEvent`: a point in a `width` x `height` reference area (the video)
+    case mousePosition(x: Int, y: Int, width: Int, height: Int)
+    /// `LiSendMouseMoveAsMousePositionEvent`: a relative move sent as an absolute position, for
+    /// remote desktop mouse mode
+    case mouseMoveAsPosition(dx: Int, dy: Int, width: Int, height: Int)
+    /// `LiSendMouseButtonEvent`. Buttons: 1 left, 2 middle, 3 right, 4 back, 5 forward.
     case mouseButton(button: Int, down: Bool)
+    /// `LiSendHighResScrollEvent`: 120 is one wheel notch, positive scrolls up
     case scroll(amount: Int)
-    /// A Windows virtual-key code, with moonlight-common-c's modifier flags.
-    case key(code: Int, down: Bool, modifiers: Int)
-    case touch(id: Int, phase: TouchPhase, x: Double, y: Double)
+    /// `LiSendHighResHScrollEvent`: 120 is one notch, positive scrolls right
+    case hScroll(amount: Int)
+    /// `LiSendKeyboardEvent2`: a Windows virtual-key code, `KeyModifier` flags, and
+    /// `KeyFlags` (non-normalized for keys typed on a layout the host may not share)
+    case key(code: Int, down: Bool, modifiers: Int, flags: Int = 0)
+    /// `LiSendUtf8TextEvent`
+    case text(String)
+    /// `LiSendTouchEvent`. x and y from 0 to 1 across the video. `pressure` is pressure for a
+    /// touch and distance for a hover; contact sizes are fractions of the video; rotation in
+    /// degrees, or `InputEvent.unknownRotation`.
+    case touch(id: Int, phase: TouchPhase, x: Double, y: Double, pressure: Double = 0,
+               contactMajor: Double = 0, contactMinor: Double = 0, rotation: Int = 0xFFFF)
+    /// `LiSendPenEvent`. Tilt 0 (upright) to 90, or `InputEvent.unknownTilt`.
+    case pen(phase: TouchPhase, tool: PenTool, buttons: Int, x: Double, y: Double, pressure: Double,
+             rotation: Int, tilt: Int)
+    /// `LiSendMultiControllerEvent`
+    case controller(ControllerState)
+    /// `LiSendControllerArrivalEvent`
+    case controllerArrival(number: Int, activeMask: Int, type: ControllerType, buttons: Int, capabilities: Int)
+    /// `LiSendControllerMotionEvent`: accelerometer in m/s², gyro in degrees per second
+    case controllerMotion(number: Int, sensor: MotionSensor, x: Float, y: Float, z: Float)
+    /// `LiSendControllerBatteryEvent`. Percent 0 to 100, or 255 when unknown.
+    case controllerBattery(number: Int, state: BatteryState, percent: Int)
+    /// `LiSendControllerTouchEvent`: the controller's touchpad, x and y from 0 to 1
+    case controllerTouch(number: Int, phase: TouchPhase, id: Int, x: Double, y: Double, pressure: Double)
+
+    public static let unknownRotation = 0xFFFF
+    public static let unknownTilt = 0xFF
 }
 
-public enum TouchPhase: String, Equatable, Sendable {
-    case down, move, up, cancel
+/// moonlight-common-c's `LI_TOUCH_EVENT_*` values.
+public enum TouchPhase: Int, Equatable, Sendable {
+    case hover = 0, down = 1, up = 2, move = 3, cancel = 4, buttonOnly = 5, hoverLeave = 6, cancelAll = 7
+}
+
+/// `LI_TOOL_TYPE_*`
+public enum PenTool: Int, Equatable, Sendable {
+    case unknown = 0, pen = 1, eraser = 2
+}
+
+/// `MODIFIER_*` flags for key events.
+public enum KeyModifier {
+    public static let shift = 0x01
+    public static let ctrl = 0x02
+    public static let alt = 0x04
+    public static let meta = 0x08
+}
+
+/// `SS_KBE_FLAG_*` flags for key events.
+public enum KeyFlags {
+    public static let nonNormalized = 0x01
+}
+
+/// `LI_CTYPE_*`
+public enum ControllerType: Int, Equatable, Sendable {
+    case unknown = 0, xbox = 1, playStation = 2, nintendo = 3
+}
+
+/// `LI_MOTION_TYPE_*`
+public enum MotionSensor: Int, Equatable, Sendable {
+    case accelerometer = 1, gyroscope = 2
+}
+
+/// `LI_BATTERY_STATE_*`
+public enum BatteryState: Int, Equatable, Sendable {
+    case unknown = 0, notPresent = 1, discharging = 2, charging = 3, notCharging = 4, full = 5
+}
+
+/// One gamepad's whole state, as `LiSendMultiControllerEvent` sends it. Sticks run from -32768 to
+/// 32767 with up positive; triggers from 0 to 255.
+public struct ControllerState: Equatable, Sendable {
+    public var number: Int
+    /// Bit n set for each controller n that is connected
+    public var activeMask: Int
+    /// `GamepadButton` flags
+    public var buttons: Int
+    public var leftTrigger: Int
+    public var rightTrigger: Int
+    public var leftX: Int
+    public var leftY: Int
+    public var rightX: Int
+    public var rightY: Int
+
+    public init(number: Int = 0, activeMask: Int = 1, buttons: Int = 0, leftTrigger: Int = 0, rightTrigger: Int = 0,
+                leftX: Int = 0, leftY: Int = 0, rightX: Int = 0, rightY: Int = 0) {
+        self.number = number
+        self.activeMask = activeMask
+        self.buttons = buttons
+        self.leftTrigger = leftTrigger
+        self.rightTrigger = rightTrigger
+        self.leftX = leftX
+        self.leftY = leftY
+        self.rightX = rightX
+        self.rightY = rightY
+    }
+}
+
+/// moonlight-common-c's button flags for `ControllerState.buttons`.
+public enum GamepadButton {
+    public static let up = 0x0001
+    public static let down = 0x0002
+    public static let left = 0x0004
+    public static let right = 0x0008
+    public static let start = 0x0010
+    public static let back = 0x0020
+    public static let leftStick = 0x0040
+    public static let rightStick = 0x0080
+    public static let leftBumper = 0x0100
+    public static let rightBumper = 0x0200
+    public static let guide = 0x0400
+    public static let a = 0x1000
+    public static let b = 0x2000
+    public static let x = 0x4000
+    public static let y = 0x8000
+    public static let paddle1 = 0x010000
+    public static let paddle2 = 0x020000
+    public static let paddle3 = 0x040000
+    public static let paddle4 = 0x080000
+    public static let touchpad = 0x100000
+    public static let misc = 0x200000
 }
 
 /// A decoded frame. Real frames are pixel buffers inside `payload`; the demo makes plain BGRA.
