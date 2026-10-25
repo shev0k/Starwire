@@ -186,7 +186,7 @@ struct PanelView: View {
                 .background(Color.white.opacity(button.role == .cancel ? 0.06 : 0.14), in: RoundedRectangle(cornerRadius: 12))
         }
         .buttonStyle(.plain)
-        .accessibilityIdentifier(button.identifier ?? button.title)
+        .accessibilityIdentifier(button.identifier ?? "panel-" + button.title)
         .controllerFocusable("panel-\(button.id)", cornerRadius: 12) {
             state.dismissPanel()
             button.action()

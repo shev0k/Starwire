@@ -57,7 +57,7 @@ final class AppScreensDeviceRunTests: XCTestCase {
         let tile = app.descendants(matching: .any).matching(NSPredicate(format: "identifier BEGINSWITH %@", "tile-")).firstMatch
         XCTAssertTrue(tile.waitForExistence(timeout: 10), "no tiles")
         tile.press(forDuration: 0.8)
-        let gameSettings = app.buttons["Settings for this game"]
+        let gameSettings = app.buttons["panel-Settings for this game"]
         XCTAssertTrue(gameSettings.waitForExistence(timeout: 5), "the app menu didn't open")
         shot("app menu (\(label))")
         audit("app menu")
@@ -112,7 +112,7 @@ final class AppScreensDeviceRunTests: XCTestCase {
         XCTAssertTrue(app.buttons["pcs-add-confirm"].waitForExistence(timeout: 5), "the add panel didn't open")
         shot("add a PC (\(label))")
         audit("add a PC")
-        app.buttons["Cancel"].tap()
+        app.buttons["panel-Cancel"].tap()
 
         record("audit findings (\(label)): \(auditFindings.count)\n" + auditFindings.joined(separator: "\n"))
     }

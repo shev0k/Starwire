@@ -295,7 +295,7 @@ final class StreamDeviceRunTests: XCTestCase {
         let tile = appTile
         XCTAssertTrue(tile.waitForExistence(timeout: 30), "no \"\(appName)\" tile")
         tile.tap()
-        let quit = app.buttons["Quit Session"]
+        let quit = app.buttons["panel-Quit Session"]
         if quit.waitForExistence(timeout: 3) {
             record("quitting \(appName) on the PC first")
             quit.tap()
@@ -364,8 +364,8 @@ final class StreamDeviceRunTests: XCTestCase {
         tile.tap()
 
         // When an app is already running on the PC, the app's panel asks first (GameScreenView)
-        let resume = app.buttons["Resume Session"]
-        let quitOther = app.buttons["Quit Current Game and Start"]
+        let resume = app.buttons["panel-Resume Session"]
+        let quitOther = app.buttons["panel-Quit Current Game and Start"]
         if quitOther.waitForExistence(timeout: 3) {
             let running = app.staticTexts.matching(NSPredicate(format: "label ENDSWITH %@", " is running on the PC.")).firstMatch.label
             let name = running.replacingOccurrences(of: " is running on the PC.", with: "")
@@ -375,7 +375,7 @@ final class StreamDeviceRunTests: XCTestCase {
         } else if resume.exists {
             if env["STARWIRE_FRESH"] == "1" {
                 record("quitting \(appName) on the PC for a fresh start")
-                app.buttons["Quit Session"].tap()
+                app.buttons["panel-Quit Session"].tap()
                 XCTAssertTrue(tile.waitForExistence(timeout: 30), "the app list didn't come back after quitting")
                 sleep(3)
                 tile.tap()
