@@ -12,6 +12,7 @@
 #import "OnScreenControls.h"
 
 #import "DataManager.h"
+#import "Moonlight-Swift.h"
 #include "Limelight.h"
 
 @import GameController;
@@ -63,6 +64,12 @@ static const double MOUSE_SPEED_DIVISOR = 1.25;
     if (controller == nil && controllerNumber == 0 && _oscEnabled) {
         // TODO: Rumble emulation for OSC
     }
+    if (controller == nil || controller.gamepad.haptics == nil) {
+        // No controller that can rumble: the device may vibrate instead, if that's on
+        if (controllerNumber == 0) {
+            [StarwireGamepads.shared vibrationFallbackWithLowFrequency:lowFreqMotor highFrequency:highFreqMotor];
+        }
+    }
     if (controller == nil) {
         // No connected controller for this player
         return;
@@ -97,7 +104,10 @@ static const double MOUSE_SPEED_DIVISOR = 1.25;
         }
         
         if (controller.gamepad.motion == nil) {
-            // No motion supported for this controller
+            // No motion sensors on this controller: the device's may stand in for them
+            if ([StarwireGamepads.shared usesMotionFallbackWithNumber:controllerNumber controllerHasMotion:NO]) {
+                [StarwireGamepads.shared setMotionFallbackWithNumber:controllerNumber sensor:motionType rateHz:reportRateHz];
+            }
             return;
         }
         
@@ -357,10 +367,13 @@ static const double MOUSE_SPEED_DIVISOR = 1.25;
                 rightStickY = MAX_MAGNITUDE(rightStickY, controller.mergedWithController.lastRightStickY);
             }
             
-            // Player 1 is always present for OSC
-            LiSendMultiControllerEvent(_multiController ? controller.playerIndex : 0, [self getActiveGamepadMask],
-                                       buttonFlags, leftTrigger, rightTrigger,
-                                       leftStickX, leftStickY, rightStickX, rightStickY);
+            // Player 1 is always present for OSC. Starwire's deadzone, flipped buttons, mouse
+            // emulation and the hold-to-open menu sit in between (StarwireGamepads.swift).
+            [StarwireGamepads.shared sendWithNumber:_multiController ? controller.playerIndex : 0
+                                         activeMask:[self getActiveGamepadMask]
+                                            buttons:buttonFlags
+                                        leftTrigger:leftTrigger rightTrigger:rightTrigger
+                                              leftX:leftStickX leftY:leftStickY rightX:rightStickX rightY:rightStickY];
         }
     }
     [_controllerStreamLock unlock];
@@ -576,6 +589,11 @@ static const double MOUSE_SPEED_DIVISOR = 1.25;
             if (@available(iOS 14.5, tvOS 14.5, *)) {
                 if ([controller.extendedGamepad isKindOfClass:[GCDualSenseGamepad class]]) {
                     type = LI_CTYPE_PS;
+                    // Vibeshine's DualSense haptics (0x5601, LI_CCAP_HAPTICS_PCM in ControllerHaptics.h),
+                    // played as Core Haptics by StarwireGamepads
+                    if (controller.haptics != nil) {
+                        capabilities |= 0x8000;
+                    }
                 }
             }
             
@@ -621,6 +639,13 @@ static const double MOUSE_SPEED_DIVISOR = 1.25;
         }
     }
 
+    if (controller) {
+        // Which controller iOS says this is (the hands-on checks look for the FlyDigi Apex 5's mode)
+        Log(LOG_I, @"Controller %d: %@, category %@, profile %@, type %d, buttons 0x%x, capabilities 0x%x",
+            controller.playerIndex, controller.vendorName, controller.productCategory,
+            NSStringFromClass([controller.extendedGamepad class]), type, supportedButtonFlags, capabilities);
+    }
+
     // Report the new controller to the host
     // NB: This will fail if the connection hasn't been fully established yet
     // and we will try again later.
@@ -647,6 +672,26 @@ static const double MOUSE_SPEED_DIVISOR = 1.25;
     // This magic is courtesy of SDL
     float normalizedX = (1.0f + touch.xAxis.value) * 0.5f;
     float normalizedY = 1.0f - (1.0f + touch.yAxis.value) * 0.5f;
+
+    // "Always control mouse with touchpad": the finger moves the PC's mouse instead
+    if (StarwireGamepads.shared.touchpadAsMouse) {
+        int phase = -1;
+        if ((context.lastX || context.lastY) && (!touch.xAxis.value && !touch.yAxis.value)) {
+            phase = LI_TOUCH_EVENT_UP;
+        } else if (touch.xAxis.value || touch.yAxis.value) {
+            phase = (!context.lastX && !context.lastY) ? LI_TOUCH_EVENT_DOWN : LI_TOUCH_EVENT_MOVE;
+        }
+        if (phase >= 0) {
+            [StarwireGamepads.shared touchpadWithNumber:controller.playerIndex finger:index phase:phase x:normalizedX y:normalizedY];
+        }
+        controller_touch_context_t updated = { touch.xAxis.value, touch.yAxis.value };
+        if (index == 0) {
+            controller.primaryTouch = updated;
+        } else {
+            controller.secondaryTouch = updated;
+        }
+        return;
+    }
     
     // If we went from a touch to no touch, generate a touch up event
     if ((context.lastX || context.lastY) && (!touch.xAxis.value && !touch.yAxis.value)) {
@@ -875,7 +920,8 @@ static const double MOUSE_SPEED_DIVISOR = 1.25;
         LiSendMouseButtonEvent(pressed ? BUTTON_ACTION_PRESS : BUTTON_ACTION_RELEASE, BUTTON_RIGHT);
     };
     
-    if (mouse.mouseInput.auxiliaryButtons != nil) {
+    // Back and forward reach the PC only with "Enable back and forward mouse buttons" on, as on Android
+    if (mouse.mouseInput.auxiliaryButtons != nil && [StarwireGamepads.shared mouseNavigationButtons]) {
         if (mouse.mouseInput.auxiliaryButtons.count >= 1) {
             mouse.mouseInput.auxiliaryButtons[0].pressedChangedHandler = ^(GCControllerButtonInput * _Nonnull button, float value, BOOL pressed) {
                 LiSendMouseButtonEvent(pressed ? BUTTON_ACTION_PRESS : BUTTON_ACTION_RELEASE, BUTTON_X1);
@@ -1084,8 +1130,23 @@ static const double MOUSE_SPEED_DIVISOR = 1.25;
     _controllers = [[NSMutableDictionary alloc] init];
     _controllerNumbers = 0;
     _multiController = streamConfig.multiController;
-    _swapABXYButtons = streamConfig.swapABXYButtons;
+    // Flipping face buttons is Starwire's setting now, applied in StarwireGamepads
+    _swapABXYButtons = NO;
     _delegate = delegate;
+    [StarwireGamepads.shared streamStarted];
+    __weak ControllerSupport *weakSelf = self;
+    StarwireGamepads.shared.controllerForNumber = ^GCController *(NSInteger number) {
+        ControllerSupport *strongSelf = weakSelf;
+        if (strongSelf == nil) {
+            return nil;
+        }
+        for (Controller *candidate in [strongSelf->_controllers allValues]) {
+            if (candidate.playerIndex == number) {
+                return candidate.gamepad;
+            }
+        }
+        return nil;
+    };
 
     _oscController = [[Controller alloc] init];
     _oscController.playerIndex = 0;
@@ -1236,6 +1297,7 @@ static const double MOUSE_SPEED_DIVISOR = 1.25;
 
 -(void) cleanup
 {
+    [StarwireGamepads.shared streamEnded];
     [[NSNotificationCenter defaultCenter] removeObserver:_controllerConnectObserver];
     [[NSNotificationCenter defaultCenter] removeObserver:_controllerDisconnectObserver];
     [[NSNotificationCenter defaultCenter] removeObserver:_mouseConnectObserver];

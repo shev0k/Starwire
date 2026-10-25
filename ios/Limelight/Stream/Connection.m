@@ -14,6 +14,7 @@
 #import "PacingStats.h"
 #import "VideoFormatPolicy.h"
 #import "CoreAudioHelpers.h"
+#import "Moonlight-Swift.h"
 
 #import <VideoToolbox/VideoToolbox.h>
 
@@ -414,6 +415,21 @@ void ClSetControllerLED(uint16_t controllerNumber, uint8_t r, uint8_t g, uint8_t
     [_callbacks setControllerLed:controllerNumber r:r g:g b:b];
 }
 
+// Vibeshine's DualSense haptics (0x5601): 48 kHz stereo PCM for the two grips. On the control
+// thread, so it only copies the samples and hands them on (StarwireGamepads.swift).
+void ClControllerHaptics(uint16_t controllerNumber, uint32_t sequence, const uint8_t* pcm, uint16_t frames)
+{
+    NSData* data = [NSData dataWithBytes:pcm length:(NSUInteger)frames * 4];
+    [StarwireGamepads.shared hapticsPCMWithNumber:controllerNumber sequence:sequence pcm:data];
+}
+
+void ClSetAdaptiveTriggers(uint16_t controllerNumber, uint8_t eventFlags, uint8_t typeLeft, uint8_t typeRight, uint8_t *left, uint8_t *right)
+{
+    [StarwireGamepads.shared adaptiveTriggersWithNumber:controllerNumber flags:eventFlags typeLeft:typeLeft typeRight:typeRight
+                                                   left:[NSData dataWithBytes:left length:DS_EFFECT_PAYLOAD_SIZE]
+                                                  right:[NSData dataWithBytes:right length:DS_EFFECT_PAYLOAD_SIZE]];
+}
+
 -(void) terminate
 {
     // Interrupt any action blocking LiStartConnection(). This is
@@ -569,6 +585,9 @@ void ClSetControllerLED(uint16_t controllerNumber, uint8_t r, uint8_t g, uint8_t
     _clCallbacks.rumbleTriggers = ClRumbleTriggers;
     _clCallbacks.setMotionEventState = ClSetMotionEventState;
     _clCallbacks.setControllerLED = ClSetControllerLED;
+    _clCallbacks.setAdaptiveTriggers = ClSetAdaptiveTriggers;
+    // Setting this also tells the host this client takes the haptics stream (ML_FF_HAPTICS_PCM)
+    _clCallbacks.controllerHaptics = ClControllerHaptics;
 
     return self;
 }

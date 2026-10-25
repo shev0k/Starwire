@@ -83,7 +83,7 @@ steps and the checksums for each version.
   virtual display, or the PC's own monitor), the virtual display's scale, an exact frame rate
   such as 119.88 Hz, a variable refresh rate virtual display, and the name this device gives
   the PC.
-- **iOS: change the bitrate during a stream** from the button in the stream's corner, through
+- **iOS: change the bitrate during a stream** from the stream menu, through
   Vibeshine's `/bitrate`. The PC may lower what you ask for; the app shows what it applied.
 - **iOS: Vibeshine's Remote Input and Remote Monitor tiles** start at once, even with a game
   running, and Terminate and Disconnect Monitor show the PC's question or answer. The PC asks
@@ -97,6 +97,26 @@ steps and the checksums for each version.
 - **iOS: settings in one store with Android's keys,** with per-game settings and a JSON file
   format for moving settings between Starwire for Android and iOS. There's no screen for the
   file yet (phase 3).
+- **iOS: Starwire's touch modes.** Multi-touch, direct touch, natural trackpad, gaming trackpad,
+  swapped clicks and touch disabled, with Android's gestures and timings: long-press right
+  click, two-finger right click and scroll, three-finger tap for the menu, trackpad
+  sensitivity, pinch to zoom anytime and pan and zoom mode. Slow finger movement keeps its
+  fractions. Tried on an iPad 10th generation.
+- **iOS: the stream menu,** a side panel like Android's, opened by the floating menu button
+  (drag it anywhere; it remembers a spot for landscape and one for portrait), a three-finger tap,
+  or holding Select, Start, Guide or LB+RB on a controller. It has every Android tool Vibeshine
+  supports, and the bitrate button moved into it.
+- **iOS: the on-screen controller with a layout editor** (drag, resize, opacity, reset), the
+  full keyboard with sticky modifiers, the system keyboard (text goes to the PC as UTF-8), the 14
+  shortcuts, Task Manager, imported shortcut files, custom commands and monitor switching.
+- **iOS: controller features from Android:** deadzone, flipped face buttons, mouse emulation,
+  analog scrolling and the touchpad as a mouse, plus adaptive triggers, Vibeshine's DualSense
+  haptics played as Core Haptics, the iPad's motion sensors for a controller without them, and
+  vibration for a controller without rumble on an iPhone.
+- **iOS: Apple Pencil pressure curves** (from VoidLink), with tilt and hover. Not tried yet: the
+  iPad used for this batch has no Pencil.
+- **iOS: hide the PC's cursor,** with Android's record of what was hidden, so a crash or a
+  dropped connection can't leave the cursor hidden.
 
 ### Changed
 

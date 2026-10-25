@@ -68,7 +68,11 @@ final class LiveStreamSession: StreamSession {
 
 /// Input to the PC through moonlight-common-c: each InputEvent is one library call.
 final class LiveInputSink: InputSink {
+    /// What this stream has sent, for the statistics overlay's "Input:" line
+    static let tally = InputTally()
+
     func send(_ event: InputEvent) {
+        Self.tally.record(event)
         switch event {
         case .mouseMove(let dx, let dy):
             StarwireInputFacade.mouseMoveX(Int16(clamping: dx), y: Int16(clamping: dy))
@@ -76,8 +80,8 @@ final class LiveInputSink: InputSink {
             StarwireInputFacade.mousePositionX(Int16(clamping: x), y: Int16(clamping: y), width: Int16(clamping: width),
                                                height: Int16(clamping: height))
         case .mouseMoveAsPosition(let dx, let dy, let width, let height):
-            StarwireInputFacade.mouseMoveAsPositionX(Int16(clamping: dx), y: Int16(clamping: dy), width: Int16(clamping: width),
-                                                     height: Int16(clamping: height))
+            StarwireInputFacade.mouseMove(asPositionX: Int16(clamping: dx), y: Int16(clamping: dy), width: Int16(clamping: width),
+                                                   height: Int16(clamping: height))
         case .mouseButton(let button, let down):
             StarwireInputFacade.mouseButton(Int32(button), down: down)
         case .scroll(let amount):

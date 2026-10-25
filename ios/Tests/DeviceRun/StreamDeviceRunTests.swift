@@ -193,17 +193,22 @@ final class StreamDeviceRunTests: XCTestCase {
         sleep(10)
         record("before:\n\(overlay.label)")
         for mbps in steps {
+            // The stream menu's Bitrate tile, opened from the floating menu button
             let button = app.buttons["StreamMenuButton"]
-            XCTAssertTrue(button.waitForExistence(timeout: 10), "no stream menu button")
+            XCTAssertTrue(button.waitForExistence(timeout: 10), "no floating menu button")
             button.tap()
+            let tile = app.buttons["menu_bitrate"]
+            XCTAssertTrue(tile.waitForExistence(timeout: 5), "no Bitrate in the stream menu")
+            tile.tap()
             let choice = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "\(mbps) Mbps")).firstMatch
             XCTAssertTrue(choice.waitForExistence(timeout: 5), "no \(mbps) Mbps in the bitrate menu")
             choice.tap()
-            // The button's value is the bitrate the PC applied
-            let applied = NSPredicate(format: "value == %@", "\(mbps) Mbps")
-            let answered = expectation(for: applied, evaluatedWith: button)
+            // The toast says the bitrate the PC applied
+            let toast = app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", "Bitrate set to")).firstMatch
+            let applied = NSPredicate(format: "label == %@", "Bitrate set to \(mbps) Mbps")
+            let answered = expectation(for: applied, evaluatedWith: toast)
             let result = XCTWaiter.wait(for: [answered], timeout: 10)
-            record("asked \(mbps) Mbps: the PC applied \(button.value as? String ?? "?")")
+            record("asked \(mbps) Mbps: \(toast.exists ? toast.label : "no answer")")
             XCTAssertEqual(result, .completed, "the PC didn't apply \(mbps) Mbps")
             sleep(15)
             record("15 s after \(mbps) Mbps:\n\(overlay.label)")

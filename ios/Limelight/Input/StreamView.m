@@ -77,7 +77,11 @@ static const double X1_MOUSE_SPEED_DIVISOR = 2.5;
     
     onScreenControls = [[OnScreenControls alloc] initWithView:self controllerSup:controllerSupport streamConfig:streamConfig];
     OnScreenControlsLevel level = (OnScreenControlsLevel)[settings.onscreenControls integerValue];
-    if (settings.absoluteTouchMode) {
+    if (_input) {
+        // Starwire's on-screen controller (OnScreenControlsView) replaces moonlight-ios's
+        [onScreenControls setLevel:OnScreenControlsLevelOff];
+    }
+    else if (settings.absoluteTouchMode) {
         Log(LOG_I, @"On-screen controls disabled in absolute touch mode");
         [onScreenControls setLevel:OnScreenControlsLevelOff];
     }
@@ -294,6 +298,20 @@ static const double X1_MOUSE_SPEED_DIVISOR = 2.5;
             return;
     }
 
+    if (_input) {
+        CGFloat distance = 0, altitude = M_PI_2, azimuth = 0;
+#if defined(__IPHONE_16_4)
+        if (@available(iOS 16.4, *)) {
+            distance = gesture.zOffset;
+            altitude = gesture.altitudeAngle;
+            azimuth = [gesture azimuthAngleInView:self];
+        }
+#endif
+        [_input pencilHoverAt:[gesture locationInView:self] distance:distance altitude:altitude azimuth:azimuth
+                        ended:type == LI_TOUCH_EVENT_HOVER_LEAVE];
+        return;
+    }
+
     CGPoint location = [self adjustCoordinatesForVideoArea:[gesture locationInView:self]];
     CGSize videoSize = [self getVideoAreaSize];
     
@@ -331,6 +349,11 @@ static const double X1_MOUSE_SPEED_DIVISOR = 2.5;
     
     // Notify of user interaction and start expiration timer
     [self startInteractionTimer];
+
+    if (_input) {
+        [_input touchesBegan:touches in:self];
+        return;
+    }
     
 #if !TARGET_OS_TV
     if (@available(iOS 13.4, *)) {
@@ -353,41 +376,45 @@ static const double X1_MOUSE_SPEED_DIVISOR = 2.5;
         [_touchHandler touchesBegan:touches withEvent:event];
 
         if ([[event allTouches] count] == 3) {
-            if (isInputingText) {
-                Log(LOG_D, @"Closing the keyboard");
-                [keyInputField resignFirstResponder];
-                isInputingText = false;
-            } else {
-                Log(LOG_D, @"Opening the keyboard");
-                // Prepare the textbox used to capture keyboard events.
-                keyInputField.delegate = self;
-                keyInputField.text = @"0";
-#if !TARGET_OS_TV
-                // Prepare the toolbar above the keyboard for more options
-                UIToolbar *customToolbarView = [[UIToolbar alloc] initWithFrame:CGRectMake(0, 0, self.bounds.size.width, 44)];
-                
-                UIBarButtonItem *doneBarButton = [self createButtonWithImageNamed:@"DoneIcon.png" backgroundColor:[UIColor clearColor] target:self action:@selector(toolbarButtonClicked:) keyCode:0x00 isToggleable:NO];
-                UIBarButtonItem *windowsBarButton = [self createButtonWithImageNamed:@"WindowsIcon.png" backgroundColor:[UIColor blackColor] target:self action:@selector(toolbarButtonClicked:) keyCode:0x5B isToggleable:YES];
-                UIBarButtonItem *tabBarButton = [self createButtonWithImageNamed:@"TabIcon.png" backgroundColor:[UIColor blackColor] target:self action:@selector(toolbarButtonClicked:) keyCode:0x09 isToggleable:NO];
-                UIBarButtonItem *shiftBarButton = [self createButtonWithImageNamed:@"ShiftIcon.png" backgroundColor:[UIColor blackColor] target:self action:@selector(toolbarButtonClicked:) keyCode:0xA0 isToggleable:YES];
-                UIBarButtonItem *escapeBarButton = [self createButtonWithImageNamed:@"EscapeIcon.png" backgroundColor:[UIColor blackColor] target:self action:@selector(toolbarButtonClicked:) keyCode:0x1B isToggleable:NO];
-                UIBarButtonItem *controlBarButton = [self createButtonWithImageNamed:@"ControlIcon.png" backgroundColor:[UIColor blackColor] target:self action:@selector(toolbarButtonClicked:) keyCode:0xA2 isToggleable:YES];
-                UIBarButtonItem *altBarButton = [self createButtonWithImageNamed:@"AltIcon.png" backgroundColor:[UIColor blackColor] target:self action:@selector(toolbarButtonClicked:) keyCode:0xA4 isToggleable:YES];
-                UIBarButtonItem *deleteBarButton = [self createButtonWithImageNamed:@"DeleteIcon.png" backgroundColor:[UIColor blackColor] target:self action:@selector(toolbarButtonClicked:) keyCode:0x2E isToggleable:NO];
-                UIBarButtonItem *flexibleSpace = [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemFlexibleSpace target:nil action:nil];
-                
-                [customToolbarView setItems:[NSArray arrayWithObjects:doneBarButton, windowsBarButton, escapeBarButton, tabBarButton, shiftBarButton, controlBarButton, altBarButton, deleteBarButton, flexibleSpace, nil]];
-                keyInputField.inputAccessoryView = customToolbarView;
-#endif
-                [keyInputField becomeFirstResponder];
-                [keyInputField addTarget:self action:@selector(onKeyboardPressed:) forControlEvents:UIControlEventEditingChanged];
-                
-                // Undo causes issues for our state management, so turn it off
-                [keyInputField.undoManager disableUndoRegistration];
-                
-                isInputingText = true;
-            }
+            [self toggleSystemKeyboard];
         }
+    }
+}
+
+- (void) toggleSystemKeyboard {
+    if (isInputingText) {
+        Log(LOG_D, @"Closing the keyboard");
+        [keyInputField resignFirstResponder];
+        isInputingText = false;
+    } else {
+        Log(LOG_D, @"Opening the keyboard");
+        // Prepare the textbox used to capture keyboard events.
+        keyInputField.delegate = self;
+        keyInputField.text = @"0";
+#if !TARGET_OS_TV
+        // Prepare the toolbar above the keyboard for more options
+        UIToolbar *customToolbarView = [[UIToolbar alloc] initWithFrame:CGRectMake(0, 0, self.bounds.size.width, 44)];
+        
+        UIBarButtonItem *doneBarButton = [self createButtonWithImageNamed:@"DoneIcon.png" backgroundColor:[UIColor clearColor] target:self action:@selector(toolbarButtonClicked:) keyCode:0x00 isToggleable:NO];
+        UIBarButtonItem *windowsBarButton = [self createButtonWithImageNamed:@"WindowsIcon.png" backgroundColor:[UIColor blackColor] target:self action:@selector(toolbarButtonClicked:) keyCode:0x5B isToggleable:YES];
+        UIBarButtonItem *tabBarButton = [self createButtonWithImageNamed:@"TabIcon.png" backgroundColor:[UIColor blackColor] target:self action:@selector(toolbarButtonClicked:) keyCode:0x09 isToggleable:NO];
+        UIBarButtonItem *shiftBarButton = [self createButtonWithImageNamed:@"ShiftIcon.png" backgroundColor:[UIColor blackColor] target:self action:@selector(toolbarButtonClicked:) keyCode:0xA0 isToggleable:YES];
+        UIBarButtonItem *escapeBarButton = [self createButtonWithImageNamed:@"EscapeIcon.png" backgroundColor:[UIColor blackColor] target:self action:@selector(toolbarButtonClicked:) keyCode:0x1B isToggleable:NO];
+        UIBarButtonItem *controlBarButton = [self createButtonWithImageNamed:@"ControlIcon.png" backgroundColor:[UIColor blackColor] target:self action:@selector(toolbarButtonClicked:) keyCode:0xA2 isToggleable:YES];
+        UIBarButtonItem *altBarButton = [self createButtonWithImageNamed:@"AltIcon.png" backgroundColor:[UIColor blackColor] target:self action:@selector(toolbarButtonClicked:) keyCode:0xA4 isToggleable:YES];
+        UIBarButtonItem *deleteBarButton = [self createButtonWithImageNamed:@"DeleteIcon.png" backgroundColor:[UIColor blackColor] target:self action:@selector(toolbarButtonClicked:) keyCode:0x2E isToggleable:NO];
+        UIBarButtonItem *flexibleSpace = [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemFlexibleSpace target:nil action:nil];
+        
+        [customToolbarView setItems:[NSArray arrayWithObjects:doneBarButton, windowsBarButton, escapeBarButton, tabBarButton, shiftBarButton, controlBarButton, altBarButton, deleteBarButton, flexibleSpace, nil]];
+        keyInputField.inputAccessoryView = customToolbarView;
+#endif
+        [keyInputField becomeFirstResponder];
+        [keyInputField addTarget:self action:@selector(onKeyboardPressed:) forControlEvents:UIControlEventEditingChanged];
+        
+        // Undo causes issues for our state management, so turn it off
+        [keyInputField.undoManager disableUndoRegistration];
+        
+        isInputingText = true;
     }
 }
 
@@ -541,6 +568,11 @@ static const double X1_MOUSE_SPEED_DIVISOR = 2.5;
 #endif
     
     hasUserInteracted = YES;
+
+    if (_input) {
+        [_input touchesMoved:touches in:self];
+        return;
+    }
     
     if (![onScreenControls handleTouchMovedEvent:touches]) {
         [_touchHandler touchesMoved:touches withEvent:event];
@@ -596,6 +628,11 @@ static const double X1_MOUSE_SPEED_DIVISOR = 2.5;
     Log(LOG_D, @"Touch up");
     
     hasUserInteracted = YES;
+
+    if (_input) {
+        [_input touchesEnded:touches in:self];
+        return;
+    }
     
 #if !TARGET_OS_TV
     if (@available(iOS 13.4, *)) {
@@ -615,6 +652,11 @@ static const double X1_MOUSE_SPEED_DIVISOR = 2.5;
 }
 
 - (void)touchesCancelled:(NSSet *)touches withEvent:(UIEvent *)event {
+    if (_input) {
+        [_input touchesCancelled:touches in:self];
+        [self handleMouseButtonEvent:BUTTON_ACTION_RELEASE forTouches:touches withEvent:event];
+        return;
+    }
     [_touchHandler touchesCancelled:touches withEvent:event];
     [self handleMouseButtonEvent:BUTTON_ACTION_RELEASE
                       forTouches:touches
@@ -773,6 +815,10 @@ static const double X1_MOUSE_SPEED_DIVISOR = 2.5;
 
 - (BOOL)textFieldShouldReturn:(UITextField *)textField {
     // This method is called when the "Return" key is pressed.
+    if (_input) {
+        [_input systemKeyboardTextWithInserted:@"\n" deleted:0];
+        return NO;
+    }
     LiSendKeyboardEvent(0x0d, KEY_ACTION_DOWN, 0);
     usleep(50 * 1000);
     LiSendKeyboardEvent(0x0d, KEY_ACTION_UP, 0);
@@ -788,6 +834,18 @@ static const double X1_MOUSE_SPEED_DIVISOR = 2.5;
 
 - (void)onKeyboardPressed:(UITextField *)textField {
     NSString* inputText = textField.text;
+    if (_input) {
+        // "0" is the sentinel: an empty field means one character was deleted
+        if (inputText.length == 0) {
+            [_input systemKeyboardTextWithInserted:@"" deleted:1];
+        } else if (inputText.length > 1) {
+            [_input systemKeyboardTextWithInserted:[inputText substringFromIndex:1] deleted:0];
+        }
+        textField.text = @"0";
+        UITextRange *end = [textField textRangeFromPosition:textField.endOfDocument toPosition:textField.endOfDocument];
+        [textField setSelectedTextRange:end];
+        return;
+    }
     dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_HIGH, 0), ^{
         // If the text became empty, we know the user pressed the backspace key.
         if ([inputText isEqual:@""]) {

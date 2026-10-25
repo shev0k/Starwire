@@ -67,6 +67,8 @@ BOOL StreamEndsOnBackground(BOOL pictureInPictureActive);
 - (void)stop;
 // Keeps the layer the size of the view
 - (void)layout;
+// Zooms and pans the picture (pinch to zoom, pan and zoom mode)
+- (void)setVideoTransform:(CGAffineTransform)transform;
 // Removes the layer and the controller. Call before the stream view goes away.
 - (void)invalidate;
 

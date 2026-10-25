@@ -82,6 +82,13 @@ BOOL StreamEndsOnBackground(BOOL pictureInPictureActive) {
     }
 }
 
+- (void)setVideoTransform:(CGAffineTransform)transform {
+    [CATransaction begin];
+    [CATransaction setDisableActions:YES];
+    _layer.affineTransform = transform;
+    [CATransaction commit];
+}
+
 - (void)layout {
     _layer.frame = _view.bounds;
 }

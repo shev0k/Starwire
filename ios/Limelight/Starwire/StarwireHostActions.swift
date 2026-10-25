@@ -66,6 +66,24 @@ final class StarwireHostActions: NSObject {
         }
     }
 
+    // MARK: - Quit
+
+    /// Ends the game on the PC (`/cancel`), for the stream menu's Quit Session. The completion
+    /// gets nil when the PC accepted, or why not.
+    @objc func quitApp(_ completion: @escaping (String?) -> Void) {
+        Task {
+            do {
+                try await host.quit()
+                StarwireLog.info("Quit: the PC ended the game", StarwireLog.network)
+                onMain { completion(nil) }
+            } catch {
+                StarwireLog.warning("Quit: refused: \(error)", StarwireLog.network)
+                let message = Self.message(error)
+                onMain { completion(message) }
+            }
+        }
+    }
+
     // MARK: - What the PC offers this client
 
     /// From the PC's serverinfo: whether it lets this device sleep it, and whether it sends

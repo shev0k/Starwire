@@ -76,8 +76,9 @@
     BOOL _hostSendsMetrics;
     int _bitrateKbps;
 #if !TARGET_OS_TV
-    // Phase 2's stopgap for the stream menu (phase 5): one button that changes the bitrate
-    UIButton *_streamMenuButton;
+    // The stream menu, its floating button, the on-screen controller, the full keyboard and the
+    // touch modes (StarwireStreamControls.swift)
+    StarwireStreamControls *_streamControls;
 #endif
 
 #if TARGET_OS_TV
@@ -202,6 +203,9 @@
 #endif
 
     _streamView = [[StreamView alloc] initWithFrame:self.view.frame];
+#if !TARGET_OS_TV
+    [self setUpStreamControls];
+#endif
     [_streamView setupStreamView:_controllerSupport
              interactionDelegate:self
                           config:self.streamConfig];
@@ -269,8 +273,13 @@
                                                object: nil];
 #endif
     
-    // Only enable scroll and zoom in absolute touch mode
+    // Only enable scroll and zoom in absolute touch mode (moonlight-ios's; Starwire's touch modes
+    // zoom the picture themselves)
+#if !TARGET_OS_TV
+    if (_settings.absoluteTouchMode && _streamControls == nil) {
+#else
     if (_settings.absoluteTouchMode) {
+#endif
         _scrollView = [[UIScrollView alloc] initWithFrame:self.view.frame];
 #if !TARGET_OS_TV
         [_scrollView.panGestureRecognizer setMinimumNumberOfTouches:2];
@@ -377,7 +386,80 @@
 - (void)viewDidLayoutSubviews {
     [super viewDidLayoutSubviews];
     [_pictureInPicture layout];
+#if !TARGET_OS_TV
+    [_streamControls layout];
+#endif
 }
+
+#if !TARGET_OS_TV
+- (void)setUpStreamControls {
+    _streamControls = [[StarwireStreamControls alloc] initWithView:self.view
+                                                       streamWidth:self.streamConfig.width
+                                                      streamHeight:self.streamConfig.height
+                                                               fps:self.streamConfig.frameRate
+                                                           appName:self.streamConfig.appName ?: @""];
+    _streamView.input = _streamControls.input;
+    // The stream menu has the stats switch; a two-finger swipe would take two-finger scrolls
+    _topSwipeRecognizer.enabled = NO;
+
+    __weak StreamFrameViewController *weakSelf = self;
+    _streamControls.input.onVideoTransform = ^(CGAffineTransform transform) {
+        [weakSelf setVideoTransform:transform];
+    };
+    _streamControls.onBitrate = ^{
+        [weakSelf showBitrateMenu:nil];
+    };
+    _streamControls.onToggleStats = ^{
+        StreamFrameViewController *strongSelf = weakSelf;
+        if (strongSelf == nil) {
+            return;
+        }
+        if (strongSelf->_statsUpdateTimer != nil) {
+            [strongSelf hideStats];
+        } else {
+            [strongSelf showStats];
+        }
+    };
+    _streamControls.onSystemKeyboard = ^{
+        StreamFrameViewController *strongSelf = weakSelf;
+        [strongSelf->_streamView toggleSystemKeyboard];
+    };
+    _streamControls.onQuit = ^{
+        [weakSelf quitSession];
+    };
+    _streamControls.onDisconnect = ^{
+        Log(LOG_I, @"Disconnect from the stream menu");
+        [weakSelf returnToMainFrame];
+    };
+    _streamControls.onNotice = ^(NSString *text) {
+        [weakSelf showToast:text];
+    };
+    _streamControls.present = ^(UIViewController *controller) {
+        [[weakSelf topPresenter] presentViewController:controller animated:YES completion:nil];
+    };
+}
+
+// Pinch to zoom and pan and zoom mode move the picture; touches map through the same zoom
+// (VideoGeometry in StarwireKit)
+- (void)setVideoTransform:(CGAffineTransform)transform {
+    self.metalViewController.view.transform = transform;
+    [_pictureInPicture setVideoTransform:transform];
+}
+
+// Quit Session: leave the stream, then end the game on the PC, as Android does
+- (void)quitSession {
+    Log(LOG_I, @"Quit Session from the stream menu");
+    StarwireHostActions *actions = _hostActions;
+    [self returnToMainFrame];
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.5 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+        [actions quitApp:^(NSString *error) {
+            if (error != nil) {
+                Log(LOG_W, @"Quit Session: the PC refused: %@", error);
+            }
+        }];
+    });
+}
+#endif
 
 // Puts the video on the external display's window while there is one, else back on this screen
 // under the statistics view
@@ -478,7 +560,15 @@
     }
     
     dispatch_async(dispatch_get_main_queue(), ^{
-        [self updateOverlayText:overlayText];
+        NSString *text = overlayText;
+#if !TARGET_OS_TV
+        // What input has reached the PC (StarwireKit's InputTally), and how touches are read
+        if (text.length > 0 && self->_streamControls != nil) {
+            text = [NSString stringWithFormat:@"%@\nTouch: %@\n%@", text, self->_streamControls.input.touchModeTitle,
+                    StarwireStreamInput.inputSummary];
+        }
+#endif
+        [self updateOverlayText:text];
     });
 }
 
@@ -530,6 +620,23 @@
 }
 
 - (void) returnToMainFrame {
+#if !TARGET_OS_TV
+    // Show the PC's cursor again if Starwire hid it, and give the keys a moment to arrive
+    // before the connection stops (HostCursorController)
+    if (!_alertGate.exiting && [_streamControls streamStopping]) {
+        [_alertGate markExiting];
+        StarwireStreamControls *controls = _streamControls;
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.15 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+            [controls.input streamStopFlushed];
+            [self finishReturnToMainFrame];
+        });
+        return;
+    }
+#endif
+    [self finishReturnToMainFrame];
+}
+
+- (void) finishReturnToMainFrame {
     [_alertGate markExiting];
     // An alert presented above the stream stays up after the stream screen is popped (for
     // example when the app goes to the background), so take it down with the stream
@@ -643,6 +750,9 @@
 }
 
 - (void)showStats {
+#if !TARGET_OS_TV
+    _streamControls.statsShown = YES;
+#endif
     if (self->_statsUpdateTimer == nil) {
         self->_statsUpdateTimer = [NSTimer scheduledTimerWithTimeInterval:1.0f
                                                                    target:self
@@ -669,6 +779,9 @@
 }
 
 - (void)hideStats {
+#if !TARGET_OS_TV
+    _streamControls.statsShown = NO;
+#endif
     if (self->_statsUpdateTimer != nil) {
         [_statsUpdateTimer invalidate];
         _statsUpdateTimer = nil;
@@ -698,7 +811,10 @@
         
         [self->_streamView showOnScreenControls];
 #if !TARGET_OS_TV
-        [self addStreamMenuButton];
+        [self->_streamControls streamStartedWithHostFeatureFlags:LiGetHostFeatureFlags()
+                                                         pcUUID:nil
+                                                           host:self.streamConfig.host
+                                                          appID:[self.streamConfig.appID integerValue]];
 #endif
         
         [self->_controllerSupport connectionEstablished];
@@ -711,6 +827,11 @@
 
 - (void)connectionTerminated:(int)errorCode {
     Log(LOG_I, @"Connection terminated: %d", errorCode);
+#if !TARGET_OS_TV
+    dispatch_async(dispatch_get_main_queue(), ^{
+        [self->_streamControls.input connectionLostWithErrorCode:errorCode];
+    });
+#endif
     
     unsigned int portFlags = LiGetPortFlagsFromTerminationErrorCode(errorCode);
     unsigned int portTestResults = LiTestClientConnectivity(CONN_TEST_SERVER, 443, portFlags);
@@ -845,36 +966,16 @@
 }
 
 #if !TARGET_OS_TV
-- (void)addStreamMenuButton {
-    if (_hostActions == nil || _streamMenuButton != nil) {
+// The stream menu's Bitrate tile (Android's choices); the PC may lower what is asked for
+- (void)showBitrateMenu:(id)sender {
+    if (_hostActions == nil) {
+        [self showToast:@"This PC can't change the bitrate during a stream."];
         return;
     }
-    UIButton* button = [UIButton buttonWithType:UIButtonTypeSystem];
-    [button setImage:[UIImage systemImageNamed:@"speedometer"] forState:UIControlStateNormal];
-    button.tintColor = [UIColor whiteColor];
-    button.backgroundColor = [UIColor colorWithWhite:0 alpha:0.4];
-    button.layer.cornerRadius = 20;
-    button.alpha = 0.5;
-    button.accessibilityIdentifier = @"StreamMenuButton";
-    button.accessibilityLabel = @"Change bitrate";
-    button.accessibilityValue = [NSString stringWithFormat:@"%d Mbps", _bitrateKbps / 1000];
-    button.translatesAutoresizingMaskIntoConstraints = NO;
-    [button addTarget:self action:@selector(showBitrateMenu:) forControlEvents:UIControlEventTouchUpInside];
-    [self.view addSubview:button];
-    [NSLayoutConstraint activateConstraints:@[
-        [button.widthAnchor constraintEqualToConstant:40],
-        [button.heightAnchor constraintEqualToConstant:40],
-        [button.trailingAnchor constraintEqualToAnchor:self.view.safeAreaLayoutGuide.trailingAnchor constant:-12],
-        [button.bottomAnchor constraintEqualToAnchor:self.view.safeAreaLayoutGuide.bottomAnchor constant:-12],
-    ]];
-    _streamMenuButton = button;
-}
-
-- (void)showBitrateMenu:(UIButton*)sender {
-    UIAlertController* menu = [UIAlertController alertControllerWithTitle:@"Bitrate"
-                                                                  message:[NSString stringWithFormat:@"Now %d Mbps. The PC may lower it.", _bitrateKbps / 1000]
+    UIAlertController* menu = [UIAlertController alertControllerWithTitle:[NSString stringWithFormat:@"Bitrate (now %d Mbps)", _bitrateKbps / 1000]
+                                                                  message:@"The PC may lower it."
                                                            preferredStyle:UIAlertControllerStyleActionSheet];
-    for (NSNumber* mbps in @[ @10, @20, @30, @50, @70, @100, @150 ]) {
+    for (NSNumber* mbps in [StarwireStreamControls bitrateChoicesMbps]) {
         int kbps = mbps.intValue * 1000;
         NSString* title = [NSString stringWithFormat:@"%@ Mbps%@", mbps, kbps == _bitrateKbps ? @" (now)" : @""];
         [menu addAction:[UIAlertAction actionWithTitle:title style:UIAlertActionStyleDefault handler:^(UIAlertAction* action) {
@@ -882,8 +983,8 @@
         }]];
     }
     [menu addAction:[UIAlertAction actionWithTitle:@"Cancel" style:UIAlertActionStyleCancel handler:nil]];
-    menu.popoverPresentationController.sourceView = sender;
-    menu.popoverPresentationController.sourceRect = sender.bounds;
+    menu.popoverPresentationController.sourceView = self.view;
+    menu.popoverPresentationController.sourceRect = CGRectMake(CGRectGetMaxX(self.view.bounds) - 240, CGRectGetMidY(self.view.bounds), 1, 1);
     [[self topPresenter] presentViewController:menu animated:YES completion:nil];
 }
 
@@ -892,11 +993,10 @@
         if (applied > 0) {
             Log(LOG_I, @"Bitrate changed during the stream: %d kbps asked, %ld applied", kbps, (long)applied);
             self->_bitrateKbps = (int)applied;
-            self->_streamMenuButton.accessibilityValue = [NSString stringWithFormat:@"%ld Mbps", (long)applied / 1000];
-            [self showToast:[NSString stringWithFormat:@"Bitrate %ld Mbps", (long)applied / 1000]];
+            [self showToast:[NSString stringWithFormat:@"Bitrate set to %ld Mbps", (long)applied / 1000]];
         } else {
             Log(LOG_W, @"Bitrate change refused: %@", error);
-            [self showToast:[NSString stringWithFormat:@"Bitrate not changed: %@", error ?: @""]];
+            [self showToast:[NSString stringWithFormat:@"Couldn't change bitrate: %@", error ?: @""]];
         }
     }];
 }
