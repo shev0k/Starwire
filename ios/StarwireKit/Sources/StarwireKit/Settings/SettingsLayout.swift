@@ -144,9 +144,10 @@ public enum SettingsLayout {
                         unit: "suffix_seekbar_bitrate_mbps", custom: true, summary: "summary_seekbar_bitrate"),
                 .list("frame_pacing", "title_frame_pacing", array: "video_frame_pacing",
                       values: SettingsCatalog.framePacing, summary: "summary_frame_pacing"),
+                // Android only uses it with host-timed pacing; on iOS it smooths every pacing mode
+                // (batch 1), so it is never greyed out and has its own summary
                 .list("jitter_buffer", "title_jitter_buffer", array: "jitter_buffer",
-                      values: SettingsCatalog.jitterBuffers, summary: "summary_jitter_buffer",
-                      enabledWhen: .value("frame_pacing", in: ["host-timed"])),
+                      values: SettingsCatalog.jitterBuffers, summary: "ios_summary_jitter_buffer"),
                 .list("vsync_mode", "title_vsync_mode", array: "vsync_mode", values: ["off", "vsync", "fast"],
                       summary: "summary_vsync_mode"),
                 .toggle("checkbox_sync_lfr", "title_checkbox_sync_lfr", summary: "summary_checkbox_sync_lfr"),

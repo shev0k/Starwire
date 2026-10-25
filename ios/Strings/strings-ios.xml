@@ -101,6 +101,7 @@
 
     <!-- The app's screens -->
     <string name="ios_ok">OK</string>
+    <string name="ios_summary_jitter_buffer">How much latency to accept for a smoother stream. On iOS it applies with every frame pacing mode.</string>
     <string name="ios_yes">Yes</string>
     <string name="ios_no">No</string>
     <string name="ios_on">On</string>

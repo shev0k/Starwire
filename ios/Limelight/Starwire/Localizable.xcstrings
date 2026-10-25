@@ -16516,6 +16516,17 @@
         }
       }
     },
+    "ios_summary_jitter_buffer" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "How much latency to accept for a smoother stream. On iOS it applies with every frame pacing mode."
+          }
+        }
+      }
+    },
     "ios_summary_onscreen_controls_level" : {
       "extractionState" : "manual",
       "localizations" : {

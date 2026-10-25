@@ -254,6 +254,10 @@ final class SettingsLayoutTests: XCTestCase {
         } else if id == "video_renderer" {
             // Android's text is about Vulkan and the direct renderer
             XCTAssertEqual(item.summaryKey, "ios_summary_video_renderer", file: file, line: line)
+        } else if id == "jitter_buffer" {
+            // Android's says it only works with host-timed pacing; on iOS it works with every mode
+            XCTAssertEqual(item.summaryKey, "ios_summary_jitter_buffer", file: file, line: line)
+            XCTAssertNil(item.enabledWhen, file: file, line: line)
         } else if xmlSummary == nil, summariesSetInCode.contains(id) {
             XCTAssertNotNil(item.summaryKey, id, file: file, line: line)
         } else {
