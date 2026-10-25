@@ -3,12 +3,38 @@ import Foundation
 import CoreGraphics
 #endif
 
+/// How the picture fills the screen when their shapes differ. Saved as `list_video_scaling`.
+public enum PictureScaling: String, CaseIterable, Sendable {
+    /// All of the picture, with bars at the sides or top and bottom
+    case fit
+    /// All of the picture, pulled out of shape to fill the screen (Android's stretch video)
+    case stretch
+    /// The screen filled, with the picture's edges cut off
+    case fill
+
+    public var title: String {
+        switch self {
+        case .fit: return "Fit"
+        case .stretch: return "Stretch"
+        case .fill: return "Fill"
+        }
+    }
+
+    public var symbol: String {
+        switch self {
+        case .fit: return "rectangle.inset.filled"
+        case .stretch: return "arrow.left.and.right.square"
+        case .fill: return "rectangle.fill"
+        }
+    }
+}
+
 /// Where the stream's picture is on the screen, and how screen points map to the PC's pixels.
 /// Every input path (touch, Pencil, mouse, pointer lock) uses this one function, so they agree
 /// with each other and with what the video layer shows.
 ///
 /// The picture is fitted into the view keeping its aspect ratio (as `resizeAspect` does), or
-/// stretched to fill it, then zoomed about the view's centre and panned (pinch to zoom and pan
+/// stretched to fill it, or filling it with the edges cut off, then zoomed about the view's centre and panned (pinch to zoom and pan
 /// and zoom mode).
 public struct VideoGeometry: Equatable, Sendable {
     /// The view the picture is drawn in, in points.
@@ -16,6 +42,9 @@ public struct VideoGeometry: Equatable, Sendable {
     /// The stream's resolution, in pixels.
     public var streamSize: CGSize
     public var stretch: Bool
+    /// Fills the view keeping the aspect ratio, cutting off what doesn't fit (ignored when
+    /// `stretch` is set)
+    public var fill = false
     /// 1 shows the whole picture; 2 shows it twice as large.
     public var zoom: CGFloat
     /// How far the zoomed picture is moved, in view points.
@@ -39,7 +68,7 @@ public struct VideoGeometry: Equatable, Sendable {
         }
         let aspect = streamSize.width / streamSize.height
         let size: CGSize
-        if viewSize.width > viewSize.height * aspect {
+        if (viewSize.width > viewSize.height * aspect) != fill {
             size = CGSize(width: viewSize.height * aspect, height: viewSize.height)
         } else {
             size = CGSize(width: viewSize.width, height: viewSize.width / aspect)

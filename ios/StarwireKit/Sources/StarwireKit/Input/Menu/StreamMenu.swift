@@ -10,6 +10,8 @@ import CoreGraphics
 
 public enum StreamMenuPage: Equatable, Sendable {
     case main, shortcuts, monitors
+    /// Choices that open from the main page's Stream group
+    case touchMode, bitrate, picture
 }
 
 /// What an item does when chosen.
@@ -32,6 +34,13 @@ public enum StreamMenuAction: Equatable, Sendable {
     case editOnScreenControls
     case toggleFloatingButton
     case customCommand(CustomCommand)
+    case setTouchMode(TouchMode)
+    case setBitrate(mbps: Int)
+    case setPictureScaling(PictureScaling)
+    /// The keyboard for a controller
+    case controllerKeyboard
+    /// The settings that apply mid-stream (touch, keyboard, menu button, on-screen controls)
+    case streamSettings
     /// The custom commands editor and shortcut file import (Android has them in its settings)
     case manageShortcuts
     case back
@@ -50,6 +59,34 @@ public struct StreamMenuItem: Equatable, Sendable {
     public var isOn: Bool?
     /// Whether choosing it closes the menu (Android's behaviour per item)
     public var closesMenu: Bool
+    /// What is chosen now, for an item that opens a page of choices ("150 Mbps")
+    public var value: String?
+
+    public init(id: String, title: String, symbol: String, action: StreamMenuAction, isOn: Bool?, closesMenu: Bool,
+                value: String? = nil) {
+        self.id = id
+        self.title = title
+        self.symbol = symbol
+        self.action = action
+        self.isOn = isOn
+        self.closesMenu = closesMenu
+        self.value = value
+    }
+}
+
+/// A titled group of items on the menu's main page.
+public struct StreamMenuSection: Equatable, Sendable {
+    public enum Style: Equatable, Sendable {
+        /// Square tiles in a grid: switches and quick actions
+        case tiles
+        /// Rows with a value on the right
+        case rows
+    }
+
+    public var id: String
+    public var title: String
+    public var style: Style
+    public var items: [StreamMenuItem]
 }
 
 /// The state the menu shows, from the stream.
@@ -70,6 +107,12 @@ public struct StreamMenuState: Equatable, Sendable {
     /// The stream's height and frame rate for the header ("1080p · 60 FPS")
     public var streamHeight = 0
     public var fps = 0
+    public var touchMode: TouchMode = .gamingTrackpad
+    /// The bitrate the PC applied last, 0 when not known
+    public var bitrateMbps = 0
+    public var pictureScaling: PictureScaling = .fit
+    /// A controller is connected, so the controller keyboard is offered
+    public var controllerConnected = false
 
     public init() {}
 }
@@ -134,11 +177,69 @@ public enum StreamMenu {
                                closesMenu: true)
             } + [StreamMenuItem(id: "manage_shortcuts", title: "Manage", symbol: "", action: .manageShortcuts, isOn: nil,
                                 closesMenu: true), backItem]
+        case .touchMode, .bitrate, .picture:
+            return choices(on: page, state: state)
         case .monitors:
             return (1...6).map { n in
                 StreamMenuItem(id: "monitor_\(n)", title: "Monitor \(n)", symbol: "display", action: .keys(MonitorSwitch.shortcut(monitor: n)!),
                                isOn: nil, closesMenu: true)
             } + [backItem]
+        }
+    }
+
+    /// The main page in groups: quick switches first, then the stream's choices, the keys to
+    /// send, and the rest. Every main-page item appears once, in the same order as `items`
+    /// within its group.
+    public static func sections(state: StreamMenuState) -> [StreamMenuSection] {
+        let all = items(on: .main, state: state)
+        func pick(_ ids: [String]) -> [StreamMenuItem] { ids.compactMap { id in all.first { $0.id == id } } }
+        var quick = pick(["stats", "full_keyboard", "keyboard", "mouse_emulation", "onscreen_controls", "pan_zoom",
+                          "sensitivity", "floating_button"])
+        if state.controllerConnected {
+            quick.insert(StreamMenuItem(id: "controller_keyboard", title: "Pad keyboard", symbol: "keyboard.chevron.compact.down",
+                                        action: .controllerKeyboard, isOn: nil, closesMenu: true), at: 3)
+        }
+        var stream = [
+            StreamMenuItem(id: "bitrate", title: "Bitrate", symbol: "bolt", action: .openPage(.bitrate), isOn: nil,
+                           closesMenu: false, value: state.bitrateMbps > 0 ? "\(state.bitrateMbps) Mbps" : nil),
+            StreamMenuItem(id: "touch_mode", title: "Touch mode", symbol: "hand.tap", action: .openPage(.touchMode), isOn: nil,
+                           closesMenu: false, value: state.touchMode.title),
+            StreamMenuItem(id: "picture", title: "Picture", symbol: "aspectratio", action: .openPage(.picture), isOn: nil,
+                           closesMenu: false, value: state.pictureScaling.title),
+        ]
+        stream += pick(["fix_host_cursor"])
+        stream.append(StreamMenuItem(id: "stream_settings", title: "More settings", symbol: "gearshape", action: .streamSettings,
+                                     isOn: nil, closesMenu: true))
+        let keys = pick(["guide", "task_manager", "shortcuts", "monitors"]) + all.filter { $0.id.hasPrefix("command_") }
+        let controls = pick(["edit_controls"])
+        return [
+            StreamMenuSection(id: "quick", title: "Quick switches", style: .tiles, items: quick),
+            StreamMenuSection(id: "stream", title: "Stream", style: .rows, items: stream),
+            StreamMenuSection(id: "keys", title: "Send to the PC", style: .rows, items: keys),
+            StreamMenuSection(id: "controls", title: "On-screen controls", style: .rows, items: controls),
+        ].filter { !$0.items.isEmpty }
+    }
+
+    /// The choices on a page that opens from the Stream group; `isOn` marks the current one.
+    public static func choices(on page: StreamMenuPage, state: StreamMenuState) -> [StreamMenuItem] {
+        switch page {
+        case .touchMode:
+            return TouchMode.allCases.map { mode in
+                StreamMenuItem(id: "touch_\(mode.rawValue)", title: mode.title, symbol: mode.symbol, action: .setTouchMode(mode),
+                               isOn: mode == state.touchMode, closesMenu: false)
+            } + [backItem]
+        case .bitrate:
+            return bitrateChoicesMbps.map { mbps in
+                StreamMenuItem(id: "bitrate_\(mbps)", title: "\(mbps) Mbps", symbol: "", action: .setBitrate(mbps: mbps),
+                               isOn: mbps == state.bitrateMbps, closesMenu: false)
+            } + [backItem]
+        case .picture:
+            return PictureScaling.allCases.map { scaling in
+                StreamMenuItem(id: "picture_\(scaling.rawValue)", title: scaling.title, symbol: scaling.symbol,
+                               action: .setPictureScaling(scaling), isOn: scaling == state.pictureScaling, closesMenu: false)
+            } + [backItem]
+        case .main, .shortcuts, .monitors:
+            return items(on: page, state: state)
         }
     }
 
