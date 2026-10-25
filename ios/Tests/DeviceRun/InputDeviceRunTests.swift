@@ -42,7 +42,7 @@ final class InputDeviceRunTests: XCTestCase {
 
     func testTouchModes() throws {
         try startStream()
-        let screen: XCUIElement = app
+        let screen = streamScreen
         let centre = screen.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.55))
 
         // The stream starts in the gaming trackpad (checkbox_touchscreen_trackpad, on by default)
@@ -389,9 +389,14 @@ final class InputDeviceRunTests: XCTestCase {
         app.descendants(matching: .any)["key_\(id)"]
     }
 
+    /// The stream screen (StreamFrameViewController's view), for gestures over the picture
+    private var streamScreen: XCUIElement {
+        app.otherElements["StreamScreen"]
+    }
+
     private func openMenuWithThreeFingers() {
         if app.otherElements["StreamMenu"].exists { return }
-        app.tap(withNumberOfTaps: 1, numberOfTouches: 3)
+        streamScreen.tap(withNumberOfTaps: 1, numberOfTouches: 3)
         XCTAssertTrue(app.otherElements["StreamMenu"].waitForExistence(timeout: 5), "a three-finger tap didn't open the menu")
     }
 

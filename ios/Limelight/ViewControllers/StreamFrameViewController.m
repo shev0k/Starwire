@@ -131,6 +131,8 @@
     // What the storyboard set, for the SwiftUI app that creates this screen in code
     self.view.backgroundColor = [UIColor blackColor];
     self.view.multipleTouchEnabled = YES;
+    // For the device tests' gestures: the stream's own screen, not the app's window
+    self.view.accessibilityIdentifier = @"StreamScreen";
 
     [self.navigationController setNavigationBarHidden:YES animated:YES];
     
