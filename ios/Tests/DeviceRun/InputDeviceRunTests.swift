@@ -198,11 +198,25 @@ final class InputDeviceRunTests: XCTestCase {
 
     func testOnScreenControls() throws {
         try startStream()
+        // The controls may already show (the setting, or moonlight-ios's old one): the menu's
+        // switch turns them off, then on again
+        if control("A button").waitForExistence(timeout: 3) {
+            openMenuWithThreeFingers()
+            tapMenu("menu_onscreen_controls")
+            XCTAssertEqual(app.buttons["menu_onscreen_controls"].value as? String, "Off")
+            closeMenu()
+            XCTAssertTrue(waitForGone(control("A button")), "the switch didn't hide the on-screen controller")
+        }
         openMenuWithThreeFingers()
         tapMenu("menu_onscreen_controls")
+        XCTAssertEqual(app.buttons["menu_onscreen_controls"].value as? String, "On")
         closeMenu()
         let a = control("A button")
-        XCTAssertTrue(a.waitForExistence(timeout: 5), "the on-screen controller didn't appear")
+        if !a.waitForExistence(timeout: 5) {
+            record(app.debugDescription)
+            screenshot("no on-screen controller")
+            XCTFail("the on-screen controller didn't appear")
+        }
         screenshot("on-screen controls")
         var before = counts()
         a.tap()
@@ -272,11 +286,21 @@ final class InputDeviceRunTests: XCTestCase {
         // The system keyboard: text goes as UTF-8, Return as Enter
         openMenuWithThreeFingers()
         tapMenu("menu_keyboard")
-        sleep(2)
+        // The text field is hidden, so XCUITest can't type into it: press the keyboard's keys
+        let keyboard = app.keyboards.firstMatch
+        XCTAssertTrue(keyboard.waitForExistence(timeout: 5), "the system keyboard didn't come up")
+        screenshot("system keyboard")
         before = counts()
-        app.typeText("Hi")
+        for letter in ["h", "i"] {
+            let key = keyboard.keys.matching(NSPredicate(format: "label ==[c] %@", letter)).firstMatch
+            XCTAssertTrue(key.exists, "no \(letter) key on the keyboard")
+            key.tap()
+        }
         XCTAssertTrue(waitForCount(.text, atLeast: before.text + 2), "typed text didn't reach the PC")
-        app.typeText("\n")
+        let enter = keyboard.buttons.matching(NSPredicate(format: "label ==[c] %@ OR label ==[c] %@", "return", "Return")).firstMatch
+        let enterKey = enter.exists ? enter : keyboard.keys.matching(NSPredicate(format: "label ==[c] %@", "return")).firstMatch
+        XCTAssertTrue(enterKey.exists, "no Return key on the keyboard")
+        enterKey.tap()
         XCTAssertTrue(waitFor("last key 0x0D up"), "Return didn't send Enter")
         record("system keyboard: \(inputLine())")
         stopStream()
@@ -408,9 +432,10 @@ final class InputDeviceRunTests: XCTestCase {
         sleep(3)
     }
 
+    // High on the screen: the system keyboard may cover the lower half
     private func stopStream() {
-        let start = app.coordinate(withNormalizedOffset: CGVector(dx: 0.0, dy: 0.5))
-        start.press(forDuration: 0.05, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.6, dy: 0.5)))
+        let start = app.coordinate(withNormalizedOffset: CGVector(dx: 0.0, dy: 0.3))
+        start.press(forDuration: 0.05, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.6, dy: 0.3)))
         let tile = app.buttons.matching(NSPredicate(format: "label == %@", appName)).firstMatch
         XCTAssertTrue(tile.waitForExistence(timeout: 20), "the app list didn't come back")
         XCTAssertFalse(app.alerts.firstMatch.exists, "an alert is showing")
