@@ -34,6 +34,12 @@ final class StarwireStreamControls: NSObject {
     /// Whether the statistics overlay shows, for the menu's switch
     @objc var statsShown = false
 
+    /// The bitrate the PC applied, read out with the floating button ("70 Mbps")
+    @objc var bitrateText: String? {
+        get { floatingButton.accessibilityValue }
+        set { floatingButton.accessibilityValue = newValue }
+    }
+
     @objc static var bitrateChoicesMbps: [NSNumber] { StreamMenu.bitrateChoicesMbps.map { NSNumber(value: $0) } }
 
     @objc init(view: UIView, streamWidth: Int, streamHeight: Int, fps: Int, appName: String) {

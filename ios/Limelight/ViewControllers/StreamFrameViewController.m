@@ -993,6 +993,9 @@
         if (applied > 0) {
             Log(LOG_I, @"Bitrate changed during the stream: %d kbps asked, %ld applied", kbps, (long)applied);
             self->_bitrateKbps = (int)applied;
+#if !TARGET_OS_TV
+            self->_streamControls.bitrateText = [NSString stringWithFormat:@"%ld Mbps", (long)applied / 1000];
+#endif
             [self showToast:[NSString stringWithFormat:@"Bitrate set to %ld Mbps", (long)applied / 1000]];
         } else {
             Log(LOG_W, @"Bitrate change refused: %@", error);

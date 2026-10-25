@@ -39,7 +39,7 @@
 //    TEST_RUNNER_STARWIRE_EXACT_FPS       an exact rate for mode, like 119.88
 //    TEST_RUNNER_STARWIRE_VRR             "1" to ask for a variable refresh rate virtual display
 //    TEST_RUNNER_STARWIRE_DEMO            "1" for the demo mode (testDemoMode sets it)
-//    TEST_RUNNER_STARWIRE_BITRATES        Mbps to switch to in testBitrateChange (default "20,70")
+//    TEST_RUNNER_STARWIRE_BITRATES        Mbps to switch to in testBitrateChange (default "20,80")
 //  They become the app's launch arguments, which the app reads as user defaults. The app has no
 //  code for tests.
 //
@@ -187,7 +187,7 @@ final class StreamDeviceRunTests: XCTestCase {
     // Vibeshine's /bitrate during a stream: the stream menu button, a bitrate, the PC's answer.
     // The overlay is sampled before and after each change, so the report shows the bandwidth.
     func testBitrateChange() throws {
-        let steps = (env["STARWIRE_BITRATES"] ?? "20,70").split(separator: ",").map(String.init)
+        let steps = (env["STARWIRE_BITRATES"] ?? "20,80").split(separator: ",").map(String.init)
         try startStream()
         let overlay = try waitForOverlay()
         sleep(10)
@@ -203,12 +203,11 @@ final class StreamDeviceRunTests: XCTestCase {
             let choice = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "\(mbps) Mbps")).firstMatch
             XCTAssertTrue(choice.waitForExistence(timeout: 5), "no \(mbps) Mbps in the bitrate menu")
             choice.tap()
-            // The toast says the bitrate the PC applied
-            let toast = app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", "Bitrate set to")).firstMatch
-            let applied = NSPredicate(format: "label == %@", "Bitrate set to \(mbps) Mbps")
-            let answered = expectation(for: applied, evaluatedWith: toast)
+            // The floating button's value is the bitrate the PC applied
+            let applied = NSPredicate(format: "value == %@", "\(mbps) Mbps")
+            let answered = expectation(for: applied, evaluatedWith: button)
             let result = XCTWaiter.wait(for: [answered], timeout: 10)
-            record("asked \(mbps) Mbps: \(toast.exists ? toast.label : "no answer")")
+            record("asked \(mbps) Mbps: the PC applied \(button.value as? String ?? "?")")
             XCTAssertEqual(result, .completed, "the PC didn't apply \(mbps) Mbps")
             sleep(15)
             record("15 s after \(mbps) Mbps:\n\(overlay.label)")
