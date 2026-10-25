@@ -16,6 +16,7 @@ let package = Package(
     ],
     targets: [
         .target(name: "StarwireKit"),
-        .testTarget(name: "StarwireKitTests", dependencies: ["StarwireKit"]),
+        // Fixtures are read from disk by path (FixtureFile), so they work the same on every platform
+        .testTarget(name: "StarwireKitTests", dependencies: ["StarwireKit"], exclude: ["Fixtures"]),
     ]
 )

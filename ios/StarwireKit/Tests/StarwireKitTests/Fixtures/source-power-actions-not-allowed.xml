@@ -1,0 +1,2 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root status_code="200" status_message="OK"><PowerActionVersion>1</PowerActionVersion><SleepSupported>1</SleepSupported><SleepAllowed>0</SleepAllowed><SleepAvailable>0</SleepAvailable><SleepActiveSessionPolicy>idle-only</SleepActiveSessionPolicy><SleepToken></SleepToken><SleepTokenLifetimeSeconds>30</SleepTokenLifetimeSeconds><SleepAccepted>0</SleepAccepted></root>

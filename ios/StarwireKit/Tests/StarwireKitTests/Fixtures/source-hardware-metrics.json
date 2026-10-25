@@ -1,0 +1,1 @@
+{"version":1,"sampled_at_unix_ms":1761374400000,"interval_ms":1000,"cpu":{"cpu_usage_percent":12.4},"gpus":[{"id":0,"name":"NVIDIA GeForce RTX 5090","metrics":{"gpu_usage_percent":63.6,"gpu_encoder_percent":29.5,"gpu_temperature_c":61.2,"gpu_vram_used_mb":5321.5,"gpu_vram_usage_percent":16.2}}]}

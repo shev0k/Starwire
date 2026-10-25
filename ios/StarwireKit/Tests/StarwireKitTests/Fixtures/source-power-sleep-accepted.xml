@@ -1,0 +1,2 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root status_code="202" status_message="Sleep request accepted; native completion is not confirmed"><PowerActionVersion>1</PowerActionVersion><SleepSupported>1</SleepSupported><SleepAllowed>1</SleepAllowed><SleepAvailable>0</SleepAvailable><SleepActiveSessionPolicy>idle-only</SleepActiveSessionPolicy><SleepToken></SleepToken><SleepTokenLifetimeSeconds>30</SleepTokenLifetimeSeconds><SleepAccepted>1</SleepAccepted></root>
