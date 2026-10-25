@@ -41,6 +41,26 @@ Batch 3 added `InputDeviceRunTests` for input; name its tests with the class:
 which counts the packets sent to the PC by kind and shows the last one. They never press keys
 that change the PC (the Windows key, Task Manager, monitor switching).
 
+Batch 4 (the SwiftUI app) added:
+- `test AppScreensDeviceRunTests/testScreens` (also `testScreensAtLargestText` and
+  `testDemoScreens`): opens every screen, photographs it and runs Xcode's accessibility audit.
+  The audit's findings are recorded in the run, not failed on. It never starts a stream.
+- `snapshots` and `snapshots record`: the SwiftUI screens' snapshot tests on an iPhone and an
+  iPad simulator. `record` writes pictures to `ios/Tests/Snapshots/iOS<version>/` in the Mac's
+  checkout; copy them back to the PC, commit them, and remove them from the Mac's checkout
+  before the next `sync`, or the next `sync --wip` can't apply its patch.
+- The app's own menus and questions are panels, not alerts. Their buttons have the identifier
+  `panel-<title>` (for example `panel-Resume Session`), since the same title can also be on the
+  screen behind. The stream screen's view has the identifier `StreamScreen`, for gestures.
+
+If `sync --wip` stops with "patch does not apply" and the Mac's checkout has no changes
+(`git status` is clean there), a `build/wip.patch` was left from a sync that failed half way.
+Remove `build/wip.patch` and `build/wip.next.patch` in the Mac's checkout and sync again.
+
+The microphone's code is checked against the real Windows receiver on the PC itself, with no
+iPad: `ios/scripts/mic-loopback.ps1` builds the receiver into a temporary folder and runs it on
+the PC's loopback on port 6995, then StarwireKit's `SwmcLoopback` pairs and streams to it.
+
 `log` takes launch arguments after the seconds, for example
 `log 900 -StarwireVerboseLogging YES` for a hands-on session: with verbose logging every change
 of a controller's buttons is logged with its triggers and sticks. Vibeshine's app list has

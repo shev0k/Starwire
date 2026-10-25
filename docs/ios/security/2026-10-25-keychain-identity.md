@@ -3,7 +3,8 @@
 Written 25 Oct 2026 for `feature/ios-batch-2`. AGENTS.md asks for a separate review and the
 owner's sign-off for changes to pairing and certificates with the host. This is that review.
 
-**Sign-off:** not yet signed. The owner signs by writing their name and the date here.
+**Sign-off:** approved by the owner, shev0k, on 25 Oct 2026: the Keychain move with the files
+removed, and keeping "limelight" as the PKCS #12 passphrase (both questions below).
 
 ## What changed
 
@@ -90,6 +91,9 @@ key never left the Mac or reached git. The recorded files were checked for priva
 redacted before they were committed.
 
 ## Questions for the owner
+
+Both answered yes on 25 Oct 2026 (see the sign-off above).
+
 
 1. Sign off on the Keychain move as described, with the files removed after the device proof.
 2. Is keeping "limelight" as the PKCS #12 passphrase acceptable? (Recommended: yes, see above.)
