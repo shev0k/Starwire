@@ -8,6 +8,7 @@
 #import "ImGuiPlots.h"
 #import "FrameQueue.h"
 #import "PacingPolicy.h"
+#import "VideoFormatPolicy.h"
 #import <os/signpost.h>
 
 #include <Limelight.h>
@@ -302,14 +303,21 @@ static void ReleaseTextures(CVMetalTextureRef *textures, size_t count) {
     // FQLog(LOG_I, @"%@", ext);
 
     *isFullRange = NO;
+    // The range of the pixels as decoded: VideoToolbox converts to the pixel format's range, so
+    // that, not the stream's, is what the colour matrix must undo
+    BOOL rangeKnown = NO;
+    if (frame.pixelBuffer) {
+        *isFullRange = StreamPixelFormatIsFullRange(CVPixelBufferGetPixelFormatType(frame.pixelBuffer), &rangeKnown);
+    }
+
     // No extensions, for example while the decoder is being rebuilt: use the defaults (VoidLink)
     if (!ext) {
         return COLORSPACE_REC_601;
     }
 
-    // Full Range boolean
+    // Full Range boolean, for a pixel format not listed above
     CFBooleanRef fullRangeRef = CFDictionaryGetValue(ext, kCMFormatDescriptionExtension_FullRangeVideo);
-    if (fullRangeRef && CFGetTypeID(fullRangeRef) == CFBooleanGetTypeID()) {
+    if (!rangeKnown && fullRangeRef && CFGetTypeID(fullRangeRef) == CFBooleanGetTypeID()) {
         *isFullRange = CFBooleanGetValue(fullRangeRef);
     }
 

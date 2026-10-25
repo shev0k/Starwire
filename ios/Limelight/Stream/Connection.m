@@ -501,7 +501,7 @@ void ClSetControllerLED(uint16_t controllerNumber, uint8_t r, uint8_t g, uint8_t
     // Lower to 90fps on Vision Pro
     NSInteger deviceFps = UIScreen.mainScreen.maximumFramesPerSecond;
     if (deviceFps < config.frameRate) {
-        Log(LOG_W, @"Limiting stream to %dfps due to max refresh rate", deviceFps);
+        Log(LOG_W, @"Limiting stream to %ldfps due to max refresh rate", (long)deviceFps);
         config.frameRate = (int)deviceFps;
     }
 
@@ -512,6 +512,7 @@ void ClSetControllerLED(uint16_t controllerNumber, uint8_t r, uint8_t g, uint8_t
     _streamConfig.bitrate = config.bitRate;
     _streamConfig.supportedVideoFormats = config.supportedVideoFormats;
     _streamConfig.audioConfiguration = config.audioConfiguration;
+    _streamConfig.colorRange = config.fullRange ? COLOR_RANGE_FULL : COLOR_RANGE_LIMITED;
 
     // Since we require iOS 12 or above, we're guaranteed to be running
     // on a 64-bit device with ARMv8 crypto instructions, so we don't

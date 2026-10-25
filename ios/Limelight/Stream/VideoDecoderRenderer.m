@@ -20,6 +20,7 @@
 #import "ImGuiPlots.h"
 #import "PacingPolicy.h"
 #import "PacingStats.h"
+#import "VideoFormatPolicy.h"
 #import <os/signpost.h>
 
 #include <libavcodec/avcodec.h>
@@ -45,6 +46,8 @@ extern int ff_isom_write_av1c(AVIOContext *pb, const uint8_t *buf, int size,
     id<ConnectionCallbacks> _callbacks;
     float _streamAspectRatio;
     int _videoFormat;
+    // Full range video was asked of the host (StarwireFullRange)
+    BOOL _fullRange;
     int _frameRate;
 
     NSMutableArray *_parameterSetBuffers;
@@ -78,6 +81,7 @@ extern int ff_isom_write_av1c(AVIOContext *pb, const uint8_t *buf, int size,
 
     // Pacing choices for the phase 1a A/B runs (PacingPolicy.h), read once per stream
     _pacingSettings = [PacingSettings current];
+    _fullRange = StreamUsesFullRange([NSUserDefaults standardUserDefaults]);
     _displayHz = (double)UIScreen.mainScreen.maximumFramesPerSecond;
     int framesToBuffer = [_pacingSettings framesToBufferWithAppSetting:(int)[[dataMan getSettings].frameQueueSize integerValue]];
 
@@ -150,13 +154,8 @@ extern int ff_isom_write_av1c(AVIOContext *pb, const uint8_t *buf, int size,
 #if TARGET_OS_SIMULATOR
     NSNumber *pixelFormat = @(kCVPixelFormatType_32BGRA);
 #else
-    NSNumber *pixelFormat = nil;
-    if (self->_videoFormat & VIDEO_FORMAT_MASK_YUV444) {
-        pixelFormat = @(kCVPixelFormatType_444YpCbCr10BiPlanarVideoRange);
-    }
-    else {
-        pixelFormat = @(kCVPixelFormatType_420YpCbCr10BiPlanarVideoRange);
-    }
+    // 4:4:4 at its own bit depth, and the range asked of the host (VideoFormatPolicy)
+    NSNumber *pixelFormat = @(StreamDecoderPixelFormat(self->_videoFormat, self->_fullRange));
 #endif
 
     NSDictionary *destinationPixelBufferAttributes = @{

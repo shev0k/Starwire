@@ -1,0 +1,61 @@
+//
+//  VideoFormatTests.m
+//  Starwire
+//
+//  The decoder's pixel format for 4:4:4 and full range streams, and the range the renderer
+//  reads back from a decoded pixel format.
+//
+
+#import <XCTest/XCTest.h>
+
+#import "VideoFormatPolicy.h"
+#include "Limelight.h"
+
+@interface VideoFormatTests : XCTestCase
+@end
+
+@implementation VideoFormatTests
+
+- (void)testFourTwoZeroUsesTenBitsInTheAskedRange {
+    XCTAssertEqual(StreamDecoderPixelFormat(VIDEO_FORMAT_H265, NO), kCVPixelFormatType_420YpCbCr10BiPlanarVideoRange);
+    XCTAssertEqual(StreamDecoderPixelFormat(VIDEO_FORMAT_H265, YES), kCVPixelFormatType_420YpCbCr10BiPlanarFullRange);
+    XCTAssertEqual(StreamDecoderPixelFormat(VIDEO_FORMAT_AV1_MAIN10, NO), kCVPixelFormatType_420YpCbCr10BiPlanarVideoRange);
+}
+
+- (void)testFourFourFourKeepsItsBitDepth {
+    XCTAssertEqual(StreamDecoderPixelFormat(VIDEO_FORMAT_H265_REXT8_444, NO), kCVPixelFormatType_444YpCbCr8BiPlanarVideoRange);
+    XCTAssertEqual(StreamDecoderPixelFormat(VIDEO_FORMAT_H265_REXT8_444, YES), kCVPixelFormatType_444YpCbCr8BiPlanarFullRange);
+    XCTAssertEqual(StreamDecoderPixelFormat(VIDEO_FORMAT_H265_REXT10_444, NO), kCVPixelFormatType_444YpCbCr10BiPlanarVideoRange);
+    XCTAssertEqual(StreamDecoderPixelFormat(VIDEO_FORMAT_H265_REXT10_444, YES), kCVPixelFormatType_444YpCbCr10BiPlanarFullRange);
+}
+
+- (void)testRangeComesFromThePixelFormat {
+    BOOL known = NO;
+    XCTAssertTrue(StreamPixelFormatIsFullRange(kCVPixelFormatType_444YpCbCr8BiPlanarFullRange, &known));
+    XCTAssertTrue(known);
+    XCTAssertFalse(StreamPixelFormatIsFullRange(kCVPixelFormatType_420YpCbCr10BiPlanarVideoRange, &known));
+    XCTAssertTrue(known);
+    // Every format the decoder can be asked for has a known range
+    int formats[] = {VIDEO_FORMAT_H265, VIDEO_FORMAT_H265_REXT8_444, VIDEO_FORMAT_H265_REXT10_444};
+    for (int i = 0; i < 3; i++) {
+        for (int full = 0; full <= 1; full++) {
+            BOOL isFull = StreamPixelFormatIsFullRange(StreamDecoderPixelFormat(formats[i], full), &known);
+            XCTAssertTrue(known);
+            XCTAssertEqual(isFull, (BOOL)full);
+        }
+    }
+    StreamPixelFormatIsFullRange(kCVPixelFormatType_32BGRA, &known);
+    XCTAssertFalse(known);
+}
+
+- (void)testFullRangeSetting {
+    NSString *suite = @"VideoFormatTests.fullRange";
+    NSUserDefaults *defaults = [[NSUserDefaults alloc] initWithSuiteName:suite];
+    [defaults removePersistentDomainForName:suite];
+    XCTAssertFalse(StreamUsesFullRange(defaults));
+    [defaults setBool:YES forKey:StreamFullRangeKey];
+    XCTAssertTrue(StreamUsesFullRange(defaults));
+    [defaults removePersistentDomainForName:suite];
+}
+
+@end

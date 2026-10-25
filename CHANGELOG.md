@@ -49,6 +49,10 @@ steps and the checksums for each version.
 - **iOS: "Allow refresh rate reduction",** off by default as on Android: the display stays at its
   top rate, so a 60 FPS stream can show each new frame at the next 120 Hz refresh. On, the display
   drops to the stream's rate to save power.
+- **iOS: 4:4:4 at 8 bits and full range video.** A 4:4:4 stream now decodes at its own bit depth
+  (it was always 10 bit), and "Force full range video" in iOS Settings asks the PC for full range,
+  as on Android. The renderer takes the range from the decoded pixels, so the colours match
+  either way. Vibeshine on an NVIDIA card encodes 4:4:4 with HEVC only, not AV1.
 - **iOS: unit tests on the simulator in CI,** including Andy Grundman's frame queue tests, and a
   UI test the Mac runs on the iPad.
 
