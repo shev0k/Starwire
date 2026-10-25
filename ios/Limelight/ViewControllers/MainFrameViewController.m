@@ -656,7 +656,7 @@ static NSMutableSet* hostList;
 
     _streamConfig.bitRate = [streamSettings.bitrate intValue];
     _streamConfig.optimizeGameSettings = streamSettings.optimizeGames;
-    _streamConfig.playAudioOnPC = streamSettings.playAudioOnPC;
+    _streamConfig.playAudioOnPC = StreamPlayAudioOnPCWithOverride([NSUserDefaults standardUserDefaults], streamSettings.playAudioOnPC);
     _streamConfig.swapABXYButtons = streamSettings.swapABXYButtons;
 
     // multiController must be set before calling getConnectedGamepadMask

@@ -25,6 +25,8 @@
 //    TEST_RUNNER_STARWIRE_REDUCE_REFRESH  "1" to allow refresh rate reduction
 //    TEST_RUNNER_STARWIRE_INTERPOLATION   "1" for frame interpolation (iOS 26 or later)
 //    TEST_RUNNER_STARWIRE_FPS             a frame rate instead of the app's setting, like 60
+//    TEST_RUNNER_STARWIRE_PC_AUDIO        "0" to move the PC's sound to the stream; by default it
+//                                         stays on the PC
 //    TEST_RUNNER_STARWIRE_VIRTUAL_DISPLAY "1" to stream a Vibeshine virtual display
 //  They become the app's launch arguments, which the app reads as user defaults. The app has no
 //  code for tests.
@@ -57,6 +59,8 @@ final class StreamDeviceRunTests: XCTestCase {
         if let v = env["STARWIRE_REDUCE_REFRESH"] { args += ["-StarwireReduceRefreshRate", v == "1" ? "YES" : "NO"] }
         if let v = env["STARWIRE_INTERPOLATION"] { args += ["-StarwireFrameInterpolation", v == "1" ? "YES" : "NO"] }
         if let v = env["STARWIRE_FPS"] { args += ["-StarwireFrameRate", v] }
+        // The PC's sound stays on the PC unless a run asks otherwise: the owner may be using it
+        args += ["-StarwirePlayAudioOnPC", env["STARWIRE_PC_AUDIO"] == "0" ? "NO" : "YES"]
         if let v = env["STARWIRE_VIRTUAL_DISPLAY"] { args += ["-StarwireVirtualDisplay", v == "1" ? "YES" : "NO"] }
         app.launchArguments = args
         app.launch()

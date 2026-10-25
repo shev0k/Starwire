@@ -75,6 +75,9 @@ steps and the checksums for each version.
 
 ### Fixed
 
+- **iOS: the overlay's audio bitrate and decode time.** Reading the overlay twice within a few
+  milliseconds showed bitrates in the billions of kbps, and the decode time showed "nan" or 0.00.
+
 - **Prebuilt file check:** `verify.sh` now finds files listed in `SHA256SUMS` whose path has a
   space.
 - **iOS: stream stability fixes, not yet tried on the iPad.**

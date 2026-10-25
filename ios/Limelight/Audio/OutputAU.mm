@@ -1,6 +1,7 @@
 #import "OutputAU.h"
 #import "CoreAudioHelpers.h"
 #import "AudioStats.h"
+#import "AudioStatsMath.h"
 #import "DataManager.h"
 
 #include <Accelerate/Accelerate.h>
@@ -769,20 +770,32 @@ NSString * OutputAU::getAudioStatsString()
 {
     static EWMA bitrateAvg(0.2);
     static EWMA decodeTimeAvg(0.2);
+    static bool haveBitrate = false;
+    static bool haveDecodeTime = false;
     static CFTimeInterval lastTick = CACurrentMediaTime();
     CFTimeInterval now = CACurrentMediaTime();
 
-    // add a new sample to the bitrate moving average
-    bitrateAvg.addSample((double)(m_bitrateSum * 8) / 1000.0 / (now - lastTick));
+    // Sample only windows long enough to mean something (AudioStatsMath.h); a shorter one keeps
+    // adding up until the next call
+    double kbps = AudioStatsKbps((double)m_bitrateSum, now - lastTick);
+    if (kbps >= 0) {
+        bitrateAvg.addSample(kbps);
+        haveBitrate = true;
 
-    // track audio decode time as the sum of opus decode -> ring buffer and ring buffer -> processing -> output
-    // it doesn't include RTP processing time but probably should
-    decodeTimeAvg.addSample((m_opusToPCMTime / 1000.0) / m_opusPackets);
+        // track audio decode time as the sum of opus decode -> ring buffer and ring buffer -> processing -> output
+        // it doesn't include RTP processing time but probably should. m_opusToPCMTime is in seconds.
+        double decodeMs = AudioStatsMeanMs(m_opusToPCMTime * 1000.0, m_opusPackets);
+        if (decodeMs >= 0) {
+            decodeTimeAvg.addSample(decodeMs);
+            haveDecodeTime = true;
+        }
 
-    // next call will use data starting right now
-    lastTick = now;
-    m_bitrateSum = 0;
-    m_opusPackets = 0;
+        // next sample starts now
+        lastTick = now;
+        m_bitrateSum = 0;
+        m_opusPackets = 0;
+        m_opusToPCMTime = 0;
+    }
 
     uint32_t freeBytes = 0;
     TPCircularBufferTail(&m_RingBuffer, &freeBytes);
@@ -791,9 +804,9 @@ NSString * OutputAU::getAudioStatsString()
 
     // The leading space before each line is because this gets appended to each video stats line
     NSString *out = [NSString stringWithFormat:@" Audio stream: %dch Opus @ %.0f kbps\n Audio buffer: %.0f%% full (%.2f ms)\n Audio decode: %.2f ms",
-                     m_channelCount, bitrateAvg.getOutput(),
+                     m_channelCount, haveBitrate ? bitrateAvg.getOutput() : 0.0,
                      (double)(pcmBytes * 100.0 / m_RingBuffer.length), pcmDuration * 1000.0,
-                     decodeTimeAvg.getOutput()];
+                     haveDecodeTime ? decodeTimeAvg.getOutput() : 0.0];
 
 //    DEBUG_TRACE(@"buffer health: %.2f %% full, PCM bytes: %d (%.2f ms), free bytes: %d, bitrate: %.0f kbps, decode time: %.2f ms",
 //                (double)(pcmBytes * 100.0 / m_RingBuffer.length), pcmBytes, pcmDuration * 1000.0, freeBytes, bitrateAvg.getOutput(), decodeTimeAvg.getOutput());

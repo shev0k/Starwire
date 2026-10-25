@@ -135,4 +135,19 @@
     [defaults removePersistentDomainForName:suite];
 }
 
+
+// Unset, the app's setting holds; set, the launch argument wins either way
+- (void)testPlayAudioOnPCOverride {
+    NSString *suite = @"VideoFormatTests.audio";
+    NSUserDefaults *defaults = [[NSUserDefaults alloc] initWithSuiteName:suite];
+    [defaults removePersistentDomainForName:suite];
+    XCTAssertFalse(StreamPlayAudioOnPCWithOverride(defaults, NO));
+    XCTAssertTrue(StreamPlayAudioOnPCWithOverride(defaults, YES));
+    [defaults setBool:YES forKey:StreamPlayAudioOnPCKey];
+    XCTAssertTrue(StreamPlayAudioOnPCWithOverride(defaults, NO));
+    [defaults setBool:NO forKey:StreamPlayAudioOnPCKey];
+    XCTAssertFalse(StreamPlayAudioOnPCWithOverride(defaults, YES));
+    [defaults removePersistentDomainForName:suite];
+}
+
 @end

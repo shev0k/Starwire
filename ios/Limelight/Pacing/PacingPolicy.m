@@ -13,6 +13,7 @@ NSString *const StreamVirtualDisplayKey = @"StarwireVirtualDisplay";
 NSString *const PacingReduceRefreshRateKey = @"StarwireReduceRefreshRate";
 NSString *const StatsOverlayLevelKey = @"StarwireOverlay";
 NSString *const StreamFrameRateKey = @"StarwireFrameRate";
+NSString *const StreamPlayAudioOnPCKey = @"StarwirePlayAudioOnPC";
 
 @implementation PacingSettings
 
@@ -124,6 +125,13 @@ PacingRefreshRange PacingDisplayRefreshRange(double streamFps, double displayHz,
 int StreamFrameRateWithOverride(NSUserDefaults *defaults, int appSetting) {
     NSInteger rate = [defaults integerForKey:StreamFrameRateKey];
     return rate > 0 ? (int)rate : appSetting;
+}
+
+BOOL StreamPlayAudioOnPCWithOverride(NSUserDefaults *defaults, BOOL appSetting) {
+    if ([defaults objectForKey:StreamPlayAudioOnPCKey] == nil) {
+        return appSetting;
+    }
+    return [defaults boolForKey:StreamPlayAudioOnPCKey];
 }
 
 BOOL StreamUsesVirtualDisplay(NSUserDefaults *defaults) {

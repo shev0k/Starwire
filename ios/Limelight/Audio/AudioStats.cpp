@@ -26,3 +26,16 @@ double EWMA::getOutput() const {
     }
     return m_output;
 }
+
+#include "AudioStatsMath.h"
+
+double AudioStatsKbps(double bytes, double seconds) {
+    if (!(seconds >= AUDIO_STATS_MIN_WINDOW) || bytes < 0) {
+        return -1;
+    }
+    return bytes * 8.0 / 1000.0 / seconds;
+}
+
+double AudioStatsMeanMs(double totalMs, int packets) {
+    return packets > 0 ? totalMs / packets : -1;
+}

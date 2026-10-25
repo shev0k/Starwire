@@ -53,6 +53,7 @@ extern NSString *const StreamVirtualDisplayKey;    // YES = ask Vibeshine for a 
 extern NSString *const PacingReduceRefreshRateKey; // YES = let the display drop to the stream's rate
 extern NSString *const StatsOverlayLevelKey;       // "full" or "lite"
 extern NSString *const StreamFrameRateKey;         // a frame rate that replaces the app's setting, for tests
+extern NSString *const StreamPlayAudioOnPCKey;     // YES or NO replaces the app's "Play audio on PC", for tests
 
 typedef NS_ENUM(NSInteger, StatsOverlayLevel) {
     // Every line: video, network, pacing and the whole-stream summary
@@ -125,6 +126,9 @@ PacingRefreshRange PacingDisplayRefreshRange(double streamFps, double displayHz,
 // The app's frame rate setting, or StreamFrameRateKey when that is set above 0. Launch argument
 // only (`-StarwireFrameRate 60`), so a device run can try a rate without touching the settings.
 int StreamFrameRateWithOverride(NSUserDefaults *defaults, int appSetting);
+// The app's "Play audio on PC", or StreamPlayAudioOnPCKey when it is set. Launch argument only:
+// the device runs keep the PC's sound on the PC, so someone using the PC hears it.
+BOOL StreamPlayAudioOnPCWithOverride(NSUserDefaults *defaults, BOOL appSetting);
 
 // Whether to ask the host for a virtual display (Vibeshine's virtualDisplay=1 launch parameter)
 BOOL StreamUsesVirtualDisplay(NSUserDefaults *defaults);
