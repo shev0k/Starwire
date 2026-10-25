@@ -60,6 +60,7 @@ static const double MOUSE_SPEED_DIVISOR = 1.25;
 
 -(void) rumble:(unsigned short)controllerNumber lowFreqMotor:(unsigned short)lowFreqMotor highFreqMotor:(unsigned short)highFreqMotor
 {
+    Log(LOG_D, @"Rumble for controller %d: low %u, high %u", controllerNumber, lowFreqMotor, highFreqMotor);
     Controller* controller = [_controllers objectForKey:[NSNumber numberWithInteger:controllerNumber]];
     if (controller == nil && controllerNumber == 0 && _oscEnabled) {
         // TODO: Rumble emulation for OSC
@@ -81,6 +82,7 @@ static const double MOUSE_SPEED_DIVISOR = 1.25;
 
 -(void) rumbleTriggers:(uint16_t)controllerNumber leftTrigger:(uint16_t)leftTrigger rightTrigger:(uint16_t)rightTrigger
 {
+    Log(LOG_D, @"Trigger rumble for controller %d: left %u, right %u", controllerNumber, leftTrigger, rightTrigger);
     Controller* controller = [_controllers objectForKey:[NSNumber numberWithInteger:controllerNumber]];
     if (controller == nil && controllerNumber == 0 && _oscEnabled) {
         // TODO: Trigger rumble emulation for OSC
@@ -96,6 +98,7 @@ static const double MOUSE_SPEED_DIVISOR = 1.25;
 
 - (void) setMotionEventState:(uint16_t)controllerNumber motionType:(uint8_t)motionType reportRateHz:(uint16_t)reportRateHz
 {
+    Log(LOG_I, @"The PC asks controller %d for motion type %d at %u Hz", controllerNumber, motionType, reportRateHz);
     if (@available(iOS 14.0, tvOS 14.0, *)) {
         Controller* controller = [_controllers objectForKey:[NSNumber numberWithInteger:controllerNumber]];
         if (controller == nil) {
@@ -186,6 +189,7 @@ static const double MOUSE_SPEED_DIVISOR = 1.25;
 }
 
 -(void) setControllerLed:(uint16_t)controllerNumber r:(uint8_t)r g:(uint8_t)g b:(uint8_t)b {
+    Log(LOG_I, @"The PC sets controller %d's light to %02X%02X%02X", controllerNumber, r, g, b);
     if (@available(iOS 14.0, tvOS 14.0, *)) {
         Controller* controller = [_controllers objectForKey:[NSNumber numberWithInteger:controllerNumber]];
         if (controller == nil) {

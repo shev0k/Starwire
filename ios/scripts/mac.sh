@@ -18,7 +18,8 @@
 #                                           TEST_RUNNER_STARWIRE_VAR. The [device-run] lines and the
 #                                           summary come back to build/mac/<label>.txt
 #   ios/scripts/mac.sh unit                 the app's unit tests on a simulator
-#   ios/scripts/mac.sh log [seconds]        start the app with its console log for N seconds (20)
+#   ios/scripts/mac.sh log [seconds] [args] start the app with its console log for N seconds (20),
+#                                           with launch arguments like -StarwireVerboseLogging YES
 #   ios/scripts/mac.sh run '<command>'      any command in the Mac's repo, with the same setup
 #
 # Test names: stream (testStreamAndSample), resume (testBackgroundAndResume), streams
@@ -237,16 +238,19 @@ exit $status
 
 log)
     seconds=${1:-20}
+    shift || true
     remote '
 need_ipad
+seconds=$1
+shift
 xcrun devicectl device process launch --console --terminate-existing \
-    --environment-variables "{\"OS_ACTIVITY_DT_MODE\":\"enable\"}" --device "$IPAD" io.github.shev0k.starwire > build/console.log 2>&1 &
+    --environment-variables "{\"OS_ACTIVITY_DT_MODE\":\"enable\"}" --device "$IPAD" io.github.shev0k.starwire "$@" > build/console.log 2>&1 &
 pid=$!
-sleep "$1"
+sleep "$seconds"
 kill "$pid" 2>/dev/null || true
 wait "$pid" 2>/dev/null || true
-grep -E "Starwire\[" build/console.log | tail -200
-' "$seconds"
+grep -E "Starwire\[" build/console.log | tail -400
+' "$seconds" "$@"
     ;;
 
 run)

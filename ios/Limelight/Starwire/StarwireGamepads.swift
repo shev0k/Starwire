@@ -94,6 +94,10 @@ final class StarwireGamepads: NSObject {
         }
         let previous = lastButtons[number] ?? 0
         lastButtons[number] = buttons
+        if buttons != previous {
+            StarwireLog.debug(String(format: "Gamepads: controller %d buttons 0x%X, triggers %d/%d, sticks %d,%d %d,%d",
+                                     number, buttons, leftTrigger, rightTrigger, leftX, leftY, rightX, rightY))
+        }
         if menuOpen {
             let pressed = buttons & ~previous
             if pressed != 0 {
@@ -207,6 +211,9 @@ final class StarwireGamepads: NSObject {
     @objc func hapticsPCM(number: Int, sequence: UInt32, pcm: Data) {
         let samples = DualSenseHapticsConverter.samples(fromLittleEndian: [UInt8](pcm))
         hapticsQueue.async {
+            if self.converters[number] == nil {
+                StarwireLog.info("Gamepads: DualSense haptics from the PC for controller \(number), \(samples.count / 2) frames a packet")
+            }
             let converter = self.converters[number] ?? DualSenseHapticsConverter()
             self.converters[number] = converter
             let result = converter.process(sequence: sequence, samples: samples)
@@ -236,6 +243,8 @@ final class StarwireGamepads: NSObject {
         DispatchQueue.main.async {
             guard #available(iOS 14.5, *),
                   let dualSense = self.controllerForNumber?(number)?.extendedGamepad as? GCDualSenseGamepad else { return }
+            StarwireLog.info(String(format: "Gamepads: adaptive triggers for controller %d: flags 0x%X, left 0x%02X, right 0x%02X",
+                                    number, flags, typeLeft, typeRight))
             if flags & AdaptiveTriggerEffect.leftTriggerFlag != 0 {
                 Self.apply(AdaptiveTriggerEffect.decode(type: typeLeft, bytes: [UInt8](left)), to: dualSense.leftTrigger)
             }
