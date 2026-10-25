@@ -54,6 +54,8 @@ final class AppState: ObservableObject {
 
     let library: Library
     let focus: ControllerFocus
+    /// The app's state, for screens shown over a stream (the stream menu's More settings)
+    static weak var current: AppState?
 
     init(library: Library, focus: ControllerFocus? = nil) {
         self.library = library

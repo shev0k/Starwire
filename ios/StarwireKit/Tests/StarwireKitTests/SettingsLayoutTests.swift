@@ -130,15 +130,30 @@ final class SettingsLayoutTests: XCTestCase {
         "microphone_host_info", "vban_setup_info", "mic_pairing", "overlay_custom_commands", "import_shortcuts_file",
         "clear_imported_shortcuts", "reset_osc_layout", "text_custom_vulkan_driver_path", "remove_custom_vulkan_driver",
         "about_version", "about_github", "about_issues", "about_source", "about_credits", "about_licences",
+        "edit_keyboard_layout",
     ]
+
+    /// Sections Android doesn't have, and in Android's sections the groups before Android's own
+    private var androidSections: [SettingsSection] {
+        SettingsLayout.sections.filter { !$0.titleKey.hasPrefix("ios_") }
+    }
+
+    private func androidGroup(_ section: SettingsSection) -> SettingsGroup {
+        section.groups.first { !$0.id.hasPrefix("ios_") } ?? section.groups[0]
+    }
 
     /// Android sets these summaries in code, so the XML has none.
     private let summariesSetInCode: Set<String> = ["about_version", "about_source"]
 
     func testSectionsAreAndroidsPillsInOrder() throws {
         XCTAssertEqual(SettingsLayout.sections.map(\.id),
-                       ["stream", "sound", "controllers", "menu", "touch", "onscreen", "pc", "app", "advanced", "about"])
-        XCTAssertEqual(SettingsLayout.sections.map(\.titleKey), [
+                       ["stream", "sound", "controllers", "menu", "touch", "keyboard", "onscreen", "pc", "app", "advanced",
+                        "about"])
+        // Keyboards is the one section of iOS's own, with iOS groups only
+        let keyboard = try XCTUnwrap(SettingsLayout.sections.first { $0.id == "keyboard" })
+        XCTAssertEqual(keyboard.titleKey, "ios_section_keyboard")
+        XCTAssertTrue(keyboard.groups.allSatisfy { $0.id.hasPrefix("ios_") && $0.titleKey != nil })
+        XCTAssertEqual(androidSections.map(\.titleKey), [
             "cg_section_stream", "cg_section_sound", "cg_section_controllers", "cg_section_menu", "cg_section_touch",
             "cg_section_onscreen", "cg_section_pc", "cg_section_app", "cg_section_advanced", "category_about",
         ])
@@ -152,13 +167,13 @@ final class SettingsLayoutTests: XCTestCase {
         XCTAssertEqual(friendly.count, 9)
 
         let tree = try PreferenceTreeReader.read("app/src/main/res/xml/preferences.xml")
-        XCTAssertEqual(tree.categories.count, SettingsLayout.sections.count)
-        for (category, section) in zip(tree.categories, SettingsLayout.sections) {
+        XCTAssertEqual(tree.categories.count, androidSections.count)
+        for (category, section) in zip(tree.categories, androidSections) {
             let title = try XCTUnwrap(XMLPref(tag: "", attributes: category.attributes).resource("android:title"))
             XCTAssertEqual(section.titleKey, friendly[title] ?? title, section.id)
-            XCTAssertEqual(section.groups[0].id, category.attributes["android:key"] ?? title, section.id)
-            XCTAssertNil(section.groups[0].titleKey, "Android's group takes the section's title")
-            for group in section.groups.dropFirst() {
+            XCTAssertEqual(androidGroup(section).id, category.attributes["android:key"] ?? title, section.id)
+            XCTAssertNil(androidGroup(section).titleKey, "Android's group takes the section's title")
+            for group in section.groups where group.id != androidGroup(section).id {
                 XCTAssertTrue(group.id.hasPrefix("ios_"), group.id)
                 XCTAssertNotNil(group.titleKey, group.id)
             }
@@ -172,11 +187,17 @@ final class SettingsLayoutTests: XCTestCase {
         for definition in SettingsCatalog.all {
             if let reason = SettingsLayout.settingsWithoutRow[definition.key] {
                 XCTAssertNil(counts[definition.key], "\(definition.key) is listed as having no row (\(reason))")
-                XCTAssertEqual(definition.availability, .supported, definition.key)
+                XCTAssertTrue([.supported, .iosOnly].contains(definition.availability), definition.key)
                 continue
             }
             XCTAssertEqual(counts[definition.key], 1, "\(definition.key) should have one row")
             guard let item = SettingsLayout.item(definition.key) else { continue }
+            if let replacement = SettingsLayout.replacedSettings[definition.key] {
+                // Kept for Android's files, drawn as the iOS setting that took its place
+                XCTAssertEqual(item.presence, .hidden(.supported), definition.key)
+                XCTAssertEqual(SettingsLayout.item(replacement)?.presence, .shown, replacement)
+                continue
+            }
             switch definition.availability {
             case .supported, .iosOnly:
                 XCTAssertEqual(item.presence, .shown, definition.key)
@@ -209,7 +230,9 @@ final class SettingsLayoutTests: XCTestCase {
         for section in SettingsLayout.sections {
             for group in section.groups {
                 for item in group.items {
+                    // A button that saves nothing counts as iOS-only when it sits in an iOS group
                     let iosOnly = SettingsCatalog.definition(item.id)?.availability == .iosOnly
+                        || (SettingsCatalog.definition(item.id) == nil && group.id.hasPrefix("ios_") && rowsThatSaveNothing.contains(item.id))
                     XCTAssertEqual(group.id.hasPrefix("ios_"), iosOnly, "\(item.id) in \(group.id)")
                 }
             }
@@ -221,8 +244,8 @@ final class SettingsLayoutTests: XCTestCase {
         XCTAssertTrue(tree.top.isEmpty)
         let resources = try StringResources.load()
 
-        for (category, section) in zip(tree.categories, SettingsLayout.sections) {
-            let group = section.groups[0]
+        for (category, section) in zip(tree.categories, androidSections) {
+            let group = androidGroup(section)
             // The layout has one row the XML gives no key (the reset button)
             XCTAssertEqual(group.items.map(\.id).filter { $0 != "reset_osc_layout" },
                            category.prefs.compactMap(\.key), group.id)
@@ -434,7 +457,9 @@ final class SettingsLayoutTests: XCTestCase {
         let resources = try StringResources.load()
         XCTAssertEqual(tree.top.compactMap(\.key), [GameSettingsLayout.useGlobalKey])
         XCTAssertEqual(tree.categories.count, 1)
-        XCTAssertEqual(GameSettingsLayout.groups.map(\.id), ["game_use_global", tree.categories[0].attributes["android:key"] ?? ""])
+        // Then iOS's own per-game options
+        XCTAssertEqual(GameSettingsLayout.groups.map(\.id), ["game_use_global", tree.categories[0].attributes["android:key"] ?? "",
+                                                             "ios_game_options"])
 
         XCTAssertEqual(GameSettingsLayout.groups[1].items.map(\.id), tree.categories[0].prefs.compactMap(\.key))
         for pref in tree.categories[0].prefs {
@@ -478,7 +503,7 @@ final class SettingsLayoutTests: XCTestCase {
 
     func testPerGameOptionsAreTheCatalogsGameOptions() {
         let optionRows = GameSettingsLayout.items.filter { $0.id.hasPrefix("game_") }
-        XCTAssertEqual(Set(optionRows.compactMap(\.overrides)), Set(SettingsCatalog.gameOptionKeys))
+        XCTAssertEqual(Set(optionRows.compactMap(\.overrides)), Set(SettingsCatalog.gameOptionKeys + SettingsCatalog.iosGameOptionKeys))
         for row in optionRows {
             XCTAssertEqual(row.id, "game_" + row.overrides!)
             XCTAssertEqual(SettingsCatalog.definition(row.overrides!)?.gameOption, true, row.id)

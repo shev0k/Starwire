@@ -115,6 +115,11 @@ public struct SettingsGroup: Identifiable, Equatable, Sendable {
 
     /// The items the screen should draw (not the ones iOS can't do or the PC lacks).
     public var shownItems: [SettingsItem] { items.filter(\.isShown) }
+
+    /// The same group with only some of its items (the settings screen's search).
+    public func keeping(_ keep: (SettingsItem) -> Bool) -> SettingsGroup {
+        SettingsGroup(id: id, titleKey: titleKey, showWhen: showWhen, items: items.filter(keep))
+    }
 }
 
 public struct SettingsSection: Identifiable, Equatable, Sendable {
@@ -156,11 +161,15 @@ public enum SettingsLayout {
                         dependency: "checkbox_async_decode"),
                 .toggle("checkbox_ultra_low_latency", "title_checkbox_ultra_low_latency",
                         summary: "summary_checkbox_ultra_low_latency"),
-                .toggle("checkbox_stretch_video", "title_checkbox_stretch_video"),
+                // Replaced by the picture's fit below, which starts from this switch's value
+                .toggle("checkbox_stretch_video", "title_checkbox_stretch_video", presence: .hidden(.supported)),
                 .toggle("checkbox_auto_resume_stream", "title_checkbox_auto_resume_stream",
                         summary: "summary_checkbox_auto_resume_stream"),
             ]),
             SettingsGroup(id: "ios_stream", titleKey: "ios_group_this_device", showWhen: nil, items: [
+                .list("list_video_scaling", "ios_title_video_scaling",
+                      entries: ["ios_video_scaling_fit", "ios_video_scaling_stretch", "ios_video_scaling_fill"],
+                      values: PictureScaling.allCases.map(\.rawValue), summary: "ios_summary_video_scaling"),
                 .toggle("checkbox_frame_interpolation", "ios_title_frame_interpolation",
                         summary: "ios_summary_frame_interpolation"),
                 .list("list_external_display", "ios_title_external_display",
@@ -257,12 +266,35 @@ public enum SettingsLayout {
                 .action("clear_imported_shortcuts", "title_clear_imported_shortcuts", "clear_imported_shortcuts",
                         summary: "summary_clear_imported_shortcuts"),
             ]),
+            SettingsGroup(id: "ios_menu_button", titleKey: "ios_group_menu_button", showWhen: nil, items: [
+                .list("list_menu_button_style", "ios_title_menu_button_style",
+                      entries: ["ios_menu_button_floating", "ios_menu_button_edge"],
+                      values: MenuButtonOptions.Style.allCases.map(\.rawValue), summary: "ios_summary_menu_button_style",
+                      dependency: "checkbox_enable_floating_button"),
+                .list("list_menu_button_size", "ios_title_menu_button_size",
+                      entries: ["ios_size_small", "ios_size_medium", "ios_size_large"],
+                      values: MenuButtonOptions.Size.allCases.map(\.rawValue), dependency: "checkbox_enable_floating_button"),
+                .slider("seekbar_menu_button_opacity", "ios_title_menu_button_opacity", 20...100, step: 5,
+                        unit: "suffix_seekbar_deadzone", summary: "ios_summary_menu_button_opacity",
+                        dependency: "checkbox_enable_floating_button"),
+                .list("list_menu_button_auto_hide", "ios_title_menu_button_auto_hide",
+                      entries: ["ios_auto_hide_off", "ios_auto_hide_3", "ios_auto_hide_5", "ios_auto_hide_10"],
+                      values: MenuButtonOptions.autoHideChoices, summary: "ios_summary_menu_button_auto_hide",
+                      dependency: "checkbox_enable_floating_button"),
+            ]),
         ]),
 
         SettingsSection(id: "touch", titleKey: "cg_section_touch", groups: [
+            SettingsGroup(id: "ios_touch_mode", titleKey: "ios_group_touch_mode", showWhen: nil, items: [
+                .list("list_touch_mode", "mouse_mode_title",
+                      entries: ["mouse_mode_multi_touch", "mouse_mode_absolute_touch", "mouse_mode_track_pad_natural",
+                                "mouse_mode_track_pad_gaming", "mouse_mode_disabled", "mouse_mode_absolute_touch_swapped"],
+                      values: TouchMode.allCases.map(\.settingValue), summary: "ios_summary_touch_mode"),
+            ]),
             SettingsGroup(id: "category_input_settings", titleKey: nil, showWhen: nil, items: [
+                // Replaced by the touch mode above, which starts from this switch's value
                 .toggle("checkbox_touchscreen_trackpad", "title_checkbox_touchscreen_trackpad",
-                        summary: "summary_checkbox_touchscreen_trackpad"),
+                        summary: "summary_checkbox_touchscreen_trackpad", presence: .hidden(.supported)),
                 .toggle("checkbox_long_press_right_click", "title_checkbox_long_press_right_click",
                         summary: "summary_checkbox_long_press_right_click"),
                 .toggle("checkbox_pinch_to_zoom", "title_checkbox_pinch_to_zoom", summary: "summary_checkbox_pinch_to_zoom"),
@@ -286,6 +318,33 @@ public enum SettingsLayout {
                 .list("list_pencil_pressure_curve", "ios_title_pencil_curve",
                       entries: ["ios_pencil_curve_linear", "ios_pencil_curve_soft", "ios_pencil_curve_firm"],
                       values: ["linear", "soft", "firm"], summary: "ios_summary_pencil_curve"),
+            ]),
+            SettingsGroup(id: "ios_gestures", titleKey: "ios_group_gestures", showWhen: nil, items: [
+                .list("list_gesture_three_finger_tap", "ios_title_gesture_three", entries: ["ios_gesture_none", "ios_gesture_menu", "ios_gesture_full_keyboard", "ios_gesture_system_keyboard", "ios_gesture_onscreen_controls", "ios_gesture_stats", "ios_gesture_pan_zoom", "ios_gesture_menu_button"],
+                      values: GestureAction.allCases.map(\.rawValue), summary: "ios_summary_gesture_three"),
+                .list("list_gesture_four_finger_tap", "ios_title_gesture_four", entries: ["ios_gesture_none", "ios_gesture_menu", "ios_gesture_full_keyboard", "ios_gesture_system_keyboard", "ios_gesture_onscreen_controls", "ios_gesture_stats", "ios_gesture_pan_zoom", "ios_gesture_menu_button"],
+                      values: GestureAction.allCases.map(\.rawValue), summary: "ios_summary_gesture_four"),
+                .list("list_gesture_five_finger_tap", "ios_title_gesture_five", entries: ["ios_gesture_none", "ios_gesture_menu", "ios_gesture_full_keyboard", "ios_gesture_system_keyboard", "ios_gesture_onscreen_controls", "ios_gesture_stats", "ios_gesture_pan_zoom", "ios_gesture_menu_button"],
+                      values: GestureAction.allCases.map(\.rawValue), summary: "ios_summary_gesture_five"),
+            ]),
+        ]),
+
+        SettingsSection(id: "keyboard", titleKey: "ios_section_keyboard", groups: [
+            SettingsGroup(id: "ios_keyboard", titleKey: "ios_group_full_keyboard", showWhen: nil, items: [
+                .list("list_keyboard_preset", "ios_title_keyboard_preset",
+                      entries: ["ios_keyboard_full", "ios_keyboard_compact", "ios_keyboard_gaming", "ios_keyboard_numpad"],
+                      values: KeyboardPreset.allCases.map(\.rawValue), summary: "ios_summary_keyboard_preset"),
+                .slider("seekbar_keyboard_size", "ios_title_keyboard_size", KeyboardCustomization.sizeRange, step: 5,
+                        unit: "suffix_seekbar_deadzone", summary: "ios_summary_keyboard_size"),
+                .list("list_keyboard_placement", "ios_title_keyboard_placement",
+                      entries: ["ios_keyboard_docked", "ios_keyboard_floating"],
+                      values: KeyboardPlacement.allCases.map(\.rawValue), summary: "ios_summary_keyboard_placement"),
+                .action("edit_keyboard_layout", "ios_title_keyboard_edit", "edit_keyboard_layout",
+                        summary: "ios_summary_keyboard_edit"),
+            ]),
+            SettingsGroup(id: "ios_controller_keyboard", titleKey: "ios_group_controller_keyboard", showWhen: nil, items: [
+                .toggle("checkbox_controller_keyboard", "ios_title_controller_keyboard",
+                        summary: "ios_summary_controller_keyboard"),
             ]),
         ]),
 
@@ -444,6 +503,14 @@ public enum SettingsLayout {
     /// Settings in `SettingsCatalog` that have no row, and why. Android has no row for them either.
     public static let settingsWithoutRow: [String: String] = [
         "checkbox_mouse_emulation": "Android only toggles it from the stream menu (OverlayMenuView), never on the settings screen",
+        "keyboard_remapped_keys": "Changed with the Keyboards section's Change keys editor, not a row of its own",
+    ]
+
+    /// Android settings kept (for Android's files and per-game choices) but drawn as the iOS
+    /// setting that replaced them, which starts from their value.
+    public static let replacedSettings: [String: String] = [
+        "checkbox_touchscreen_trackpad": "list_touch_mode",
+        "checkbox_stretch_video": "list_video_scaling",
     ]
 
     /// Every row, in order.

@@ -137,6 +137,11 @@ extension SettingsStore {
         if !game.useGlobalSettings {
             applyOverrides(game, to: &values)
         }
+        // A game that picks Android's trackpad or direct touch, and no touch mode of its own
+        if !game.useGlobalSettings, game.gameOptions["list_touch_mode"] == nil,
+           let raw = game.gameOptions["checkbox_touchscreen_trackpad"], raw == "true" || raw == "false" {
+            values["list_touch_mode"] = .string(TouchMode.initial(touchscreenTrackpad: raw == "true").settingValue)
+        }
         // Android: async LFR only counts with async decode on
         if values["checkbox_async_decode"] != .bool(true) {
             values["checkbox_async_lfr"] = .bool(false)
@@ -166,7 +171,7 @@ extension SettingsStore {
         if let overlay = game.enablePerfOverlay {
             values["checkbox_enable_perf_overlay"] = .bool(overlay == "true")
         }
-        for key in SettingsCatalog.gameOptionKeys {
+        for key in SettingsCatalog.gameOptionKeys + SettingsCatalog.iosGameOptionKeys {
             guard let raw = game.gameOptions[key], let definition = SettingsCatalog.definition(key),
                   let value = SettingValue.coerce(raw, to: definition.kind), definition.accepts(value) else {
                 continue

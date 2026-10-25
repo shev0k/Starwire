@@ -123,6 +123,11 @@ public final class SettingsStore {
             return .int(Self.defaultBitrate(width: width, height: height, fps: Double(stringValue("list_fps")) ?? 60))
         case "checkbox_small_icon_mode":
             return .bool(smallScreen)
+        case "list_touch_mode":
+            let trackpad = value("checkbox_touchscreen_trackpad") == .bool(true)
+            return .string(TouchMode.initial(touchscreenTrackpad: trackpad).settingValue)
+        case "list_video_scaling":
+            return .string(value("checkbox_stretch_video") == .bool(true) ? PictureScaling.stretch.rawValue : PictureScaling.fit.rawValue)
         default:
             return SettingsCatalog.definition(key)?.defaultValue
         }

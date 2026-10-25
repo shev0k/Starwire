@@ -97,15 +97,47 @@ final class SettingsModel: ObservableObject {
 
 struct SettingsScreen: View {
     let initialSection: String?
+    /// Only these sections (the stream menu's More settings); nil for all
+    var only: [String]? = nil
+    /// Closes the screen when it isn't in a navigation stack (over a stream)
+    var onClose: (() -> Void)? = nil
     @EnvironmentObject private var state: AppState
     @Environment(\.dismiss) private var dismiss
     @StateObject private var model = SettingsModel()
     @State private var section = SettingsLayout.sections[0].id
     @State private var exporting: SettingsDocument?
     @State private var importing = false
+    @State private var query = ""
+
+    private var sections: [SettingsSection] {
+        guard let only else { return SettingsLayout.sections }
+        return SettingsLayout.sections.filter { only.contains($0.id) }
+    }
 
     private var current: SettingsSection {
-        SettingsLayout.sections.first { $0.id == section } ?? SettingsLayout.sections[0]
+        sections.first { $0.id == section } ?? sections[0]
+    }
+
+    private func close() {
+        if let onClose { onClose() } else { dismiss() }
+    }
+
+    /// An SF Symbol for each section, for the sidebar
+    static func symbol(_ id: String) -> String {
+        switch id {
+        case "stream": return "play.rectangle"
+        case "sound": return "speaker.wave.2"
+        case "controllers": return "gamecontroller"
+        case "menu": return "list.bullet.rectangle"
+        case "touch": return "hand.tap"
+        case "keyboard": return "keyboard"
+        case "onscreen": return "circle.grid.cross"
+        case "pc": return "desktopcomputer"
+        case "app": return "app.badge"
+        case "advanced": return "wrench.and.screwdriver"
+        case "about": return "info.circle"
+        default: return "gearshape"
+        }
     }
 
     var body: some View {
@@ -113,55 +145,30 @@ struct SettingsScreen: View {
             ZStack {
                 StarfieldBackground(paused: state.isStreaming)
                     .ignoresSafeArea()
-                VStack(alignment: .leading, spacing: 14) {
-                    ScreenHeader(title: L("ios_settings_title"))
-                    pills
-                    let wide = geometry.size.width >= CGFloat(SettingsFeel.panelMinWidth) && section == "stream"
-                    HStack(alignment: .top, spacing: 20) {
-                        ScrollViewReader { proxy in
-                            ScrollView {
-                                LazyVStack(alignment: .leading, spacing: 10) {
-                                    Text(L(current.titleKey))
-                                        .font(.title2.weight(.bold))
-                                        .foregroundStyle(Color(red: 0.75, green: 0.6, blue: 1))
-                                        .accessibilityAddTraits(.isHeader)
-                                        .id("top")
-                                    if !wide && section == "stream" {
-                                        PredictedImpactPanel(model: model)
-                                    }
-                                    ForEach(current.groups) { group in
-                                        groupView(group)
-                                    }
-                                    if section == "app" {
-                                        transferButtons
-                                    }
-                                }
-                                .padding(.horizontal, 20)
-                                .padding(.bottom, 40)
-                            }
-                            .onChange(of: section) { _, _ in proxy.scrollTo("top", anchor: .top) }
-                            .onChange(of: state.focus.focused) { _, id in
-                                if let id, id.hasPrefix("setting-") {
-                                    withAnimation { proxy.scrollTo(id, anchor: .center) }
-                                }
-                            }
-                        }
-                        if wide {
-                            ScrollView {
-                                PredictedImpactPanel(model: model)
-                                    .frame(width: 340)
-                            }
-                            .padding(.trailing, 20)
-                        }
+                // A sidebar beside the settings where there's room; pills above them where not
+                if geometry.size.width >= 760 {
+                    HStack(alignment: .top, spacing: 0) {
+                        sidebar
+                            .frame(width: 270)
+                        content(width: geometry.size.width - 270)
+                    }
+                } else {
+                    VStack(alignment: .leading, spacing: 14) {
+                        ScreenHeader(title: L("ios_settings_title"), showsBack: onClose == nil) { closeButton }
+                        searchField.padding(.horizontal, 20)
+                        if query.isEmpty { pills }
+                        content(width: geometry.size.width)
                     }
                 }
             }
         }
         .toolbar(.hidden, for: .navigationBar)
-        .controllerBack("settings") { dismiss() }
+        .controllerBack("settings") { close() }
         .onAppear {
-            if let initialSection, SettingsLayout.sections.contains(where: { $0.id == initialSection }) {
+            if let initialSection, sections.contains(where: { $0.id == initialSection }) {
                 section = initialSection
+            } else {
+                section = sections[0].id
             }
         }
         .fileExporter(isPresented: Binding(get: { exporting != nil }, set: { if !$0 { exporting = nil } }),
@@ -175,12 +182,193 @@ struct SettingsScreen: View {
         }
     }
 
+    @ViewBuilder
+    private var closeButton: some View {
+        if onClose != nil {
+            Button(L("ios_done")) { close() }
+                .font(.headline)
+                .buttonStyle(.borderedProminent)
+                .tint(Color(red: 0.49, green: 0.23, blue: 0.93))
+                .accessibilityIdentifier("settings-done")
+        }
+    }
+
+    // MARK: Sidebar
+
+    private var sidebar: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(spacing: 12) {
+                if onClose == nil {
+                    Button { dismiss() } label: {
+                        Image(systemName: "chevron.left")
+                            .font(.title3.weight(.semibold))
+                            .frame(width: 44, height: 44)
+                            .background(Color.white.opacity(0.12), in: Circle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(L("ios_back"))
+                    .controllerFocusable("header-back", cornerRadius: 22) { dismiss() }
+                }
+                Text(L("ios_settings_title"))
+                    .font(.largeTitle.weight(.bold))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.6)
+                    .accessibilityAddTraits(.isHeader)
+                Spacer(minLength: 0)
+                closeButton
+            }
+            .dynamicTypeSize(...DynamicTypeSize.accessibility2)
+            searchField
+            ScrollView {
+                VStack(spacing: 4) {
+                    ForEach(sections) { item in
+                        sidebarButton(item)
+                    }
+                }
+                .dynamicTypeSize(...DynamicTypeSize.accessibility2)
+            }
+        }
+        .padding(.leading, 20)
+        .padding(.trailing, 12)
+        .padding(.top, 12)
+    }
+
+    private func sidebarButton(_ item: SettingsSection) -> some View {
+        let selected = query.isEmpty && section == item.id
+        return Button {
+            query = ""
+            section = item.id
+        } label: {
+            HStack(spacing: 12) {
+                Image(systemName: Self.symbol(item.id))
+                    .font(.body.weight(.semibold))
+                    .frame(width: 30, height: 30)
+                    .background(RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .fill(selected ? Color(red: 0.49, green: 0.23, blue: 0.93) : Color.white.opacity(0.10)))
+                    .foregroundStyle(.white)
+                Text(L(item.titleKey))
+                    .font(.body.weight(selected ? .bold : .medium))
+                    .foregroundStyle(selected ? .black : .white)
+                    .multilineTextAlignment(.leading)
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 8)
+            .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(selected ? Color.white : Color.clear))
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(selected ? [.isSelected] : [])
+        .accessibilityIdentifier("pill-\(item.id)")
+        .controllerFocusable("pill-\(item.id)", cornerRadius: 14) {
+            query = ""
+            section = item.id
+        }
+    }
+
+    private var searchField: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "magnifyingglass")
+                .foregroundStyle(.white.opacity(0.6))
+            TextField(L("ios_settings_search"), text: $query)
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
+                .accessibilityIdentifier("settings-search")
+            if !query.isEmpty {
+                Button { query = "" } label: {
+                    Image(systemName: "xmark.circle.fill").foregroundStyle(.white.opacity(0.6))
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(L("ios_settings_search_clear"))
+            }
+        }
+        .padding(.horizontal, 12)
+        .frame(minHeight: 40)
+        .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Color.white.opacity(0.10)))
+        .dynamicTypeSize(...DynamicTypeSize.accessibility2)
+    }
+
+    // MARK: Content
+
+    /// Rows whose name or summary has every search word, by section
+    private var results: [(section: SettingsSection, groups: [SettingsGroup])] {
+        let words = query.lowercased().split(separator: " ").map(String.init)
+        return sections.compactMap { section in
+            let groups = section.groups.compactMap { group -> SettingsGroup? in
+                let found = group.keeping { item in
+                    let text = (L(item.titleKey) + " " + (item.summaryKey.map { L($0) } ?? "")).lowercased()
+                    return words.allSatisfy { text.contains($0) }
+                }
+                return found.items.isEmpty ? nil : found
+            }
+            return groups.isEmpty ? nil : (section, groups)
+        }
+    }
+
+    private func content(width: CGFloat) -> some View {
+        let wide = width >= CGFloat(SettingsFeel.panelMinWidth) && section == "stream" && query.isEmpty
+        return HStack(alignment: .top, spacing: 20) {
+            ScrollViewReader { proxy in
+                ScrollView {
+                    LazyVStack(alignment: .leading, spacing: 16) {
+                        if query.isEmpty {
+                            Text(L(current.titleKey))
+                                .font(.title.weight(.heavy))
+                                .foregroundStyle(.white)
+                                .accessibilityAddTraits(.isHeader)
+                                .id("top")
+                            if !wide && section == "stream" {
+                                PredictedImpactPanel(model: model)
+                            }
+                            ForEach(current.groups) { group in
+                                groupView(group, sectionTitle: L(current.titleKey))
+                            }
+                            if section == "app" {
+                                transferButtons
+                            }
+                        } else {
+                            let found = results
+                            if found.isEmpty {
+                                Text(L("ios_settings_search_none"))
+                                    .font(.body)
+                                    .foregroundStyle(.white.opacity(0.8))
+                                    .id("top")
+                            }
+                            ForEach(found, id: \.section.id) { entry in
+                                ForEach(entry.groups) { group in
+                                    groupView(group, sectionTitle: L(entry.section.titleKey))
+                                }
+                            }
+                        }
+                    }
+                    .padding(.horizontal, 20)
+                    .padding(.top, 12)
+                    .padding(.bottom, 40)
+                }
+                .onChange(of: section) { _, _ in proxy.scrollTo("top", anchor: .top) }
+                .onChange(of: state.focus.focused) { _, id in
+                    if let id, id.hasPrefix("setting-") {
+                        withAnimation { proxy.scrollTo(id, anchor: .center) }
+                    }
+                }
+            }
+            if wide {
+                ScrollView {
+                    PredictedImpactPanel(model: model)
+                        .frame(width: 340)
+                }
+                .padding(.trailing, 20)
+                .padding(.top, 12)
+            }
+        }
+    }
+
     @Environment(\.layoutDirection) private var layoutDirection
 
     private var pills: some View {
         // They wrap rather than scroll, so every section is in reach at once
         WrappingLayout(spacing: 10, rightToLeft: layoutDirection == .rightToLeft) {
-                ForEach(SettingsLayout.sections) { item in
+                ForEach(sections) { item in
                     Button { section = item.id } label: {
                         Text(L(item.titleKey))
                             .font(.body.weight(.semibold))
@@ -201,23 +389,29 @@ struct SettingsScreen: View {
         .padding(.vertical, 6)
     }
 
+    /// A group's rows on one frosted card, under the group's name (or the section's)
     @ViewBuilder
-    private func groupView(_ group: SettingsGroup) -> some View {
+    private func groupView(_ group: SettingsGroup, sectionTitle: String) -> some View {
         let items = group.items.filter { model.isVisible($0) }
         if model.holds(group.showWhen) && !items.isEmpty {
-            VStack(alignment: .leading, spacing: 0) {
-                if let title = group.titleKey {
-                    Text(L(title))
-                        .font(.headline)
-                        .padding(.top, 14)
-                        .padding(.bottom, 6)
-                        .accessibilityAddTraits(.isHeader)
+            VStack(alignment: .leading, spacing: 8) {
+                Text((group.titleKey.map { L($0) } ?? sectionTitle).uppercased())
+                    .font(.caption.weight(.bold))
+                    .tracking(1.1)
+                    .foregroundStyle(Color(red: 0.77, green: 0.71, blue: 0.99))
+                    .padding(.leading, 6)
+                    .accessibilityAddTraits(.isHeader)
+                VStack(alignment: .leading, spacing: 0) {
+                    ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
+                        SettingRow(item: item, model: model, perform: perform)
+                            .padding(.horizontal, 16)
+                            .id("setting-\(item.id)")
+                        if index < items.count - 1 {
+                            Divider().overlay(Color.white.opacity(0.08)).padding(.leading, 16)
+                        }
+                    }
                 }
-                ForEach(items) { item in
-                    SettingRow(item: item, model: model, perform: perform)
-                        .id("setting-\(item.id)")
-                    Divider().overlay(Color.white.opacity(0.08))
-                }
+                .frostedCard(cornerRadius: 20, padding: 0)
             }
         }
     }

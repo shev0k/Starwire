@@ -65,6 +65,16 @@ public enum GameSettingsLayout {
             .list("game_list_audio_haptics", "title_audio_haptics", array: "audio_haptics",
                   values: ["off", "device", "controller", "both"], overrides: "list_audio_haptics"),
         ]),
+        // iOS's own per-game options, kept in gameOptions under their global keys
+        SettingsGroup(id: "ios_game_options", titleKey: "ios_group_this_device", showWhen: nil, items: [
+            .list("game_list_touch_mode", "mouse_mode_title",
+                  entries: ["mouse_mode_multi_touch", "mouse_mode_absolute_touch", "mouse_mode_track_pad_natural",
+                            "mouse_mode_track_pad_gaming", "mouse_mode_disabled", "mouse_mode_absolute_touch_swapped"],
+                  values: TouchMode.allCases.map(\.settingValue), overrides: "list_touch_mode"),
+            .list("game_list_video_scaling", "ios_title_video_scaling",
+                  entries: ["ios_video_scaling_fit", "ios_video_scaling_stretch", "ios_video_scaling_fill"],
+                  values: PictureScaling.allCases.map(\.rawValue), overrides: "list_video_scaling"),
+        ]),
     ]
 
     public static let items: [SettingsItem] = groups.flatMap(\.items)

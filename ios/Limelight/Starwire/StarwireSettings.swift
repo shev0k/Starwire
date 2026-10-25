@@ -63,6 +63,13 @@ final class StarwireSettings: NSObject {
             SettingsMigration.apply(LegacySettings(coreData: nil, iosSettings: fromArguments),
                                     to: SettingsStore(storage: arguments))
         }
+        // Settings by their own key too, for tests: -list_keyboard_placement floating
+        let argumentStore = SettingsStore(storage: arguments)
+        for (key, raw) in UserDefaults.standard.volatileDomain(forName: UserDefaults.argumentDomain) {
+            guard let definition = SettingsCatalog.definition(key),
+                  let value = SettingValue.coerce(raw, to: definition.kind) else { continue }
+            try? argumentStore.set(value, for: key)
+        }
         let onTop = LayeredSettingsStorage(overrides: arguments, saved: gameLayer)
         let store = SettingsStore(storage: LayeredSettingsStorage(overrides: onTop, saved: saved), smallScreen: smallScreen)
         current = store

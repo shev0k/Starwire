@@ -186,6 +186,32 @@ public enum SettingsCatalog {
         SettingDefinition("text_client_name", .string(""), .iosOnly),
         // The Apple Pencil's pressure curve (Android has no Pencil).
         SettingDefinition("list_pencil_pressure_curve", .string("linear"), allowed: ["linear", "soft", "firm"], .iosOnly),
+
+        // Batch 4.5. The touch mode and the picture's fit default to what Android's switches say
+        // (checkbox_touchscreen_trackpad, checkbox_stretch_video), so older settings carry over.
+        SettingDefinition("list_touch_mode", nil, kind: .string, allowed: TouchMode.allCases.map(\.settingValue), .iosOnly,
+                          gameOption: true),
+        SettingDefinition("list_video_scaling", nil, kind: .string, allowed: PictureScaling.allCases.map(\.rawValue), .iosOnly,
+                          gameOption: true),
+        SettingDefinition("list_keyboard_preset", .string("full"), allowed: KeyboardPreset.allCases.map(\.rawValue), .iosOnly),
+        SettingDefinition("seekbar_keyboard_size", .int(100), range: KeyboardCustomization.sizeRange, .iosOnly),
+        SettingDefinition("list_keyboard_placement", .string("docked"), allowed: KeyboardPlacement.allCases.map(\.rawValue),
+                          .iosOnly),
+        // Remapped keys per keyboard, as JSON: {"full":{"caps":"esc"}}
+        SettingDefinition("keyboard_remapped_keys", .string(""), .iosOnly),
+        SettingDefinition("checkbox_controller_keyboard", .bool(true), .iosOnly),
+        SettingDefinition("list_menu_button_style", .string("floating"), allowed: MenuButtonOptions.Style.allCases.map(\.rawValue),
+                          .iosOnly),
+        SettingDefinition("list_menu_button_size", .string("medium"), allowed: MenuButtonOptions.Size.allCases.map(\.rawValue),
+                          .iosOnly),
+        SettingDefinition("seekbar_menu_button_opacity", .int(60), range: 20...100, .iosOnly),
+        SettingDefinition("list_menu_button_auto_hide", .string("off"), allowed: MenuButtonOptions.autoHideChoices, .iosOnly),
+        SettingDefinition("list_gesture_three_finger_tap", .string("menu"), allowed: GestureAction.allCases.map(\.rawValue),
+                          .iosOnly),
+        SettingDefinition("list_gesture_four_finger_tap", .string("full_keyboard"), allowed: GestureAction.allCases.map(\.rawValue),
+                          .iosOnly),
+        SettingDefinition("list_gesture_five_finger_tap", .string("menu"), allowed: GestureAction.allCases.map(\.rawValue),
+                          .iosOnly),
     ]
 
     private static let byKey: [String: SettingDefinition] = Dictionary(uniqueKeysWithValues: all.map { ($0.key, $0) })
@@ -201,4 +227,7 @@ public enum SettingsCatalog {
         "virtual_display_mode", "checkbox_touchscreen_trackpad", "hide_cursor_mode", "list_audio_haptics",
         "jitter_buffer",
     ]
+
+    /// Per-game options iOS adds; Android keeps unknown options it is given and ignores them.
+    public static let iosGameOptionKeys = ["list_touch_mode", "list_video_scaling"]
 }

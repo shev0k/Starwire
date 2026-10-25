@@ -34,6 +34,7 @@ final class StarwireAppUI: NSObject {
             StarwireLog.info("Demo mode: no PC is used")
         }
         let state = AppState(library: Library(backend: backend))
+        AppState.current = state
         let controller = UIHostingController(rootView: RootView().environmentObject(state)
             .environmentObject(state.library).environmentObject(state.focus))
         controller.view.backgroundColor = UIColor(red: 0.04, green: 0.035, blue: 0.094, alpha: 1)

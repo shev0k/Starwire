@@ -15229,6 +15229,50 @@
         }
       }
     },
+    "ios_auto_hide_10" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "After 10 seconds"
+          }
+        }
+      }
+    },
+    "ios_auto_hide_3" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "After 3 seconds"
+          }
+        }
+      }
+    },
+    "ios_auto_hide_5" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "After 5 seconds"
+          }
+        }
+      }
+    },
+    "ios_auto_hide_off" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Never"
+          }
+        }
+      }
+    },
     "ios_back" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -15548,6 +15592,17 @@
         }
       }
     },
+    "ios_done" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Done"
+          }
+        }
+      }
+    },
     "ios_drop_policy_alternate" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -15603,6 +15658,138 @@
         }
       }
     },
+    "ios_gesture_full_keyboard" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Full keyboard"
+          }
+        }
+      }
+    },
+    "ios_gesture_menu" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open the stream menu"
+          }
+        }
+      }
+    },
+    "ios_gesture_menu_button" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Show or hide the menu button"
+          }
+        }
+      }
+    },
+    "ios_gesture_none" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nothing"
+          }
+        }
+      }
+    },
+    "ios_gesture_onscreen_controls" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "On-screen controls"
+          }
+        }
+      }
+    },
+    "ios_gesture_pan_zoom" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pan and zoom"
+          }
+        }
+      }
+    },
+    "ios_gesture_stats" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Statistics"
+          }
+        }
+      }
+    },
+    "ios_gesture_system_keyboard" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "System keyboard"
+          }
+        }
+      }
+    },
+    "ios_group_controller_keyboard" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Controller keyboard"
+          }
+        }
+      }
+    },
+    "ios_group_full_keyboard" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "On-screen full keyboard"
+          }
+        }
+      }
+    },
+    "ios_group_gestures" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gesture shortcuts"
+          }
+        }
+      }
+    },
+    "ios_group_menu_button" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Menu button"
+          }
+        }
+      }
+    },
     "ios_group_pacing_tests" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -15621,6 +15808,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "On this device"
+          }
+        }
+      }
+    },
+    "ios_group_touch_mode" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Touch mode"
           }
         }
       }
@@ -15658,6 +15856,72 @@
         }
       }
     },
+    "ios_keyboard_compact" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Compact"
+          }
+        }
+      }
+    },
+    "ios_keyboard_docked" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Docked"
+          }
+        }
+      }
+    },
+    "ios_keyboard_floating" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Floating"
+          }
+        }
+      }
+    },
+    "ios_keyboard_full" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Full"
+          }
+        }
+      }
+    },
+    "ios_keyboard_gaming" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gaming"
+          }
+        }
+      }
+    },
+    "ios_keyboard_numpad" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Number pad"
+          }
+        }
+      }
+    },
     "ios_last_played" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -15676,6 +15940,28 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Starwire for iOS is free software under the GPL-3.0. It contains code from these projects, each under its own licence. Tap one to read it."
+          }
+        }
+      }
+    },
+    "ios_menu_button_edge" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tab on the edge"
+          }
+        }
+      }
+    },
+    "ios_menu_button_floating" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Floating button"
           }
         }
       }
@@ -16296,6 +16582,17 @@
         }
       }
     },
+    "ios_section_keyboard" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Keyboards"
+          }
+        }
+      }
+    },
     "ios_settings_export" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -16325,6 +16622,39 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Settings imported: %1$@"
+          }
+        }
+      }
+    },
+    "ios_settings_search" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Search settings"
+          }
+        }
+      }
+    },
+    "ios_settings_search_clear" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Clear the search"
+          }
+        }
+      }
+    },
+    "ios_settings_search_none" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No setting matches that."
           }
         }
       }
@@ -16380,6 +16710,39 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Show hidden apps"
+          }
+        }
+      }
+    },
+    "ios_size_large" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Large"
+          }
+        }
+      }
+    },
+    "ios_size_medium" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Medium"
+          }
+        }
+      }
+    },
+    "ios_size_small" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Small"
           }
         }
       }
@@ -16450,6 +16813,17 @@
         }
       }
     },
+    "ios_summary_controller_keyboard" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "When you ask for a keyboard and a controller was the last thing you used, a keyboard you work with the controller opens."
+          }
+        }
+      }
+    },
     "ios_summary_drop_policy" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -16494,6 +16868,39 @@
         }
       }
     },
+    "ios_summary_gesture_five" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Works in every touch mode. Swipes and pinches with four or five fingers stay with iPadOS."
+          }
+        }
+      }
+    },
+    "ios_summary_gesture_four" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Works in every touch mode. In multi-touch the PC's touches are cancelled first, so nothing is clicked."
+          }
+        }
+      }
+    },
+    "ios_summary_gesture_three" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not in multi-touch mode, where three fingers go to the PC."
+          }
+        }
+      }
+    },
     "ios_summary_graph_opacity" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -16523,6 +16930,83 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "How much latency to accept for a smoother stream. On iOS it applies with every frame pacing mode."
+          }
+        }
+      }
+    },
+    "ios_summary_keyboard_edit" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Make any key send another one, per layout."
+          }
+        }
+      }
+    },
+    "ios_summary_keyboard_placement" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Docked along the bottom, or floating: drag it by its handle."
+          }
+        }
+      }
+    },
+    "ios_summary_keyboard_preset" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Full is Android's keyboard. Compact drops the F keys. Gaming keeps the left hand's keys and the arrows."
+          }
+        }
+      }
+    },
+    "ios_summary_keyboard_size" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The keyboard's height, from 60% to 140% of the usual."
+          }
+        }
+      }
+    },
+    "ios_summary_menu_button_auto_hide" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "After this long untouched, the button becomes a slim tab on the nearest side. Tap the tab to open the menu."
+          }
+        }
+      }
+    },
+    "ios_summary_menu_button_opacity" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "How visible the button is when you aren't touching it."
+          }
+        }
+      }
+    },
+    "ios_summary_menu_button_style" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A round button you can drag anywhere, or a slim tab on the side of the screen."
           }
         }
       }
@@ -16582,6 +17066,17 @@
         }
       }
     },
+    "ios_summary_touch_mode" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "How your fingers work the PC when a stream starts. You can change it during a stream from the menu."
+          }
+        }
+      }
+    },
     "ios_summary_use_app_settings" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -16622,6 +17117,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Automatic uses the system's video layer. The other choices are for testing."
+          }
+        }
+      }
+    },
+    "ios_summary_video_scaling" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "How the picture fills the screen when their shapes differ. You can change it during a stream from the menu."
           }
         }
       }
@@ -16692,6 +17198,17 @@
         }
       }
     },
+    "ios_title_controller_keyboard" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Use it after a controller"
+          }
+        }
+      }
+    },
     "ios_title_drop_policy" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -16736,6 +17253,39 @@
         }
       }
     },
+    "ios_title_gesture_five" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Five-finger tap"
+          }
+        }
+      }
+    },
+    "ios_title_gesture_four" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Four-finger tap"
+          }
+        }
+      }
+    },
+    "ios_title_gesture_three" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Three-finger tap"
+          }
+        }
+      }
+    },
     "ios_title_graph_opacity" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -16754,6 +17304,94 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Performance graphs"
+          }
+        }
+      }
+    },
+    "ios_title_keyboard_edit" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Change keys"
+          }
+        }
+      }
+    },
+    "ios_title_keyboard_placement" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Placement"
+          }
+        }
+      }
+    },
+    "ios_title_keyboard_preset" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Layout"
+          }
+        }
+      }
+    },
+    "ios_title_keyboard_size" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Size"
+          }
+        }
+      }
+    },
+    "ios_title_menu_button_auto_hide" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tuck away when unused"
+          }
+        }
+      }
+    },
+    "ios_title_menu_button_opacity" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Opacity at rest"
+          }
+        }
+      }
+    },
+    "ios_title_menu_button_size" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Size"
+          }
+        }
+      }
+    },
+    "ios_title_menu_button_style" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Style"
           }
         }
       }
@@ -16842,6 +17480,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Verbose logging"
+          }
+        }
+      }
+    },
+    "ios_title_video_scaling" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Picture"
           }
         }
       }
@@ -16941,6 +17590,39 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Render loop (old)"
+          }
+        }
+      }
+    },
+    "ios_video_scaling_fill" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fill: the whole screen, edges cut off"
+          }
+        }
+      }
+    },
+    "ios_video_scaling_fit" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fit: all of the picture, with bars"
+          }
+        }
+      }
+    },
+    "ios_video_scaling_stretch" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stretch: all of the picture, out of shape"
           }
         }
       }
