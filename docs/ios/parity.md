@@ -3,7 +3,7 @@
 This table tracks which Starwire for Android features and settings the planned iOS client will
 have. It comes from [port-plan.md](port-plan.md), the Android README and the two Android
 preference files, as of 25 Oct 2026 (phase 0), with statuses updated by each device run (last:
-[batch 1](device-runs/2026-10-25-feature-ios-batch-1.md)). Rows marked "check" are open questions for the phase that builds them.
+[batch 2](device-runs/2026-10-25-feature-ios-batch-2.md)). Rows marked "check" are open questions for the phase that builds them.
 
 Status values:
 
@@ -21,17 +21,17 @@ when there is no phase because the feature can't exist or the host lacks it.
 
 | Feature | Phase | Status | Notes |
 |---|---|---|---|
-| Pairing with a PIN | 1 | planned | Client key and certificate in the Keychain. Pinned-certificate grace and MAC preservation |
+| Pairing with a PIN | 1 | built | Client key and certificate in the Keychain, moved unchanged from the old files: the iPad stayed paired through the move, the files' removal and a reinstall ([batch 2](device-runs/2026-10-25-feature-ios-batch-2.md)). Pinned-certificate refusal grace (30 s), asking a paired PC again before showing it unpaired, MAC preservation and mDNS polls over HTTPS are unit tested. The PIN flow itself wasn't run again |
 | Host list with frosted cards | 3 | planned | SwiftUI |
 | Game screen hero, with cover colours and a background that follows the game | 3 | planned | |
 | Tiles for apps without cover art (generated Starwire tiles, icon tiles) | 3 | planned | |
 | Starfield, rainbow wordmark and cover animations | 3 | planned | Honour Reduce Motion. Pause while streaming |
 | Quick Launch | 3 | planned | |
-| Per-game settings and the overrides bar (bitrate and stats overrides) | 3 | planned | The store is in phase 1 (StarwireKit). Screens in phase 3 |
+| Per-game settings and the overrides bar (bitrate and stats overrides) | 3 | planned | The store is built (StarwireKit `GameSettings`, Android's JSON and merge rules). Screens in phase 3 |
 | App menu: virtual or primary display, per-game settings, hide app, details | 3 | planned | |
 | Settings screen with section pills, plain names and "Impact:" lines | 3 | planned | |
 | Predicted impact panel | 3 | planned | Shown on iPad |
-| Settings export and import as JSON | 1 | planned | Uses Android's keys and defaults |
+| Settings export and import as JSON | 1 | built | StarwireKit's `SettingsJSON`, with Android's keys and types and per-game settings. Android has no export yet, so this is the format both should use. No screen for it until phase 3 |
 | About page, credits and open-source licences | 3 | planned | |
 | 33 translations | 3 | planned | Converted from `strings.xml` by a script |
 | In-app language picker | 3 | planned | Opens the app's language page in iOS Settings |
@@ -91,14 +91,15 @@ when there is no phase because the feature can't exist or the host lacks it.
 | PyroWave codec | 7 | planned | Least certain. Needs a fast link. A 2-day trial on the iPad comes first |
 | PyroWave late-frame presets | 7 | planned | |
 | Custom Vulkan driver (Turnip, libadrenotools) | - | not possible | iOS apps can't load GPU drivers |
-| Virtual Display: "Display on the PC" and Start in Virtual/Primary Display | 2 | planned | `virtualDisplay=0/1` launch option |
-| Virtual display scale factor, VRR request and fractional refresh rates | 2 | planned | `scaleFactor`, `clientVrrRequested`, `clientName`. Not in the Android README |
-| Change bitrate mid-stream | 2 | planned | `GET /bitrate`, from the stream menu |
-| Remote Monitor, Remote Input and Terminate tiles | 2 | planned | Terminate needs a second, confirmed request. Not in the Android README |
-| Sleep the PC | 2 | planned | `/power-actions/v1`, if the host owner allows it. Not in the Android README |
-| Host CPU and GPU stats | 2 | planned | `/api/hardware-metrics`, off by default on the host. Not in the Android README |
+| Virtual Display: "Display on the PC" and Start in Virtual/Primary Display | 2 | verified | "Display on the PC" in iOS Settings: the PC decides, `virtualDisplay=1` or `virtualDisplay=0`. A virtual display at 2420x1668 and 120 Hz: [batch 2](device-runs/2026-10-25-feature-ios-batch-2.md). The PC's own monitor (`0`) not tried |
+| Virtual display scale factor, VRR request and fractional refresh rates | 2 | verified | `scaleFactor` 150 made a 3630x2502 virtual display and `clientVrrRequested=1` a 1000 Hz one with the frame limiter at 120, both in the PC's log: [batch 2](device-runs/2026-10-25-feature-ios-batch-2.md). 119.88 Hz is sent in `mode`, but the PC's log only said "120 Hz", so the exact rate is not confirmed. `clientName` is sent; Vibeshine shows the name typed with the PIN |
+| Change bitrate mid-stream | 2 | verified | `GET /bitrate` from the button in the stream's corner (phase 5 makes it the stream menu). 20 then 70 Mbps applied, no drops: [batch 2](device-runs/2026-10-25-feature-ios-batch-2.md) |
+| Remote Monitor, Remote Input and Terminate tiles | 2 | built | Remote Input verified: [batch 2](device-runs/2026-10-25-feature-ios-batch-2.md). Remote Monitor: the PC failed to add its display (Windows refused the display change) and the app showed its message. Terminate appears only to a second client, so it needs another device. The HTTP 410 step is tested with Vibeshine's messages |
+| Sleep the PC | 2 | built | `/power-actions/v1`, shown only when the PC allows this device. Vibeshine 2.0.1 doesn't have it (404), so not tried |
+| Host CPU and GPU stats | 2 | built | `/api/hardware-metrics` in the overlay when the PC sends it. Vibeshine 2.0.1 doesn't have it (404), so not tried |
 | Optimize game settings | 2 | planned | Check: standard launch option |
 | Play audio on PC | 2 | planned | Check: standard launch option |
+| Demo mode (no PC) | 1 | verified | iOS only: a made-up PC, a moving test picture and recorded touches, built on StarwireKit's fakes: [batch 2](device-runs/2026-10-25-feature-ios-batch-2.md) |
 | Prevent packet loss (small keep-alive packet) | 4 | planned | Check: needs a call in Starwire's common-c fork. iOS uses Nonary's fork |
 | Send/get clipboard and automatic clipboard sync | - | host lacks it | Vibeshine has no `/actions/clipboard`. The client checks serverinfo, so it can be turned on later |
 | PC commands (server commands) | - | host lacks it | Vibeshine has no `ServerCommand` |
@@ -227,7 +228,7 @@ This category has no key.
 |---|---|---|---|---|---|
 | `checkbox_enable_sops` | Optimize game settings | true | 2 | planned | Check: standard launch option |
 | `checkbox_host_audio` | Play audio on PC | false | 2 | planned | Check: standard launch option |
-| `virtual_display_mode` | Display on the PC | host | 2 | planned | `virtualDisplay=0/1` or host default |
+| `virtual_display_mode` | Display on the PC | host | 2 | verified | iOS Settings for now (`StarwireVirtualDisplayMode`): [batch 2](device-runs/2026-10-25-feature-ios-batch-2.md) |
 | `checkbox_prevent_packet_loss` | Prevent packet loss | false | 4 | planned | Check: needs a call in Starwire's common-c fork. iOS uses Nonary's fork |
 | `checkbox_smart_clipboard_sync` | Automatic clipboard sync | false | - | host lacks it | No `/actions/clipboard` on Vibeshine |
 | `checkbox_smart_clipboard_sync_toast` | Show clipboard sync messages | false | - | host lacks it | Needs clipboard sync |
