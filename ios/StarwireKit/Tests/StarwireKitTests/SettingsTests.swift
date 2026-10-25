@@ -343,4 +343,50 @@ final class SettingsMigrationTests: XCTestCase {
         SettingsMigration.apply(legacy, to: store)
         XCTAssertEqual(store.savedValues(), first)
     }
+    // From phase 3 the store is where settings are changed, and the old readers get its values
+    func testExportThenApplyChangesNothing() throws {
+        let changed: [String: SettingValue] = [
+            "list_resolution": .string("2560x1440"), "list_fps": .string("119.88"), "seekbar_bitrate_kbps": .int(80000),
+            "list_audio_config": .string("71"), "video_format": .string("forceav1"), "seekbar_frames_to_buffer": .int(3),
+            "checkbox_multi_controller": .bool(false), "checkbox_flip_face_buttons": .bool(true),
+            "checkbox_host_audio": .bool(true), "checkbox_enable_hdr": .bool(true), "checkbox_touchscreen_trackpad": .bool(false),
+            "checkbox_enable_perf_overlay": .bool(true), "list_onscreen_controls": .string("simple"),
+            "checkbox_show_onscreen_controls": .bool(false), "list_spatial_audio": .string("off"),
+            "virtual_display_mode": .string("primary"), "seekbar_virtual_display_scale": .int(150),
+            "checkbox_vrr_request": .bool(true), "text_client_name": .string("Desk iPad"),
+            "checkbox_enable_perf_overlay_lite": .bool(true), "video_renderer": .string("display"),
+            "jitter_buffer": .string("smooth"), "seekbar_touch_sensitivity": .int(150), "hide_cursor_mode": .string("touching"),
+            "list_pencil_pressure_curve": .string("firm"), "seekbar_deadzone": .int(12),
+        ]
+        for defaults in [true, false] {
+            let store = SettingsStore(storage: MemorySettingsStorage())
+            if !defaults {
+                for (key, value) in changed {
+                    try store.set(value, for: key)
+                }
+            }
+            let copy = SettingsStore(storage: MemorySettingsStorage())
+            SettingsMigration.apply(SettingsMigration.export(store), to: copy)
+            // With Starwire's switch off, moonlight-ios's level is exported as 0 (off), so the
+            // level itself can't come back; nothing reads it while the switch is off
+            for definition in SettingsCatalog.all where defaults || definition.key != "list_onscreen_controls" {
+                XCTAssertEqual(copy.value(definition.key), store.value(definition.key),
+                               "\(definition.key) with \(defaults ? "defaults" : "changed values")")
+            }
+        }
+    }
+
+    func testTheExportIsWhatTheOldCodeReads() {
+        let store = SettingsStore(storage: MemorySettingsStorage())
+        store[.frameRate] = "119.88"
+        store[.resolution] = "1920x1080"
+        let legacy = SettingsMigration.export(store)
+        XCTAssertEqual(legacy.coreData?.framerate, 120)
+        XCTAssertEqual(legacy.coreData?.width, 1920)
+        XCTAssertEqual(legacy.iosSettings["StarwireExactFrameRate"] as? String, "119.88")
+        XCTAssertEqual(legacy.iosSettings["StarwireOverlay"] as? String, "full")
+        XCTAssertEqual(Set(legacy.iosSettings.keys), Set(SettingsMigration.iosSettingsKeys).subtracting(["StarwireVirtualDisplay"]))
+        store[.frameRate] = "60"
+        XCTAssertEqual(SettingsMigration.export(store).iosSettings["StarwireExactFrameRate"] as? String, "")
+    }
 }

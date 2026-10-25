@@ -105,8 +105,10 @@ public enum SettingsMigration {
             values["checkbox_enable_perf_overlay"] = .bool(old.statsOverlay)
             values["checkbox_enable_graphs"] = .bool(old.enableGraphs)
             values["seekbar_graph_opacity"] = .int(min(max(old.graphOpacity, 0), 100))
-            let level = ["off", "auto", "simple", "full"][min(max(old.onscreenControls, 0), 3)]
-            values["list_onscreen_controls"] = .string(level)
+            // Level 0 is moonlight-ios's "off", which Starwire keeps in its own switch below
+            if old.onscreenControls != 0 {
+                values["list_onscreen_controls"] = .string(["off", "auto", "simple", "full"][min(max(old.onscreenControls, 0), 3)])
+            }
             values["checkbox_show_onscreen_controls"] = .bool(old.onscreenControls != 0)
             values["list_spatial_audio"] = .string(["fixed", "head-tracked", "off"][min(max(old.spatialAudio, 0), 2)])
         }
@@ -180,6 +182,92 @@ public enum SettingsMigration {
             }
         }
         return applied.sorted()
+    }
+
+    /// The store's values in the old places, the other way round from `apply`. From phase 3 the
+    /// app's own settings screen writes the store, and moonlight-ios's code still reads Core Data
+    /// and the "Starwire..." user defaults, so the app writes these back before every stream.
+    /// `apply(export(store))` changes nothing in the store (tested).
+    public static func export(_ store: SettingsStore) -> LegacySettings {
+        func bool(_ key: String) -> Bool {
+            if case .bool(let v)? = store.value(key) { return v }
+            return false
+        }
+        func int(_ key: String) -> Int {
+            if case .int(let v)? = store.value(key) { return v }
+            return 0
+        }
+        func string(_ key: String) -> String {
+            if case .string(let v)? = store.value(key) { return v }
+            return ""
+        }
+        let (width, height) = SettingsStore.parseResolution(string("list_resolution")) ?? (1280, 720)
+        let fps = string("list_fps")
+        let rate = Double(fps) ?? 60
+        let audio = string("list_audio_config")
+        let level = ["off", "auto", "simple", "full"].firstIndex(of: string("list_onscreen_controls")) ?? 1
+        var core = LegacySettings.CoreData(
+            bitrateKbps: int("seekbar_bitrate_kbps"), framerate: Int(rate.rounded()), width: width, height: height,
+            audioConfig: audio == "71" ? 8 : audio == "51" ? 6 : 2,
+            preferredCodec: ["auto": 0, "neverh265": 1, "forceh265": 2, "forceav1": 3][string("video_format")] ?? 0,
+            frameQueueSize: int("seekbar_frames_to_buffer"), multiController: bool("checkbox_multi_controller"),
+            swapABXYButtons: bool("checkbox_flip_face_buttons"), playAudioOnPC: bool("checkbox_host_audio"),
+            optimizeGames: bool("checkbox_enable_sops"), enableHdr: bool("checkbox_enable_hdr"),
+            enableYUV444: bool("checkbox_enable_yuv444"), btMouseSupport: bool("checkbox_bt_mouse_support"),
+            absoluteTouchMode: !bool("checkbox_touchscreen_trackpad"), statsOverlay: bool("checkbox_enable_perf_overlay"),
+            enableGraphs: bool("checkbox_enable_graphs"), graphOpacity: int("seekbar_graph_opacity"),
+            onscreenControls: level,
+            spatialAudio: ["fixed", "head-tracked", "off"].firstIndex(of: string("list_spatial_audio")) ?? 0)
+        // moonlight-ios turns its controls off with level 0; Starwire has a separate switch
+        if !bool("checkbox_show_onscreen_controls") {
+            core.onscreenControls = 0
+        }
+        let ios: [String: Any] = [
+            "StarwireVirtualDisplayMode": string("virtual_display_mode"),
+            // Only a rate that isn't a whole number needs the exact field
+            "StarwireExactFrameRate": rate.rounded() == rate ? "" : fps,
+            "StarwireScaleFactor": int("seekbar_virtual_display_scale"),
+            "StarwireRequestVRR": bool("checkbox_vrr_request"),
+            "StarwireClientName": string("text_client_name"),
+            "StarwireReduceRefreshRate": bool("checkbox_reduce_refresh_rate"),
+            "StarwireExternalDisplay": string("list_external_display"),
+            "StarwireFrameInterpolation": bool("checkbox_frame_interpolation"),
+            "StarwirePictureInPicture": bool("checkbox_enable_pip"),
+            "StarwireFullRange": bool("checkbox_full_range"),
+            "StarwireOverlay": bool("checkbox_enable_perf_overlay_lite") ? "lite" : "full",
+            "StarwirePresenter": string("video_renderer"),
+            "StarwireJitterBuffer": string("jitter_buffer"),
+            "StarwirePresentTiming": string("list_present_timing"),
+            "StarwireDropPolicy": string("list_drop_policy"),
+            "StarwireFramesToBuffer": int("seekbar_pacing_frames_to_buffer"),
+            "StarwireVerboseLogging": bool("checkbox_verbose_logging"),
+            "StarwireTouchscreenTrackpad": bool("checkbox_touchscreen_trackpad"),
+            "StarwireTouchSensitivity": int("seekbar_touch_sensitivity"),
+            "StarwireLongPressRightClick": bool("checkbox_long_press_right_click"),
+            "StarwirePinchToZoom": bool("checkbox_pinch_to_zoom"),
+            "StarwireHideCursor": string("hide_cursor_mode"),
+            "StarwireAbsoluteMouse": bool("checkbox_absolute_mouse_mode"),
+            "StarwireMouseNavButtons": bool("checkbox_mouse_nav_buttons"),
+            "StarwireStickyModifiers": bool("checkbox_sticky_modifier_keys"),
+            "StarwireKeyboardOpacity": int("seekbar_keyboard_opacity"),
+            "StarwireFloatingButton": bool("checkbox_enable_floating_button"),
+            "StarwireMenuTrigger": string("overlay_trigger_button"),
+            "StarwireMenuHold": string("overlay_hold_duration"),
+            "StarwireShowOnScreenControls": bool("checkbox_show_onscreen_controls"),
+            "StarwireOnScreenOpacity": int("seekbar_osc_opacity"),
+            "StarwireOnlyL3R3": bool("checkbox_only_show_L3R3"),
+            "StarwireShowGuide": bool("checkbox_show_guide_button"),
+            "StarwireDeadzone": int("seekbar_deadzone"),
+            "StarwireFlipFaceButtons": bool("checkbox_flip_face_buttons"),
+            "StarwireAnalogScrolling": string("analog_scrolling"),
+            "StarwireTouchpadAsMouse": bool("checkbox_gamepad_touchpad_as_mouse"),
+            "StarwireMotionSensors": bool("checkbox_gamepad_motion_sensors"),
+            "StarwireMotionFallback": bool("checkbox_gamepad_motion_fallback"),
+            "StarwireVibrateFallback": bool("checkbox_vibrate_fallback"),
+            "StarwireMultiController": bool("checkbox_multi_controller"),
+            "StarwirePencilCurve": string("list_pencil_pressure_curve"),
+        ]
+        return LegacySettings(coreData: core, iosSettings: ios)
     }
 
     /// The iOS Settings keys this migration reads, for the app to pick out of UserDefaults.
