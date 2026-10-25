@@ -40,7 +40,8 @@
 - (void)testLaunchAndResumeAskForAVirtualDisplay {
     for (NSString *verb in @[ @"launch", @"resume" ]) {
         NSString *url = [self urlFor:verb virtualDisplay:YES];
-        XCTAssertTrue([url containsString:[NSString stringWithFormat:@"/%@?", verb]], @"%@", url);
+        NSString *path = [NSString stringWithFormat:@"/%@?", verb];
+        XCTAssertTrue([url containsString:path], @"%@", url);
         XCTAssertTrue([url containsString:@"&virtualDisplay=1"], @"%@", url);
         XCTAssertTrue([url containsString:@"mode=2420x1668x120"], @"%@", url);
     }
