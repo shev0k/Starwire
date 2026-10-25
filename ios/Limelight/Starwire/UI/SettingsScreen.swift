@@ -108,6 +108,7 @@ struct SettingsScreen: View {
     @State private var exporting: SettingsDocument?
     @State private var importing = false
     @State private var query = ""
+    @State private var editingKeys = false
 
     private var sections: [SettingsSection] {
         guard let only else { return SettingsLayout.sections }
@@ -179,6 +180,9 @@ struct SettingsScreen: View {
         }
         .fileImporter(isPresented: $importing, allowedContentTypes: [.json]) { result in
             importSettings(result)
+        }
+        .sheet(isPresented: $editingKeys) {
+            KeyboardEditorScreen(model: model) { editingKeys = false }
         }
     }
 
@@ -439,6 +443,8 @@ struct SettingsScreen: View {
 
     private func perform(_ action: String) {
         switch action {
+        case "edit_keyboard_layout":
+            editingKeys = true
         case "pair_microphone":
             state.path.append(.micPairing(hostID: nil))
         case "open_custom_commands", "import_shortcuts", "clear_imported_shortcuts":

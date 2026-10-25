@@ -281,4 +281,9 @@
     <string name="ios_resolution_full_screen">This device, full screen (%1$s)</string>
     <string name="ios_resolution_safe_area">This device, safe area (%1$s)</string>
     <string name="ios_recommended">Recommended</string>
+    <string name="ios_keyboard_edit_pick_key">Tap the key you want to change.</string>
+    <string name="ios_keyboard_edit_pick_target">Now tap what it should send. Hide stays as it is, so the keyboard can always be closed.</string>
+    <string name="ios_keyboard_edit_reset">Put back every key of this layout</string>
+    <string name="ios_keyboard_edit_remapped">Changed</string>
+    <string name="ios_keyboard_edit_own_key">Its own key</string>
 </resources>

@@ -15878,6 +15878,61 @@
         }
       }
     },
+    "ios_keyboard_edit_own_key" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Its own key"
+          }
+        }
+      }
+    },
+    "ios_keyboard_edit_pick_key" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tap the key you want to change."
+          }
+        }
+      }
+    },
+    "ios_keyboard_edit_pick_target" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Now tap what it should send. Hide stays as it is, so the keyboard can always be closed."
+          }
+        }
+      }
+    },
+    "ios_keyboard_edit_remapped" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Changed"
+          }
+        }
+      }
+    },
+    "ios_keyboard_edit_reset" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Put back every key of this layout"
+          }
+        }
+      }
+    },
     "ios_keyboard_floating" : {
       "extractionState" : "manual",
       "localizations" : {

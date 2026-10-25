@@ -63,6 +63,36 @@ final class SnapshotTests: XCTestCase {
     func testAbout() throws { try check("about") { AboutScreen() } }
     func testLicences() throws { try check("licences") { LicencesScreen() } }
     func testMicPairing() throws { try check("mic-pairing") { MicPairingScreen(hostID: nil) } }
+
+    // Batch 4.5
+    func testSettingsTouch() throws { try check("settings-touch") { SettingsScreen(initialSection: "touch") } }
+    func testSettingsKeyboards() throws { try check("settings-keyboards") { SettingsScreen(initialSection: "keyboard") } }
+    func testKeyboardEditor() throws {
+        try check("keyboard-editor") { KeyboardEditorScreen(model: SettingsModel(store: SettingsStore(storage: MemorySettingsStorage()))) {} }
+    }
+    func testStreamMenu() throws { try check("stream-menu") { StreamBackdrop { StreamMenuPanel(model: Self.menu(page: .main)) } } }
+    func testStreamMenuTouchModePage() throws {
+        try check("stream-menu-touch-mode") { StreamBackdrop { StreamMenuPanel(model: Self.menu(page: .touchMode)) } }
+    }
+    func testControllerKeyboard() throws {
+        try check("controller-keyboard") {
+            StreamBackdrop { ControllerKeyboardView(model: ControllerKeyboardModel()).padding(12).frame(maxHeight: .infinity, alignment: .bottom) }
+        }
+    }
+
+    /// The menu as a stream shows it: open, with the demo game's numbers
+    private static func menu(page: StreamMenuPage) -> StreamMenuModel {
+        let model = StreamMenuModel(title: "Starfield Racer", chips: ["1668p · 120 FPS"])
+        var state = StreamMenuState()
+        state.bitrateMbps = 150
+        state.statsShown = true
+        state.floatingButtonShown = true
+        model.readState = { state }
+        model.reload()
+        model.page = page
+        model.shown = true
+        return model
+    }
     func testAppMenuPanel() throws {
         try check("app-menu", panel: PanelContent(title: "Desktop", message: "Starfield Racer is running on the PC.", buttons: [
             PanelButton(title: L("applist_menu_resume")),
@@ -164,5 +194,19 @@ final class SnapshotTests: XCTestCase {
         attachment.name = name
         attachment.lifetime = .keepAlways
         add(attachment)
+    }
+}
+
+/// Something like a stream behind the overlays: dark, with a bright band, as a game would be
+private struct StreamBackdrop<Content: View>: View {
+    @ViewBuilder var content: () -> Content
+
+    var body: some View {
+        ZStack {
+            LinearGradient(colors: [Color(red: 0.05, green: 0.12, blue: 0.25), Color(red: 0.35, green: 0.2, blue: 0.1)],
+                           startPoint: .top, endPoint: .bottom)
+                .ignoresSafeArea()
+            content()
+        }
     }
 }
