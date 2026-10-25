@@ -58,9 +58,11 @@ steps and the checksums for each version.
   (it was always 10 bit), and "Force full range video" in iOS Settings asks the PC for full range,
   as on Android. The renderer takes the range from the decoded pixels, so the colours match
   either way. Vibeshine on an NVIDIA card encodes 4:4:4 with HEVC only, not AV1.
-- **iOS: HDR10 with EDR.** HDR streams are decoded to linear light and shown with the stream's
-  HDR10 metadata, so iPadOS maps them to the panel's brightness, as VoidLink does. The layer goes
-  back to SDR when the PC leaves HDR. Not yet checked by eye on the iPad.
+- **iOS: HDR10 with EDR.** HDR streams are shown relative to the screen, as Apple's own video
+  player does: the PC's normal white becomes the iPad's white, and brighter highlights use the
+  screen's extra headroom with a soft roll-off. SDR streams ask iPadOS for standard dynamic range.
+  The layer goes back to SDR when the PC leaves HDR. On colour bars from a Windows HDR desktop the
+  iPad showed white, greys and full colours within a few steps of the PC's.
 - **iOS: picture in picture,** off by default as on Android. With "Picture in picture" on in iOS
   Settings, leaving the app keeps the stream going in a small window you can watch but not
   control. Coming back closes the window; closing it while away ends the stream.

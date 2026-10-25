@@ -7,9 +7,11 @@
 //
 
 #import <XCTest/XCTest.h>
+#import <QuartzCore/QuartzCore.h>
 
 #import "VideoFormatPolicy.h"
 #import "MetalVideoRenderer.h"
+#import "HDRConstants.h"
 #import "StreamPictureInPicture.h"
 #import "ExternalDisplay.h"
 #import "FrameInterpolator.h"
@@ -148,6 +150,56 @@
     [defaults setBool:NO forKey:StreamPlayAudioOnPCKey];
     XCTAssertFalse(StreamPlayAudioOnPCWithOverride(defaults, YES));
     [defaults removePersistentDomainForName:suite];
+}
+
+
+- (void)testColorSpaceSetting {
+    NSString *suite = @"VideoFormatTests.colorspace";
+    NSUserDefaults *defaults = [[NSUserDefaults alloc] initWithSuiteName:suite];
+    [defaults removePersistentDomainForName:suite];
+    XCTAssertEqual(StreamColorSpaceFromDefaults(defaults), COLORSPACE_REC_601);
+    [defaults setObject:@"709" forKey:StreamColorSpaceKey];
+    XCTAssertEqual(StreamColorSpaceFromDefaults(defaults), COLORSPACE_REC_709);
+    [defaults removePersistentDomainForName:suite];
+}
+
+
+// SDR asks for standard dynamic range explicitly; the default ("automatic") dimmed SDR white to
+// 197 of 255 on the iPad Pro M4 with iPadOS 27
+- (void)testSdrLayersAskForStandardDynamicRange {
+    XCTAssertFalse(MetalLayerWantsHighDynamicRange(MetalLayerModeSDR));
+    XCTAssertTrue(MetalLayerWantsHighDynamicRange(MetalLayerModeEDR));
+    XCTAssertTrue(MetalLayerWantsHighDynamicRange(MetalLayerModePQ));
+    CAMetalLayer *layer = [CAMetalLayer layer];
+    MetalLayerApplyDynamicRange(layer, MetalLayerModeSDR);
+    if (@available(iOS 26.0, *)) {
+        XCTAssertEqualObjects(layer.preferredDynamicRange, CADynamicRangeStandard);
+        MetalLayerApplyDynamicRange(layer, MetalLayerModeEDR);
+        XCTAssertEqualObjects(layer.preferredDynamicRange, CADynamicRangeHigh);
+    }
+}
+
+
+// PQ white for an SDR desktop in Windows HDR sits near BT.2408's 203 nits; at 100 the picture was
+// pushed into the tone mapper and looked washed out next to picture in picture
+- (void)testHdrReferenceWhiteIsBt2408 {
+    XCTAssertEqual(STARWIRE_HDR_REFERENCE_WHITE_NITS, 203.0f);
+}
+
+
+// Up to the knee nothing changes; above it highlights ease toward the headroom and never pass it
+- (void)testHdrRollOffKeepsNormalWhiteAndFitsHighlights {
+    XCTAssertEqualWithAccuracy(StarwireHDRRollOff(0.5f, 3.0f), 0.5f, 1e-6);
+    XCTAssertEqualWithAccuracy(StarwireHDRRollOff(1.0f, 3.0f), 1.0f, 1e-6);
+    XCTAssertEqualWithAccuracy(StarwireHDRRollOff(2.4f, 3.0f), 2.4f, 1e-6);
+    float a = StarwireHDRRollOff(3.0f, 3.0f), b = StarwireHDRRollOff(5.0f, 3.0f), c = StarwireHDRRollOff(50.0f, 3.0f);
+    XCTAssertGreaterThan(a, 2.4f);
+    XCTAssertGreaterThan(b, a);
+    XCTAssertGreaterThan(c, b);
+    XCTAssertLessThanOrEqual(c, 3.0f);
+    // No headroom: normal white is the ceiling
+    XCTAssertEqualWithAccuracy(StarwireHDRRollOff(4.0f, 1.0f), 1.0f, 1e-6);
+    XCTAssertEqualWithAccuracy(StarwireHDRRollOff(0.7f, 0.5f), 0.7f, 1e-6);
 }
 
 @end

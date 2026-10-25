@@ -1,4 +1,5 @@
 #include <metal_stdlib>
+#include "HDRConstants.h"
 #include <simd/simd.h>
 
 using namespace metal;
@@ -86,16 +87,13 @@ fragment float4 yuvToLinear(Vertex v [[ stage_in ]],
     // This converts from 0-1 PQ range to 0-10000 nits linear
     float3 linear_rgb = pq_to_linear_rgb(rgb);
 
-    // Scale from PQ (0-10000) to EDR (1.0 = 100 nits SDR white)
-    const float referenceWhite = 100.0f; // must match opticalOutputScale in EDRMetadata
-    const float peakWhite = 10000.0f;
-    linear_rgb = linear_rgb / referenceWhite;
-
-    // This will apply linear tone-mapping to scale all values to not exceed peak, not really what we want
-    //linear_rgb = scaleEDR(linear_rgb / referenceWhite, peakWhite / referenceWhite, edrHeadroom);
-
-    // TODO: support tonemapping to Rec.709 for non-HDR viewers
-    //linear_rgb = bt2020_to_rec709 * linear_rgb;
+    // Relative to the screen (HDRConstants.h): reference white becomes EDR 1.0, and anything
+    // brighter is eased into the screen's current headroom
+    linear_rgb = linear_rgb / STARWIRE_HDR_REFERENCE_WHITE_NITS;
+    float brightest = max(linear_rgb.r, max(linear_rgb.g, linear_rgb.b));
+    if (brightest > 1.0f) {
+        linear_rgb *= StarwireHDRRollOff(brightest, edrHeadroom) / brightest;
+    }
 
     return float4(linear_rgb, 1.0f);
 }

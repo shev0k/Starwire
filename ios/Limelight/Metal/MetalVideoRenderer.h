@@ -19,6 +19,14 @@ typedef NS_ENUM(NSInteger, MetalLayerMode) {
 // The mode for a frame: EDR for PQ frames when the system has it, PQ without it, else SDR
 MetalLayerMode MetalLayerModeForFrame(BOOL isPQ, BOOL edrAvailable);
 
+// Whether a layer in this mode should ask iOS 26 and later for high dynamic range. SDR must ask
+// for standard: left on "automatic", iPadOS 27 showed SDR white at about 77% (197 of 255) and
+// full colours at about 80%, after a second or two, on the iPad Pro M4.
+BOOL MetalLayerWantsHighDynamicRange(MetalLayerMode mode);
+// Sets the layer's dynamic range for the mode (preferredDynamicRange on iOS 26 and later,
+// wantsExtendedDynamicRangeContent before). Main thread only.
+void MetalLayerApplyDynamicRange(CAMetalLayer *_Nonnull layer, MetalLayerMode mode);
+
 @interface MetalVideoRenderer : NSObject
 
 @property (atomic) CFTimeInterval averageGPUTime;

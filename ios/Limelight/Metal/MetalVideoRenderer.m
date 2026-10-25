@@ -9,6 +9,7 @@
 #import "FrameQueue.h"
 #import "PacingPolicy.h"
 #import "VideoFormatPolicy.h"
+#import "HDRConstants.h"
 #import <os/signpost.h>
 
 #include <Limelight.h>
@@ -81,6 +82,24 @@ struct Vertex {
 };
 
 static const NSUInteger MaxFramesInFlight = 3;
+
+BOOL MetalLayerWantsHighDynamicRange(MetalLayerMode mode) {
+    return mode != MetalLayerModeSDR;
+}
+
+void MetalLayerApplyDynamicRange(CAMetalLayer *layer, MetalLayerMode mode) {
+    BOOL high = MetalLayerWantsHighDynamicRange(mode);
+#if !TARGET_OS_TV
+    if (@available(iOS 26.0, *)) {
+        layer.preferredDynamicRange = high ? CADynamicRangeHigh : CADynamicRangeStandard;
+        return;
+    }
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+    layer.wantsExtendedDynamicRangeContent = high;
+#pragma clang diagnostic pop
+#endif
+}
 
 MetalLayerMode MetalLayerModeForFrame(BOOL isPQ, BOOL edrAvailable) {
     if (!isPQ) {
@@ -253,7 +272,7 @@ static void ReleaseTextures(CVMetalTextureRef *textures, size_t count) {
 
     // These can only be changed on the main thread
     [self performOnMainAndWait:^{
-        layer.wantsExtendedDynamicRangeContent = YES;
+        MetalLayerApplyDynamicRange(layer, MetalLayerModeEDR);
         layer.pixelFormat = MTLPixelFormatRGBA16Float;
 
         CFStringRef name;
@@ -274,26 +293,10 @@ static void ReleaseTextures(CVMetalTextureRef *textures, size_t count) {
         layer.colorspace = colorspace;
         CGColorSpaceRelease(colorspace);
 
-        CFDataRef masteringDisplayColorVolume = frame.pixelBuffer ? CVBufferCopyAttachment(frame.pixelBuffer, kCVImageBufferMasteringDisplayColorVolumeKey, nil) : NULL;
-        CFDataRef contentLightLevel = frame.pixelBuffer ? CVBufferCopyAttachment(frame.pixelBuffer, kCVImageBufferContentLightLevelInfoKey, nil) : NULL;
-        if (masteringDisplayColorVolume) {
-            // This tone-mapper does receive the host's max nits in MDCV when connecting to Windows,
-            // but I think using this for tone-mapping would break apps not using system calibration (most apps).
-            layer.EDRMetadata = [CAEDRMetadata HDR10MetadataWithDisplayInfo:(__bridge NSData *)masteringDisplayColorVolume
-                                                                contentInfo:contentLightLevel ? (__bridge NSData *)contentLightLevel : nil
-                                                         opticalOutputScale:100.0f];
-        } else {
-            layer.EDRMetadata = [CAEDRMetadata HDR10MetadataWithMinLuminance:0.005f
-                                                                maxLuminance:1000.0f
-                                                          opticalOutputScale:100.0f];
-        }
-        // The copies are ours to release (they leaked before)
-        if (masteringDisplayColorVolume) {
-            CFRelease(masteringDisplayColorVolume);
-        }
-        if (contentLightLevel) {
-            CFRelease(contentLightLevel);
-        }
+        // No HDR10 metadata: with it, iPadOS shows the picture in absolute nits, so a Windows HDR
+        // desktop came out dim and washed out. The shader maps it relative to the screen instead
+        // (HDRConstants.h), as Apple's own video layer does.
+        layer.EDRMetadata = nil;
         LogOnce(LOG_I, @"EDRMetadata set to colorspace %@, transfer function %@, %@", layer.colorspace,
                 frame_trc ? (__bridge NSString *)frame_trc : @"<none>", layer.EDRMetadata);
     }];
@@ -407,7 +410,7 @@ static void ReleaseTextures(CVMetalTextureRef *textures, size_t count) {
             } else {
                 // These can only be changed on the main thread. Leaving HDR clears what EDR set.
                 [self performOnMainAndWait:^{
-                    layer.wantsExtendedDynamicRangeContent = isHDR;
+                    MetalLayerApplyDynamicRange(layer, mode);
                     layer.EDRMetadata = nil;
                     layer.colorspace = newColorSpace;
                     layer.pixelFormat = newPixelFormat;
@@ -419,6 +422,25 @@ static void ReleaseTextures(CVMetalTextureRef *textures, size_t count) {
             }
             CGColorSpaceRelease(newColorSpace);
         }
+
+        // For the summary line: what the frames are and how the layer shows them
+        CFDictionaryRef ext = [frame getFormatDescExtensions];
+        CFStringRef primaries = ext ? CFDictionaryGetValue(ext, kCVImageBufferColorPrimariesKey) : NULL;
+        CFStringRef transfer = ext ? CFDictionaryGetValue(ext, kCVImageBufferTransferFunctionKey) : NULL;
+        CFStringRef matrix = ext ? CFDictionaryGetValue(ext, kCVImageBufferYCbCrMatrixKey) : NULL;
+        OSType format = frame.pixelBuffer ? CVPixelBufferGetPixelFormatType(frame.pixelBuffer) : 0;
+        __block NSString *layerColourSpace = @"?";
+        __block unsigned long layerFormat = 0;
+        [self performOnMainAndWait:^{
+            CFStringRef name = layer.colorspace ? CGColorSpaceGetName(layer.colorspace) : NULL;
+            layerColourSpace = name ? [(__bridge NSString *)name stringByReplacingOccurrencesOfString:@"kCGColorSpace" withString:@""] : @"none";
+            layerFormat = (unsigned long)layer.pixelFormat;
+        }];
+        [FrameQueue sharedInstance].pacingStats.colourNote =
+            [NSString stringWithFormat:@"frames %c%c%c%c %@ range, primaries %@, transfer %@, matrix %@; colourspace %d; layer %@ format %lu",
+             (char)(format >> 24), (char)(format >> 16), (char)(format >> 8), (char)format,
+             fullRange ? @"full" : @"video", primaries ?: (CFStringRef)@"-", transfer ?: (CFStringRef)@"-",
+             matrix ?: (CFStringRef)@"-", colorspace, layerColourSpace, layerFormat];
 
         // Create the new colorspace parameter buffer for our fragment shader
         MTLResourceOptions bufferOptions = MTLResourceStorageModeShared;

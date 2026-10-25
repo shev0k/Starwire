@@ -91,8 +91,10 @@ The implementation of the cross-platform game view controller.
     self.renderer = renderer;
     Log(LOG_I, @"[MetalViewController] viewDidLoad, created renderer: %@", renderer);
 
-    // Initialize the renderer-dependent view properties.
+    // Initialize the renderer-dependent view properties. SDR until a frame says otherwise: on
+    // iOS 26 and later "automatic" dynamic range dimmed SDR white (MetalLayerApplyDynamicRange).
     view.metalLayer.pixelFormat = renderer.colorPixelFormat;
+    MetalLayerApplyDynamicRange(view.metalLayer, MetalLayerModeSDR);
     view.metalLayer.maximumDrawableCount = 3;
 
     // The display's rate: its top rate, or the stream's with refresh rate reduction allowed
