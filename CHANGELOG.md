@@ -30,9 +30,10 @@ steps and the checksums for each version.
   steps of 4.2 ms (8.3, 12.5, 16.7 ms and so on), the display's refresh interval, the time from
   decoding to the screen, and a summary line for the whole stream. The summary line also counts
   gaps of more than 2.5 frames between arriving frames, and the longest time a frame stayed up.
-- **iOS: a display-driven presenter, as a test choice.** "Presenter" in iOS Settings draws the
-  newest frame at each display refresh from a CAMetalDisplayLink, as Nonary's moonlight-qt does on
-  macOS. The old render loop stays the default until a run on the iPad shows which is better.
+- **iOS: a display-driven presenter, now the default.** A CAMetalDisplayLink draws a frame at
+  each display refresh, as Nonary's moonlight-qt does on macOS. On the iPad Pro M4 it was as smooth
+  as the old render loop with about 12 ms less from decoding to the screen. "Presenter" in iOS
+  Settings still offers the old loop.
 - **iOS: network arrival in the statistics overlay.** A "Network:" line says how often frames
   reach the iPad late (gaps of more than 2.5 frames, measured from their packets before any
   decoding), the longest gap, how regular the gaps are, how many frames come bunched together,
@@ -40,12 +41,16 @@ steps and the checksums for each version.
   packet to the screen.
 - **iOS: a jitter buffer for the display-driven presenter,** with Starwire for Android's four
   choices in iOS Settings: lowest latency (always the newest frame), low latency (up to 1 frame
-  held back), balanced (up to 2) and smooth (up to 4). It holds back only as many frames as the
-  recent gaps need, repeats the last frame when it runs dry, and catches up one frame at a time.
+  held back, the default), balanced (up to 2) and smooth (up to 4). It holds back only as many
+  frames as the recent gaps need, repeats the last frame when it runs dry, and catches up one frame
+  at a time. On patchy Wi-Fi, smooth rode out the most gaps in the tests, for about 23 ms more.
 - **iOS: Full and Lite statistics overlays, with 1% low.** "Statistics overlay" in iOS Settings
   picks every line (Full) or one line (Lite): frame rate, 1% low, drops, latency, decode time and
   the display's measured refresh rate. 1% low is the frame rate of the slowest 1% of on-screen
   frame times over the last 5 seconds.
+- **iOS: an even 60 FPS on a 120 Hz screen with the display-driven presenter.** Each frame now
+  stays up for two refreshes; before, frames that landed near a refresh alternated between 8.3
+  and 25 ms on screen.
 - **iOS: "Allow refresh rate reduction",** off by default as on Android: the display stays at its
   top rate, so a 60 FPS stream can show each new frame at the next 120 Hz refresh. On, the display
   drops to the stream's rate to save power.
@@ -58,13 +63,14 @@ steps and the checksums for each version.
   back to SDR when the PC leaves HDR. Not yet checked by eye on the iPad.
 - **iOS: picture in picture,** off by default as on Android. With "Picture in picture" on in iOS
   Settings, leaving the app keeps the stream going in a small window you can watch but not
-  control. Closing the window ends the stream.
+  control. Coming back closes the window; closing it while away ends the stream.
 - **iOS: video on an external display.** "External display" in iOS Settings can put the stream's
   video on a plugged-in or AirPlay display while the touch controls stay on the iPad or iPhone.
   Mirroring stays the default. Not yet tried with a display.
 - **iOS: frame interpolation on iPadOS and iOS 26 or later,** off by default. VideoToolbox makes
   a frame between each pair, so a 60 FPS stream shows at 120 Hz, for about half a frame of extra
-  latency plus the processing time. It runs only at sizes the device allows.
+  latency plus the processing time. It runs only at sizes the device allows: on the iPad Pro M4,
+  1080p at 60 FPS worked, with about 14.5 ms per made-up frame, and 2420x1668 is too large.
 - **iOS: unit tests on the simulator in CI,** including Andy Grundman's frame queue tests, and a
   UI test the Mac runs on the iPad.
 

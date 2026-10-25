@@ -2,12 +2,14 @@
 
 This table tracks which Starwire for Android features and settings the planned iOS client will
 have. It comes from [port-plan.md](port-plan.md), the Android README and the two Android
-preference files, as of 25 Oct 2026 (phase 0). Nothing here is built yet. Rows marked "check" are
-open questions for the phase that builds them.
+preference files, as of 25 Oct 2026 (phase 0), with statuses updated by each device run (last:
+[batch 1](device-runs/2026-10-25-feature-ios-batch-1.md)). Rows marked "check" are open questions for the phase that builds them.
 
 Status values:
 
 - **planned**: the plan builds it. Not started.
+- **built**: in the code with unit tests, CI green, not yet shown working on the iPad.
+- **verified**: a device report shows it working on the iPad.
 - **not possible**: iOS can't do it (the "Not possible on iOS" table in the plan).
 - **host lacks it**: Vibeshine doesn't have it, so the app doesn't build or show it.
 
@@ -74,18 +76,18 @@ when there is no phase because the feature can't exist or the host lacks it.
 | Fast V-Sync and V-Sync options | 4 | planned | Where they apply on iOS |
 | Sync: LFR, Async decode, Async: LFR | 4 | planned | Check: these are MediaCodec ideas. Decide what maps to VideoToolbox |
 | Ultra low latency | - | not possible | Vendor decoder flags are Android only. VideoToolbox's real-time mode is used instead |
-| Jitter buffer presets | 4 | planned | |
-| HDR10, full range video | 4 | planned | EDR on Metal |
-| YUV 4:4:4 | 4 | planned | |
-| AV1, HEVC and H.264 codec choice | 4 | planned | AV1 only on devices with hardware AV1. Others fall back to HEVC |
+| Jitter buffer presets | 4 | verified | All four on the display presenter: [batch 1](device-runs/2026-10-25-feature-ios-batch-1.md). In iOS Settings for now; the app's settings come in phase 3 |
+| HDR10, full range video | 4 | built | EDR on Metal. HDR10 (HEVC Main 10) and full range streamed at 120 FPS in [batch 1](device-runs/2026-10-25-feature-ios-batch-1.md); the picture not yet checked by eye |
+| YUV 4:4:4 | 4 | verified | HEVC 4:4:4 at 120 FPS: [batch 1](device-runs/2026-10-25-feature-ios-batch-1.md). Vibeshine on NVIDIA has no AV1 4:4:4 |
+| AV1, HEVC and H.264 codec choice | 4 | verified | AV1 and HEVC at 120 FPS on the M4: [batch 1](device-runs/2026-10-25-feature-ios-batch-1.md). H.264 not tried. AV1 only on devices with hardware AV1 |
 | Spatial dithering | 4 | planned | |
 | Stretch video, rotate, brightness slider | 4 | planned | |
-| Reduce refresh rate, measured refresh rate | 4 | planned | |
-| Full and Lite performance overlay, with 1% low FPS | 4 | planned | Includes host CPU and GPU from hardware metrics. Optional ImGui graphs |
+| Reduce refresh rate, measured refresh rate | 4 | verified | 60 FPS at 120 Hz by default, 60 Hz with reduction: [batch 1](device-runs/2026-10-25-feature-ios-batch-1.md) |
+| Full and Lite performance overlay, with 1% low FPS | 4 | verified | [batch 1](device-runs/2026-10-25-feature-ios-batch-1.md). Host CPU and GPU (phase 2) and ImGui graphs not yet |
 | Post-stream latency message | 4 | planned | |
-| Picture in picture | 4 | planned | AVSampleBufferDisplayLayer |
-| External display | 4 | planned | Mirror or extended, through UIScene. Not on Android |
-| Frame interpolation | 4 | planned | iOS 26 only, as an option. Not on Android |
+| Picture in picture | 4 | verified | AVSampleBufferDisplayLayer behind the Metal view. Starts on Home, closes on return: [batch 1](device-runs/2026-10-25-feature-ios-batch-1.md). How it looks not checked by eye |
+| External display | 4 | built | Mirror, or the video on the display through a UIScene role. No display was there to try it. Not on Android |
+| Frame interpolation | 4 | verified | iOS 26 or later. 1080p60 shown at 120 FPS: [batch 1](device-runs/2026-10-25-feature-ios-batch-1.md). The M4 allows up to 1920 on a side and about 2.07 million pixels, and each frame took about 14.5 ms. Not on Android |
 | PyroWave codec | 7 | planned | Least certain. Needs a fast link. A 2-day trial on the iPad comes first |
 | PyroWave late-frame presets | 7 | planned | |
 | Custom Vulkan driver (Turnip, libadrenotools) | - | not possible | iOS apps can't load GPU drivers |
@@ -138,7 +140,7 @@ Notes column says so.
 | `list_fps` | Video frame rate | 60 | 3 | planned | Also fractional and ProMotion rates (phase 2) |
 | `seekbar_bitrate_kbps` | Video bitrate | set in code | 3 | planned | |
 | `frame_pacing` | Video frame pacing | balanced | 4 | planned | Modes rebuilt on the Metal presenter |
-| `jitter_buffer` | Jitter buffer | balanced | 4 | planned | |
+| `jitter_buffer` | Jitter buffer | balanced | 4 | verified | iOS Settings for now (`StarwireJitterBuffer`) |
 | `vsync_mode` | V-Sync (Experimental) | off | 4 | planned | Where it applies on iOS |
 | `checkbox_sync_lfr` | Sync: LFR (Experimental) | false | 4 | planned | Check: MediaCodec idea |
 | `checkbox_async_decode` | Async decode (Experimental) | false | 4 | planned | Check: MediaCodec idea |
@@ -236,7 +238,7 @@ This category has no key.
 | Key | Setting (title) | Default | Phase | Status | Notes |
 |---|---|---|---|---|---|
 | `cover_style` | App covers | missing | 3 | planned | |
-| `checkbox_enable_pip` | Enable Picture-in-Picture observer mode | false | 4 | planned | AVSampleBufferDisplayLayer. Built with the renderer |
+| `checkbox_enable_pip` | Enable Picture-in-Picture observer mode | false | 4 | verified | iOS Settings for now (`StarwirePictureInPicture`) |
 | `list_languages` | Language | default | 3 | planned | Opens the app's language page in iOS Settings |
 | `checkbox_small_icon_mode` | Use small box art | set in code | 3 | planned | Default depends on the device (`getDefaultSmallMode`) |
 
@@ -244,10 +246,10 @@ This category has no key.
 
 | Key | Setting (title) | Default | Phase | Status | Notes |
 |---|---|---|---|---|---|
-| `checkbox_reduce_refresh_rate` | Allow refresh rate reduction | false | 4 | planned | |
-| `text_actual_display_refresh_rate` | Actual display refresh rate | 0 | 4 | planned | 0 means detect it |
+| `checkbox_reduce_refresh_rate` | Allow refresh rate reduction | false | 4 | verified | iOS Settings for now (`StarwireReduceRefreshRate`) |
+| `text_actual_display_refresh_rate` | Actual display refresh rate | 0 | 4 | built | Detected and shown in the overlay; no way yet to enter one |
 | `checkbox_disable_warnings` | Disable warning messages | false | 3 | planned | |
-| `video_format` | Change codec settings | auto | 4 | planned | AV1 needs hardware AV1 |
+| `video_format` | Change codec settings | auto | 4 | verified | The app's existing codec setting. AV1 needs hardware AV1 |
 | `pyrowave_late_frames` | PyroWave late frames | balanced | 7 | planned | |
 | `video_renderer` | Video renderer | auto | 4 | planned | Metal or AVSampleBufferDisplayLayer instead of Vulkan or direct |
 | `checkbox_custom_vulkan_driver` | Custom Vulkan driver (experimental) | false | - | not possible | iOS apps can't load GPU drivers |
@@ -255,10 +257,10 @@ This category has no key.
 | `remove_custom_vulkan_driver` | Remove the custom driver | n/a | - | not possible | |
 | `checkbox_custom_vulkan_driver_toast` | Driver loaded toast | true | - | not possible | |
 | `spatial_dithering` | Spatial Dithering | off | 4 | planned | |
-| `checkbox_enable_hdr` | Enable HDR / 10-bit SDR (Experimental) | false | 4 | planned | EDR |
-| `checkbox_full_range` | Force full range video (Experimental) | false | 4 | planned | |
-| `checkbox_enable_perf_overlay` | Show performance stats while streaming | false | 4 | planned | |
-| `checkbox_enable_perf_overlay_lite` | Lite mode | false | 4 | planned | Needs the overlay |
+| `checkbox_enable_hdr` | Enable HDR / 10-bit SDR (Experimental) | false | 4 | built | The app's existing HDR setting, now through EDR |
+| `checkbox_full_range` | Force full range video (Experimental) | false | 4 | built | iOS Settings for now (`StarwireFullRange`); streams, picture not checked by eye |
+| `checkbox_enable_perf_overlay` | Show performance stats while streaming | false | 4 | verified | The app's existing Statistics Overlay setting |
+| `checkbox_enable_perf_overlay_lite` | Lite mode | false | 4 | verified | iOS Settings for now (`StarwireOverlay`) |
 | `checkbox_enable_post_stream_toast` | Show latency message after streaming | false | 4 | planned | |
 
 ### About
