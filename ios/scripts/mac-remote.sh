@@ -20,7 +20,7 @@ need_team() {
 
 need_ipad() {
     if [ -z "${IPAD:-}" ]; then
-        IPAD=$(xcrun devicectl list devices 2>/dev/null | awk '/iPad/ && /physical/ && !/unavailable/ {
+        IPAD=$(xcrun devicectl list devices 2>/dev/null | awk '/iPad/ && !/simulated/ && !/unavailable/ && !/shutdown/ {
             for (i = 1; i <= NF; i++) if ($i ~ /^[0-9A-F]{8}-[0-9A-F]{16}$/) { print $i; exit } }')
     fi
     if [ -z "${IPAD:-}" ]; then

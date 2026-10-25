@@ -6,7 +6,11 @@
 //  a paired PC that is awake, so they never run on CI; CI only builds them.
 //
 //  Settings come from the environment of xcodebuild, with a TEST_RUNNER_ prefix:
-//    TEST_RUNNER_STARWIRE_APP             app tile to start (default "Desktop")
+//    TEST_RUNNER_STARWIRE_APP             app tile to start (default "Starwire test pattern", a
+//                                         Vibeshine app that shows testufo.com full screen, so
+//                                         frames keep coming with nobody at the PC)
+//    TEST_RUNNER_STARWIRE_FRESH           "1" to quit the app on the PC first if it's running, so
+//                                         the stream starts with this run's settings
 //    TEST_RUNNER_STARWIRE_SECONDS         stream length for testStreamAndSample (default 300)
 //    TEST_RUNNER_STARWIRE_STREAMS         streams for testStreamsInARow (default 10)
 //    TEST_RUNNER_STARWIRE_PRESENTER       "loop" (render loop) or "display" (CAMetalDisplayLink)
@@ -28,7 +32,9 @@ final class StreamDeviceRunTests: XCTestCase {
     private let env = ProcessInfo.processInfo.environment
     private var app: XCUIApplication!
 
-    private var appName: String { env["STARWIRE_APP"] ?? "Desktop" }
+    private var appName: String { env["STARWIRE_APP"] ?? "Starwire test pattern" }
+    // Apps the tests may quit on the PC to start theirs: never someone's game
+    private let quittableApps = ["Starwire test pattern", "Desktop"]
 
     override func setUpWithError() throws {
         continueAfterFailure = false
@@ -124,10 +130,25 @@ final class StreamDeviceRunTests: XCTestCase {
         XCTAssertTrue(tile.waitForExistence(timeout: 30), "no \"\(appName)\" tile: is the PC paired, awake and showing its app list?")
         tile.tap()
 
-        // When the app is already running on the PC, a Resume / Quit menu comes up first
+        // When an app is already running on the PC, a menu comes up first (MainFrameViewController)
         let resume = app.buttons["Resume App"]
-        if resume.waitForExistence(timeout: 3) {
-            resume.tap()
+        let quitOther = app.buttons["Quit Running App and Start"]
+        if quitOther.waitForExistence(timeout: 3) {
+            let running = app.staticTexts.matching(NSPredicate(format: "label ENDSWITH %@", " is currently running")).firstMatch.label
+            let name = running.replacingOccurrences(of: " is currently running", with: "")
+            XCTAssertTrue(quittableApps.contains(name), "\(running) on the PC; the test won't quit it")
+            record("quitting \(name) on the PC to start \(appName)")
+            quitOther.tap()
+        } else if resume.exists {
+            if env["STARWIRE_FRESH"] == "1" {
+                record("quitting \(appName) on the PC for a fresh start")
+                app.buttons["Quit App"].tap()
+                XCTAssertTrue(tile.waitForExistence(timeout: 30), "the app list didn't come back after quitting")
+                sleep(3)
+                tile.tap()
+            } else {
+                resume.tap()
+            }
         }
     }
 
