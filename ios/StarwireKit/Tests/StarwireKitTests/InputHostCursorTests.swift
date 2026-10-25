@@ -121,9 +121,9 @@ final class InputHostCursorLedgerTests: XCTestCase {
     }
 
     func testEachPCHasItsOwnRecord() {
-        let byAddress = HostCursorLedger.hostKey(pcUUID: nil, host: "192.168.1.20")
-        XCTAssertEqual(byAddress, "addr:192.168.1.20")
-        XCTAssertEqual(HostCursorLedger.hostKey(pcUUID: host, host: "192.168.1.20"), host)
+        let byAddress = HostCursorLedger.hostKey(pcUUID: nil, host: "192.0.2.20")
+        XCTAssertEqual(byAddress, "addr:192.0.2.20")
+        XCTAssertEqual(HostCursorLedger.hostKey(pcUUID: host, host: "192.0.2.20"), host)
 
         ledger().markHidden(appID: 1, reason: "always")
         XCTAssertNil(ledger(byAddress).read())
