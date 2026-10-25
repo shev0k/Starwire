@@ -12,6 +12,42 @@ and the pacing run
 ([device-runs/2026-10-25-feature-ios-pacing.md](device-runs/2026-10-25-feature-ios-pacing.md)).
 When a run shows something else wrong here, fix this page in the same branch as that run's report.
 
+## Running it all from the PC (`ios/scripts/mac.sh`)
+
+Since batch 1 (25 Oct 2026) one agent on the Windows PC runs the whole loop over SSH, so nobody
+carries prompts to the Mac. The sections below are what the script does, for reference and for a
+person at the Mac.
+
+```bash
+ios/scripts/mac.sh setup                 # once: the agent's own checkout, ~/Developer/Starwire
+ios/scripts/mac.sh sync                  # push this branch, pull it on the Mac with the submodules
+ios/scripts/mac.sh sync --wip            # the same, plus uncommitted changes under ios/
+ios/scripts/mac.sh build                 # Release build of the app and the device-run tests
+ios/scripts/mac.sh install               # over the old copy; never uninstalls
+ios/scripts/mac.sh unit                  # unit tests on a simulator
+ios/scripts/mac.sh test stream PRESENTER=display JITTER_BUFFER=balanced SECONDS=120
+ios/scripts/mac.sh log 20                # start the app with its console log for 20 seconds
+```
+
+`test` takes `stream`, `resume`, `streams` or a test method name such as `testPictureInPicture`;
+each `VAR=value` becomes `TEST_RUNNER_STARWIRE_VAR`. The `[device-run]` lines come back to
+`build/mac/` on the PC.
+
+What it needs on the Mac:
+- The SSH key `~/.ssh/id_ed25519_starwire_mac` on the PC, and Remote Login on the Mac.
+- `~/.config/starwire/env` with `STARWIRE_TEAM=<team ID>` (section 3). Optionally `IPAD=<UDID>`;
+  otherwise the first connected iPad is used. This file stays out of git.
+- Someone logged in at the Mac. Codesign can't use the login keychain from SSH (it fails with
+  `errSecInternalComponent`), so `build` runs as a one-off launchd job in the logged-in session,
+  as self-hosted CI runners do, and removes it afterwards. The Mac's password is never needed.
+  Such jobs can't read `~/Documents`, which is why the script has its own checkout in
+  `~/Developer/Starwire`. The copy in `~/Documents` is left alone.
+
+The PC is also the Vibeshine host. Its app list has "Starwire test pattern", which opens
+testufo.com full screen in a Chrome kiosk window with its own empty profile, so the device runs
+have moving content with nobody at the PC and no browser tabs in screenshots. It was added on
+25 Oct 2026 with the owner's OK; `apps.json` was backed up next to itself first.
+
 ## Rules for every run
 
 - **Never delete the app from the iPad.** Not with `devicectl`, not from the home screen. Always
