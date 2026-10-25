@@ -69,6 +69,8 @@ BOOL StreamEndsOnBackground(BOOL pictureInPictureActive);
 - (void)layout;
 // Zooms and pans the picture (pinch to zoom, pan and zoom mode)
 - (void)setVideoTransform:(CGAffineTransform)transform;
+// Fit, stretch or fill (AVLayerVideoGravity)
+- (void)setVideoGravity:(AVLayerVideoGravity)gravity;
 // Removes the layer and the controller. Call before the stream view goes away.
 - (void)invalidate;
 

@@ -570,7 +570,7 @@ static const double X1_MOUSE_SPEED_DIVISOR = 2.5;
     hasUserInteracted = YES;
 
     if (_input) {
-        [_input touchesMoved:touches in:self];
+        [_input touchesMoved:touches event:event in:self];
         return;
     }
     

@@ -7,6 +7,10 @@
 //  and the sticky modifier rules live in StarwireKit (FullKeyboardLayout, StickyModifiers); this
 //  view only draws the keys, turns touches into press and release calls, and sends the events.
 //
+//  Batch 4.5 added the layouts, remapped keys, size and placement from StarwireKit's
+//  KeyboardCustomization: docked along the bottom, or floating where it was dragged by the handle
+//  on its top edge.
+//
 
 import StarwireKit
 import UIKit
@@ -35,6 +39,17 @@ final class FullKeyboardView: UIView {
 
     private let send: (InputEvent) -> Void
     private let panel = UIView()
+    private let backdrop = UIVisualEffectView(effect: UIBlurEffect(style: .systemUltraThinMaterialDark))
+    private let handle = UIView()
+    private var placement = KeyboardPlacement.docked
+    private var sizeShare: CGFloat = 1
+    /// The floating keyboard's spot, as fractions of the room it can move in
+    private var floatingFraction = CGPoint(x: 0.5, y: 1)
+    private var dragTouch: UITouch?
+    private var dragStart: (finger: CGPoint, origin: CGPoint) = (.zero, .zero)
+    private let defaults = UserDefaults(suiteName: StarwireSettings.suiteName) ?? .standard
+    /// Height of the floating keyboard's handle
+    static let handleHeight: CGFloat = 22
     private let haptics = UIImpactFeedbackGenerator(style: .light)
     private var model = StickyModifiers()
     private var slots: [Slot] = []
@@ -64,7 +79,8 @@ final class FullKeyboardView: UIView {
 
     private static func readModel() -> StickyModifiers {
         let store = StarwireSettings.store
-        return StickyModifiers(sticky: store.bool("checkbox_sticky_modifier_keys"),
+        return StickyModifiers(layout: KeyboardCustomization.layout(from: store),
+                               sticky: store.bool("checkbox_sticky_modifier_keys"),
                                vibrate: store.bool("checkbox_keyboard_vibrate"))
     }
 
@@ -73,12 +89,31 @@ final class FullKeyboardView: UIView {
         backgroundColor = .clear
         isMultipleTouchEnabled = true
 
-        let opacity = min(max(StarwireSettings.store.int("seekbar_keyboard_opacity"), 20), 100)
+        let store = StarwireSettings.store
+        let opacity = min(max(store.int("seekbar_keyboard_opacity"), 20), 100)
+        placement = KeyboardPlacement(rawValue: store.string(KeyboardCustomization.placementKey) ?? "") ?? .docked
+        sizeShare = CGFloat(min(max(store.int(KeyboardCustomization.sizeKey), KeyboardCustomization.sizeRange.lowerBound),
+                                KeyboardCustomization.sizeRange.upperBound)) / 100
+        if defaults.object(forKey: KeyboardCustomization.floatingXKey) != nil {
+            floatingFraction = CGPoint(x: defaults.double(forKey: KeyboardCustomization.floatingXKey),
+                                       y: defaults.double(forKey: KeyboardCustomization.floatingYKey))
+        }
         panel.alpha = CGFloat(opacity) / 100
-        panel.backgroundColor = UIColor(white: 0.13, alpha: 0.92)
-        panel.layer.cornerRadius = 8
+        panel.backgroundColor = .clear
+        panel.layer.cornerRadius = 16
+        panel.layer.cornerCurve = .continuous
+        panel.layer.borderWidth = 1
+        panel.layer.borderColor = UIColor(white: 1, alpha: 0.12).cgColor
+        panel.clipsToBounds = true
         panel.isUserInteractionEnabled = false
         panel.accessibilityIdentifier = "FullKeyboard"
+        backdrop.isUserInteractionEnabled = false
+        backdrop.contentView.backgroundColor = UIColor(red: 0.06, green: 0.04, blue: 0.13, alpha: 0.72)
+        panel.addSubview(backdrop)
+        handle.backgroundColor = UIColor(white: 1, alpha: 0.45)
+        handle.layer.cornerRadius = 2.5
+        handle.isUserInteractionEnabled = false
+        panel.addSubview(handle)
         addSubview(panel)
 
         var elements: [UIAccessibilityElement] = []
@@ -89,7 +124,8 @@ final class FullKeyboardView: UIView {
             label.textColor = .white
             label.adjustsFontSizeToFitWidth = true
             label.minimumScaleFactor = 0.5
-            label.layer.cornerRadius = 5
+            label.layer.cornerRadius = 7
+            label.layer.cornerCurve = .continuous
             label.layer.masksToBounds = true
             label.isUserInteractionEnabled = false
             panel.addSubview(label)
@@ -131,19 +167,46 @@ final class FullKeyboardView: UIView {
 
     override func layoutSubviews() {
         super.layoutSubviews()
+        panel.frame = panelFrame()
+        backdrop.frame = panel.bounds
+        let floating = placement == .floating
+        handle.isHidden = !floating
+        handle.frame = CGRect(x: (panel.bounds.width - 44) / 2, y: (Self.handleHeight - 5) / 2, width: 44, height: 5)
+        layoutKeys()
+    }
+
+    /// Docked: the whole width above the bottom safe area. Floating: narrower, where it was left.
+    private func panelFrame() -> CGRect {
         let landscape = bounds.width > bounds.height
         let share = landscape ? Self.landscapeHeightShare : Self.portraitHeightShare
-        let height = min(bounds.height * share, Self.maxPanelHeight)
         let insets = safeAreaInsets
-        panel.frame = CGRect(x: insets.left, y: bounds.height - insets.bottom - height,
-                             width: bounds.width - insets.left - insets.right, height: height)
-        layoutKeys()
+        let available = CGSize(width: bounds.width - insets.left - insets.right, height: bounds.height - insets.top - insets.bottom)
+        let keyRows = CGFloat(model.layout.rows.count) / 6
+        var height = min(bounds.height * share * keyRows, Self.maxPanelHeight * keyRows) * sizeShare
+        height = min(height, available.height)
+        guard placement == .floating else {
+            return CGRect(x: insets.left, y: bounds.height - insets.bottom - height, width: available.width, height: height)
+        }
+        // About as wide as the keys need: Android's rows are about 15 keys wide
+        let widest = model.layout.rows.map { row in row.reduce(0) { $0 + $1.weight } }.max() ?? 1500
+        let rowHeight = height / CGFloat(max(model.layout.rows.count, 1))
+        var width = min(CGFloat(widest) / 100 * rowHeight * 1.25, available.width)
+        width = max(width, min(320, available.width))
+        height += Self.handleHeight
+        let room = CGSize(width: max(available.width - width, 0), height: max(available.height - height, 0))
+        let x = insets.left + min(max(floatingFraction.x, 0), 1) * room.width
+        let y = insets.top + min(max(floatingFraction.y, 0), 1) * room.height
+        return CGRect(x: x, y: y, width: width, height: height)
     }
 
     /// Sizes each key from its weight, as Android's layout weights do. A row's margins (in points
     /// here, dp on Android) are taken off first and the rest is shared out by weight.
     private func layoutKeys() {
-        let inner = panel.bounds.insetBy(dx: padding, dy: padding)
+        var inner = panel.bounds.insetBy(dx: padding + 2, dy: padding + 2)
+        if placement == .floating {
+            inner.origin.y += Self.handleHeight - 2
+            inner.size.height -= Self.handleHeight - 2
+        }
         let rows = model.layout.rows
         guard !rows.isEmpty else { return }
         let rowHeight = inner.height / CGFloat(rows.count)
@@ -182,11 +245,12 @@ final class FullKeyboardView: UIView {
             let on = model.lockedKeyIDs.contains(key.id)
                 || (key.modifierMask != 0 && model.activeModifiers & key.modifierMask != 0)
             if on {
-                slot.label.backgroundColor = UIColor.systemBlue.withAlphaComponent(0.85)
+                // Starwire's violet, as the menu's switches
+                slot.label.backgroundColor = UIColor(red: 0.49, green: 0.23, blue: 0.93, alpha: 0.95)
             } else if held.contains(key.id) {
-                slot.label.backgroundColor = UIColor(white: 1, alpha: 0.38)
+                slot.label.backgroundColor = UIColor(white: 1, alpha: 0.42)
             } else {
-                slot.label.backgroundColor = UIColor(white: 1, alpha: 0.16)
+                slot.label.backgroundColor = UIColor(white: 1, alpha: key.isSpecial ? 0.10 : 0.17)
             }
         }
     }
@@ -204,6 +268,12 @@ final class FullKeyboardView: UIView {
 
     override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
         for touch in touches {
+            // The floating keyboard's handle moves it
+            if placement == .floating, dragTouch == nil, touch.location(in: panel).y < Self.handleHeight {
+                dragTouch = touch
+                dragStart = (touch.location(in: self), panel.frame.origin)
+                continue
+            }
             guard let slot = slot(at: touch.location(in: panel)) else { continue }
             touchKeys[ObjectIdentifier(touch)] = slot.key.id
             let output = model.press(keyID: slot.key.id, now: touch.timestamp)
@@ -212,11 +282,28 @@ final class FullKeyboardView: UIView {
         }
     }
 
+    override func touchesMoved(_ touches: Set<UITouch>, with event: UIEvent?) {
+        guard let drag = dragTouch, touches.contains(drag) else { return }
+        let point = drag.location(in: self)
+        let insets = safeAreaInsets
+        let room = CGSize(width: max(bounds.width - insets.left - insets.right - panel.frame.width, 1),
+                          height: max(bounds.height - insets.top - insets.bottom - panel.frame.height, 1))
+        let origin = CGPoint(x: dragStart.origin.x + point.x - dragStart.finger.x, y: dragStart.origin.y + point.y - dragStart.finger.y)
+        floatingFraction = CGPoint(x: min(max((origin.x - insets.left) / room.width, 0), 1),
+                                   y: min(max((origin.y - insets.top) / room.height, 0), 1))
+        setNeedsLayout()
+    }
+
     // A finger that slides off its key stays on that key until it lifts, as on Android
     override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent?) { finish(touches, cancelled: false) }
     override func touchesCancelled(_ touches: Set<UITouch>, with event: UIEvent?) { finish(touches, cancelled: true) }
 
     private func finish(_ touches: Set<UITouch>, cancelled: Bool) {
+        if let drag = dragTouch, touches.contains(drag) {
+            dragTouch = nil
+            defaults.set(Double(floatingFraction.x), forKey: KeyboardCustomization.floatingXKey)
+            defaults.set(Double(floatingFraction.y), forKey: KeyboardCustomization.floatingYKey)
+        }
         for touch in touches {
             guard let id = touchKeys.removeValue(forKey: ObjectIdentifier(touch)) else { continue }
             apply(model.release(keyID: id, now: touch.timestamp))

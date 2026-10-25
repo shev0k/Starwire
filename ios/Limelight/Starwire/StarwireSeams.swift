@@ -71,8 +71,20 @@ final class LiveInputSink: InputSink {
     /// What this stream has sent, for the statistics overlay's "Input:" line
     static let tally = InputTally()
 
+    /// Set when the stream shows ios/scripts/input-latency.html (`-StarwireLatencyProbe YES`)
+    static var probe: InputLatencyProbe?
+
     func send(_ event: InputEvent) {
         Self.tally.record(event)
+        StarwireStreamInput.touchRate.sent(event)
+        if let probe = Self.probe {
+            switch event {
+            case .touch, .mouseMove, .mousePosition, .mouseMoveAsPosition, .scroll, .hScroll, .pen:
+                probe.sent(at: ProcessInfo.processInfo.systemUptime)
+            default:
+                break
+            }
+        }
         switch event {
         case .mouseMove(let dx, let dy):
             StarwireInputFacade.mouseMoveX(Int16(clamping: dx), y: Int16(clamping: dy))

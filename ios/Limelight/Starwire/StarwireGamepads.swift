@@ -32,6 +32,18 @@ final class StarwireGamepads: NSObject {
 
     /// The stream menu is showing: controllers drive it, not the PC
     @objc var menuOpen = false
+    /// The controller keyboard is showing: controllers type on it, not on the PC
+    @objc var keyboardOpen = false
+    /// While the controller keyboard is open: each controller state, face buttons already flipped
+    var onKeyboardState: ((ControllerState) -> Void)?
+    /// When a controller was last used (systemUptime), to pick the keyboard that suits
+    private(set) var lastActivity: TimeInterval = -.infinity
+
+    /// Buttons down on any controller now
+    var heldButtons: Int { lastButtons.values.reduce(0, |) }
+
+    /// A controller is connected
+    var hasController: Bool { !GCController.controllers().isEmpty }
     /// Hold to open: called on the main queue
     @objc var onOpenMenu: (() -> Void)?
     /// While the menu is open: buttons newly pressed (GamepadButton flags), on the main queue
@@ -50,6 +62,7 @@ final class StarwireGamepads: NSObject {
         touchpads.removeAll()
         lastButtons.removeAll()
         menuOpen = false
+        keyboardOpen = false
         StarwireLog.info("Gamepads: deadzone \(options.deadzonePercent)%, flip \(options.flipFaceButtons), scrolling \(options.analogScrolling.rawValue), touchpad as mouse \(options.touchpadAsMouse), menu \(trigger.button.title) for \(Int(trigger.holdDuration * 1000)) ms")
     }
 
@@ -97,6 +110,16 @@ final class StarwireGamepads: NSObject {
         if buttons != previous {
             StarwireLog.debug(String(format: "Gamepads: controller %d buttons 0x%X, triggers %d/%d, sticks %d,%d %d,%d",
                                      number, buttons, leftTrigger, rightTrigger, leftX, leftY, rightX, rightY))
+        }
+        if buttons != previous || max(abs(leftX), abs(leftY), abs(rightX), abs(rightY)) > 0x2000
+            || leftTrigger > 64 || rightTrigger > 64 {
+            lastActivity = now
+        }
+        if keyboardOpen {
+            let flipped = options.flipFaceButtons ? GamepadMath.flipFaceButtons(buttons) : buttons
+            onKeyboardState?(ControllerState(number: number, activeMask: activeMask, buttons: flipped, leftTrigger: leftTrigger,
+                                             rightTrigger: rightTrigger, leftX: leftX, leftY: leftY, rightX: rightX, rightY: rightY))
+            return
         }
         if menuOpen {
             let pressed = buttons & ~previous

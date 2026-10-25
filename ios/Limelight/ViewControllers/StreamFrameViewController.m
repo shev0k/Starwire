@@ -420,6 +420,13 @@
     _streamControls.onBitrate = ^{
         [weakSelf showBitrateMenu:nil];
     };
+    _streamControls.onSetBitrate = ^(NSInteger kbps) {
+        [weakSelf changeBitrate:(int)kbps];
+    };
+    _streamControls.onPictureScaling = ^(NSString *scaling) {
+        [weakSelf setPictureScaling:scaling];
+    };
+    _streamControls.bitrateKbps = _bitrateKbps;
     _streamControls.onToggleStats = ^{
         StreamFrameViewController *strongSelf = weakSelf;
         if (strongSelf == nil) {
@@ -452,6 +459,14 @@
 
 // Pinch to zoom and pan and zoom mode move the picture; touches map through the same zoom
 // (VideoGeometry in StarwireKit)
+// How the picture fills the screen: "fit", "stretch" or "fill". The system video layer follows;
+// the Metal presenter always fits.
+- (void)setPictureScaling:(NSString *)scaling {
+    AVLayerVideoGravity gravity = [scaling isEqualToString:@"stretch"] ? AVLayerVideoGravityResize
+        : [scaling isEqualToString:@"fill"] ? AVLayerVideoGravityResizeAspectFill : AVLayerVideoGravityResizeAspect;
+    [_pictureInPicture setVideoGravity:gravity];
+}
+
 - (void)setVideoTransform:(CGAffineTransform)transform {
     self.metalViewController.view.transform = transform;
     [_pictureInPicture setVideoTransform:transform];
@@ -1019,6 +1034,7 @@
             Log(LOG_I, @"Bitrate changed during the stream: %d kbps asked, %ld applied", kbps, (long)applied);
             self->_bitrateKbps = (int)applied;
 #if !TARGET_OS_TV
+            self->_streamControls.bitrateKbps = (int)applied;
             self->_streamControls.bitrateText = [NSString stringWithFormat:@"%ld Mbps", (long)applied / 1000];
 #endif
             [self showToast:[NSString stringWithFormat:@"Bitrate set to %ld Mbps", (long)applied / 1000]];

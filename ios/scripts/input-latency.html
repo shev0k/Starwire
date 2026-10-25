@@ -1,0 +1,58 @@
+<!doctype html>
+<!--
+  Input latency and scroll smoothness page for the iOS device runs (docs/ios/mac-runbook.md).
+  Shown by test-pattern.ps1 on the stream's own virtual display. Two squares at the top left,
+  each 10% of the screen's width and height, flip between black and white:
+  - the first in each frame in which the page got input (wheel, pointer or touch),
+  - the second in each frame in which the list below them scrolled.
+  The app (-StarwireLatencyProbe YES) reads both from each decoded frame: StarwireKit's
+  InputLatencyProbe times input to picture and counts the frames in which the list moved.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Starwire input latency</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #0b0a1f; color: #e9d5ff; font: 28px/1.4 "Segoe UI", sans-serif; }
+  .square { position: fixed; top: 0; width: 10vw; height: 10vh; background: #000; z-index: 2; }
+  #input { left: 0; }
+  #scroll { left: 10vw; }
+  .white { background: #fff; }
+  #list { position: fixed; top: 10vh; left: 0; right: 0; bottom: 0; overflow-y: scroll; }
+  #list div { padding: 18px 24px; border-bottom: 1px solid #2a2350; }
+  #list div:nth-child(odd) { background: #120f2e; }
+  #note { position: fixed; top: 0; left: 21vw; right: 0; height: 10vh; display: flex; align-items: center; padding: 0 2vw; }
+</style>
+</head>
+<body>
+<div id="input" class="square"></div>
+<div id="scroll" class="square"></div>
+<div id="note">Starwire input latency: squares flip on input and on scroll</div>
+<div id="list"></div>
+<script>
+  const list = document.getElementById('list');
+  for (let i = 1; i <= 2000; i++) {
+    const row = document.createElement('div');
+    row.textContent = 'Row ' + i;
+    list.appendChild(row);
+  }
+  list.scrollTop = 20000;
+  const input = document.getElementById('input');
+  const scroll = document.getElementById('scroll');
+  // One flip per frame at most: a single touch fires pointer and touch events, a mouse pointer
+  // and mouse events, and two flips in one frame would cancel out
+  let gotInput = false, scrolled = false;
+  const noteInput = () => { gotInput = true; };
+  for (const kind of ['wheel', 'pointermove', 'pointerdown', 'touchmove', 'touchstart', 'mousemove']) {
+    window.addEventListener(kind, noteInput, { passive: true, capture: true });
+  }
+  list.addEventListener('scroll', () => { scrolled = true; }, { passive: true });
+  function frame() {
+    if (gotInput) { input.classList.toggle('white'); gotInput = false; }
+    if (scrolled) { scroll.classList.toggle('white'); scrolled = false; }
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+</script>
+</body>
+</html>

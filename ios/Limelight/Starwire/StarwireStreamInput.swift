@@ -27,8 +27,15 @@ final class StarwireStreamInput: NSObject {
     private var pencilTouch: UITouch?
     private var timer: Timer?
 
+    /// When a finger last touched the stream (systemUptime), to pick the keyboard that suits
+    private(set) var lastTouch: TimeInterval = -.infinity
+    /// The last touch gesture's rates, for the statistics overlay's "Touch rate:" line
+    static let touchRate = TouchRateMeter()
+
     /// The menu asked to open (three-finger tap)
     @objc var onOpenMenu: (() -> Void)?
+    /// A gesture shortcut (four or five-finger tap)
+    var onGesture: ((GestureAction) -> Void)?
     /// The picture's zoom and pan changed: apply this transform to the video
     @objc var onVideoTransform: ((CGAffineTransform) -> Void)?
     /// A short message for a toast
@@ -39,22 +46,29 @@ final class StarwireStreamInput: NSObject {
         self.sink = sink
         streamSize = CGSize(width: streamWidth, height: streamHeight)
         let settings = StarwireSettings.store
-        let geometry = VideoGeometry(viewSize: viewSize, streamSize: streamSize)
+        var geometry = VideoGeometry(viewSize: viewSize, streamSize: streamSize)
+        let scaling = PictureScaling(rawValue: settings.string("list_video_scaling") ?? "") ?? .fit
+        geometry.stretch = scaling == .stretch
+        geometry.fill = scaling == .fill
         let environment = TouchEnvironment(geometry: geometry, viewPixelSize: CGSize(width: viewSize.width * scale, height: viewSize.height * scale),
                                            longPressRightClick: settings.bool("checkbox_long_press_right_click"),
                                            absoluteMouseMode: settings.bool("checkbox_absolute_mouse_mode"),
                                            emit: { sink.send($0) })
         let sensitivity = settings.int("seekbar_touch_sensitivity")
         // Android starts with the custom sensitivity on when it isn't 100
-        dispatcher = TouchDispatcher(mode: .initial(touchscreenTrackpad: settings.bool("checkbox_touchscreen_trackpad")),
+        let mode = TouchMode(settingValue: settings.string("list_touch_mode") ?? "")
+            ?? .initial(touchscreenTrackpad: settings.bool("checkbox_touchscreen_trackpad"))
+        dispatcher = TouchDispatcher(mode: mode,
                                      environment: environment, pixelScale: scale,
                                      sensitivity: sensitivity == 0 ? 100 : sensitivity,
                                      pinchToZoom: settings.bool("checkbox_pinch_to_zoom"),
                                      hostSupportsTouch: true)
         pencil = PencilInput(curve: Self.pencilCurve(settings.string("list_pencil_pressure_curve")))
         super.init()
+        dispatcher.gestures.settings = GestureSettings(store: settings)
         dispatcher.onOutcome = { [weak self] outcome in self?.handle(outcome) }
         LiveInputSink.tally.reset()
+        StarwireLatencyProbeTap.streamStarted()
         StarwireLog.info("Input: touch mode \(dispatcher.mode.title), sensitivity \(dispatcher.sensitivity)%, stream \(streamWidth)x\(streamHeight)")
     }
 
@@ -119,6 +133,20 @@ final class StarwireStreamInput: NSObject {
         applyTransform(dispatcher.geometry)
     }
 
+    /// How the picture fills the screen; touches follow it.
+    func setPictureScaling(_ scaling: PictureScaling) {
+        var geometry = dispatcher.geometry
+        geometry.stretch = scaling == .stretch
+        geometry.fill = scaling == .fill
+        dispatcher.geometry = geometry.clamped(maxZoom: TouchDispatcher.maxZoom)
+        applyTransform(dispatcher.geometry)
+    }
+
+    @objc static var touchRateSummary: String { touchRate.line }
+
+    /// The latency probe's line, empty unless the probe is on
+    @objc static var latencyProbeSummary: String { StarwireLatencyProbeTap.summary }
+
     @objc var touchModeIndex: Int {
         get { dispatcher.mode.rawValue }
         set {
@@ -156,6 +184,9 @@ final class StarwireStreamInput: NSObject {
         switch outcome {
         case .openMenu:
             onOpenMenu?()
+        case .gesture(let action):
+            StarwireLog.info("Input: gesture \(action.rawValue)")
+            onGesture?(action)
         case .geometry(let geometry):
             applyTransform(geometry)
         case .notice(let text):
@@ -179,6 +210,7 @@ final class StarwireStreamInput: NSObject {
 
     @objc func touchesBegan(_ touches: Set<UITouch>, in view: UIView) {
         let now = ProcessInfo.processInfo.systemUptime
+        lastTouch = now
         for touch in touches.sorted(by: { $0.timestamp < $1.timestamp }) {
             if touch.type == .pencil && dispatcher.hostSupportsTouch {
                 pencilTouch = touch
@@ -193,15 +225,23 @@ final class StarwireStreamInput: NSObject {
             nextFingerID = nextFingerID % 0xFFFF + 1
             dispatcher.handle(.down(index: fingers.count - 1, pointers: pointers(in: view)), at: touch.timestamp)
         }
+        Self.touchRate.fingersChanged(to: fingers.count, at: now)
         scheduleTimer()
     }
 
     @objc func touchesMoved(_ touches: Set<UITouch>, in view: UIView) {
+        touchesMoved(touches, event: nil, in: view)
+    }
+
+    /// With the event, the coalesced touches are counted for the "Touch rate:" line.
+    @objc func touchesMoved(_ touches: Set<UITouch>, event: UIEvent?, in view: UIView) {
         if let pen = pencilTouch, touches.contains(pen) {
             sendPencil(pen, phase: .move, in: view)
         }
         let moved = touches.filter { fingers.contains($0) }
         if let latest = moved.map(\.timestamp).max() {
+            let samples = moved.reduce(0) { $0 + max(event?.coalescedTouches(for: $1)?.count ?? 1, 1) }
+            Self.touchRate.moved(samples: samples, touchTime: latest, at: ProcessInfo.processInfo.systemUptime)
             dispatcher.handle(.move(pointers: pointers(in: view)), at: latest)
         }
         scheduleTimer()
@@ -235,6 +275,7 @@ final class StarwireStreamInput: NSObject {
         if fingers.isEmpty {
             hostCursor?.onFingersUp(now: ProcessInfo.processInfo.systemUptime)
         }
+        Self.touchRate.fingersChanged(to: fingers.count, at: ProcessInfo.processInfo.systemUptime)
         scheduleTimer()
     }
 
@@ -248,6 +289,7 @@ final class StarwireStreamInput: NSObject {
             fingers.removeAll()
             fingerIDs.removeAll()
             hostCursor?.onFingersUp(now: ProcessInfo.processInfo.systemUptime)
+            Self.touchRate.fingersChanged(to: 0, at: ProcessInfo.processInfo.systemUptime)
         }
         scheduleTimer()
     }

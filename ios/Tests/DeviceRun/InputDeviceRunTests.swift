@@ -16,6 +16,7 @@
 //  pattern"), TEST_RUNNER_STARWIRE_FPS, TEST_RUNNER_STARWIRE_CODEC, TEST_RUNNER_STARWIRE_RESOLUTION.
 //
 
+import UIKit
 import XCTest
 
 final class InputDeviceRunTests: XCTestCase {
@@ -102,7 +103,7 @@ final class InputDeviceRunTests: XCTestCase {
         before = counts()
         screen.tap(withNumberOfTaps: 1, numberOfTouches: 3)
         XCTAssertTrue(waitForCount(.touch, atLeast: before.touch + 6), "multi-touch: three fingers weren't sent as touches")
-        XCTAssertFalse(app.otherElements["StreamMenu"].exists, "multi-touch: three fingers opened the menu")
+        XCTAssertFalse(app.descendants(matching: .any)["StreamMenu"].exists, "multi-touch: three fingers opened the menu")
         record("multi-touch: \(inputLine())")
 
         // Touch disabled: nothing reaches the PC
@@ -147,7 +148,7 @@ final class InputDeviceRunTests: XCTestCase {
         let button = app.buttons["StreamMenuButton"]
         XCTAssertTrue(button.waitForExistence(timeout: 10), "no floating menu button")
         button.tap()
-        XCTAssertTrue(app.otherElements["StreamMenu"].waitForExistence(timeout: 5), "the floating button didn't open the menu")
+        XCTAssertTrue(app.descendants(matching: .any)["StreamMenu"].waitForExistence(timeout: 5), "the floating button didn't open the menu")
         screenshot("stream menu")
         for id in ["menu_keyboard", "menu_full_keyboard", "menu_mouse_emulation", "menu_stats", "menu_guide", "menu_shortcuts",
                    "menu_monitors", "menu_bitrate", "menu_touch_mode", "menu_pan_zoom", "menu_sensitivity", "menu_task_manager",
@@ -156,7 +157,7 @@ final class InputDeviceRunTests: XCTestCase {
         }
         XCTAssertFalse(app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "Clipboard")).firstMatch.exists)
         button.tap()
-        XCTAssertTrue(waitForGone(app.otherElements["StreamMenu"]), "the floating button didn't close the menu")
+        XCTAssertTrue(waitForGone(app.descendants(matching: .any)["StreamMenu"]), "the floating button didn't close the menu")
 
         // Dragging the button moves it and doesn't open the menu
         let start = button.frame
@@ -166,7 +167,7 @@ final class InputDeviceRunTests: XCTestCase {
         button.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
             .press(forDuration: 0.1, thenDragTo: app.coordinate(withNormalizedOffset: target))
         sleep(1)
-        XCTAssertFalse(app.otherElements["StreamMenu"].exists, "dragging the button opened the menu")
+        XCTAssertFalse(app.descendants(matching: .any)["StreamMenu"].exists, "dragging the button opened the menu")
         XCTAssertNotEqual(button.frame.origin, start.origin, "the button didn't move")
         record("floating button moved from \(start.origin) to \(button.frame.origin)")
 
@@ -329,6 +330,64 @@ final class InputDeviceRunTests: XCTestCase {
 
     private enum Kind: String { case touch, pen, mouse, buttons, scroll, keys, text, controller, motion }
 
+    // MARK: Scrolling (batch 4.5)
+
+    /// Scrolls in each touch mode with real finger drags and records the overlay's "Touch rate:"
+    /// line (touch deliveries, coalesced samples, delivery delay, packets per second) and, on the
+    /// "Starwire input latency" app, the "Latency probe:" line. TEST_RUNNER_STARWIRE_MODES picks
+    /// the modes (list_touch_mode values, comma separated); TEST_RUNNER_STARWIRE_DRAGS the drags.
+    func testScrollSmoothness() throws {
+        let modes = (env["STARWIRE_MODES"] ?? "gaming_trackpad,natural_trackpad,direct,multi_touch").split(separator: ",").map(String.init)
+        let drags = Int(env["STARWIRE_DRAGS"] ?? "") ?? 8
+        for mode in modes {
+            app.terminate()
+            var args = ["-StarwireStatsOverlay", "YES", "-StarwirePlayAudioOnPC", "YES", "-list_touch_mode", mode,
+                        "-StarwireLatencyProbe", "YES"]
+            if let v = env["STARWIRE_FPS"] { args += ["-StarwireFrameRate", v] }
+            app.launchArguments = args
+            app.launch()
+            try startStream()
+            let frame = app.windows.firstMatch.frame
+            // Multi-touch scrolls with one finger, as on a touchscreen; the other modes with two
+            let fingers = mode == "multi_touch" ? 1 : 2
+            for drag in 0..<drags {
+                // Up then down, so the page's list never reaches an end
+                let up = drag % 2 == 0
+                let x = frame.midX, y = frame.midY + (up ? 150 : -150)
+                let starts = (0..<fingers).map { NSValue(cgPoint: CGPoint(x: x + CGFloat($0) * 90, y: y)) }
+                try StarwireMultiTouch.dragFingers(starts, by: CGVector(dx: 0, dy: up ? -300 : 300), duration: 0.8, steps: 96,
+                                                   orientation: interfaceOrientation)
+                usleep(700_000)
+            }
+            sleep(2)
+            record("scroll \(mode): \(overlayLine("Touch rate:"))")
+            record("scroll \(mode): \(overlayLine("Latency probe:"))")
+            record("scroll \(mode): \(inputLine())")
+            screenshot("scroll \(mode)")
+            stopStream()
+        }
+    }
+
+    /// The screen's orientation as the event synthesiser wants it
+    private var interfaceOrientation: UIInterfaceOrientation {
+        switch XCUIDevice.shared.orientation {
+        case .portrait: return .portrait
+        case .portraitUpsideDown: return .portraitUpsideDown
+        case .landscapeLeft: return .landscapeRight
+        case .landscapeRight: return .landscapeLeft
+        default:
+            let frame = app.windows.firstMatch.frame
+            return frame.width > frame.height ? .landscapeRight : .portrait
+        }
+    }
+
+    private func overlayLine(_ prefix: String) -> String {
+        let text = overlay.label
+        guard let range = text.range(of: prefix) else { return "(no \(prefix) line)" }
+        return String(text[range.lowerBound...].prefix { $0 != "
+" })
+    }
+
     private func inputLine() -> String {
         let text = overlay.label
         guard let range = text.range(of: "Input: ") else { return "(no input line)" }
@@ -395,16 +454,16 @@ final class InputDeviceRunTests: XCTestCase {
     }
 
     private func openMenuWithThreeFingers() {
-        if app.otherElements["StreamMenu"].exists { return }
+        if app.descendants(matching: .any)["StreamMenu"].exists { return }
         streamScreen.tap(withNumberOfTaps: 1, numberOfTouches: 3)
-        XCTAssertTrue(app.otherElements["StreamMenu"].waitForExistence(timeout: 5), "a three-finger tap didn't open the menu")
+        XCTAssertTrue(app.descendants(matching: .any)["StreamMenu"].waitForExistence(timeout: 5), "a three-finger tap didn't open the menu")
     }
 
     /// From the floating button: in multi-touch mode three fingers go to the PC instead
     private func openMenuWithButton() {
-        if app.otherElements["StreamMenu"].exists { return }
+        if app.descendants(matching: .any)["StreamMenu"].exists { return }
         app.buttons["StreamMenuButton"].tap()
-        XCTAssertTrue(app.otherElements["StreamMenu"].waitForExistence(timeout: 5), "the floating button didn't open the menu")
+        XCTAssertTrue(app.descendants(matching: .any)["StreamMenu"].waitForExistence(timeout: 5), "the floating button didn't open the menu")
     }
 
     private func tapMenu(_ id: String) {
@@ -417,7 +476,7 @@ final class InputDeviceRunTests: XCTestCase {
         if app.buttons["menu_close"].exists {
             app.buttons["menu_close"].tap()
         }
-        XCTAssertTrue(waitForGone(app.otherElements["StreamMenu"]), "the menu didn't close")
+        XCTAssertTrue(waitForGone(app.descendants(matching: .any)["StreamMenu"]), "the menu didn't close")
     }
 
     private func chooseTouchMode(_ name: String) {

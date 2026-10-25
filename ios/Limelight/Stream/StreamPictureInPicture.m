@@ -82,6 +82,13 @@ BOOL StreamEndsOnBackground(BOOL pictureInPictureActive) {
     }
 }
 
+- (void)setVideoGravity:(AVLayerVideoGravity)gravity {
+    [CATransaction begin];
+    [CATransaction setDisableActions:YES];
+    _layer.videoGravity = gravity;
+    [CATransaction commit];
+}
+
 - (void)setVideoTransform:(CGAffineTransform)transform {
     [CATransaction begin];
     [CATransaction setDisableActions:YES];

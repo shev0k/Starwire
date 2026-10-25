@@ -201,6 +201,7 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: io.github.shev0k.starwire.devicerun
         TEST_TARGET_NAME: Starwire
         SWIFT_VERSION: "5.0"
+        SWIFT_OBJC_BRIDGING_HEADER: Tests/DeviceRun/DeviceRun-Bridging-Header.h
         CODE_SIGN_STYLE: Automatic
 
 schemes:
