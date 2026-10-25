@@ -56,8 +56,12 @@ Batch 4 (the SwiftUI app) added:
 Batch 4.5 (UX and settings) added:
 - `ci`: every check GitHub's iOS workflow runs (both simulator builds, the unit tests, the
   device-run build, the script tests, the string catalog and StarwireKit), on the Mac, with one
-  line per step. Use it instead of waiting for GitHub Actions; GitHub's run is only for the end
-  of a batch.
+  line per step and its time. Use it instead of waiting for GitHub Actions; GitHub's run is only
+  for the end of a batch. It is incremental: on 25 Oct 2026 a run after a small change took 4
+  minutes (builds 12 to 35 s, the unit tests with their snapshots 171 s). A precompiled header
+  left from an earlier build is cleared and the step retried once, by itself. `ci clean` starts
+  from nothing, as GitHub does: about 25 minutes. While iterating, `unit SnapshotTests` or
+  `unit SnapshotTests/testStreamMenu` runs only those tests.
 - `test DesignDeviceRunTests/testStreamScreens` (also `testOtherPlacements`, `testSettings`):
   photographs the stream menu, the menu button, both keyboards and Settings with a real stream.
 - `test InputDeviceRunTests/testScrollSmoothness`: drags one or two fingers in each touch mode
