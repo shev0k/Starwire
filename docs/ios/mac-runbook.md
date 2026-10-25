@@ -5,10 +5,10 @@ GitHub Actions builds it for the simulator; this Mac is the only place the app i
 installed on the iPad and tested against the PC. The plan is [port-plan.md](port-plan.md).
 
 Written 25 Oct 2026, before any of it was run on the Mac. Fixed after the first run
-([device-runs/2026-10-24-feature-ios-phase-0.md](device-runs/2026-10-24-feature-ios-phase-0.md)).
+([device-runs/2026-10-24-feature-ios-phase-0.md](device-runs/2026-10-24-feature-ios-phase-0.md))
+and the phase 1a run
+([device-runs/2026-10-25-feature-ios-phase-1a.md](device-runs/2026-10-25-feature-ios-phase-1a.md)).
 When a run shows something else wrong here, fix this page in the same branch as that run's report.
-The test commands in section 6, "Reading the app's log" and section 7a were written for
-`feature/ios-phase-1a` before that branch ran on the Mac.
 
 ## Rules for every run
 
@@ -78,9 +78,12 @@ git checkout feature/ios-phase-0
 git pull --ff-only
 ```
 
-Then the iOS submodules only (Android's aren't needed on the Mac):
+Then the iOS submodules only (Android's aren't needed on the Mac). `sync` first picks up a
+submodule whose address moved in `.gitmodules` (common-c moved to `shev0k/moonlight-common-c` in
+phase 1a):
 
 ```bash
+git submodule sync --recursive
 git submodule update --init --recursive ios/moonlight-common/moonlight-common-c ios/X1Kit ios/third_party/imgui ios/third_party/implot
 ```
 
@@ -183,17 +186,20 @@ iOS Settings > Apps > Starwire, and a restart of the app.
 
 - While the app runs from `devicectl ... --console` (above), its lines are in the terminal.
 - For a run started any other way (from the home screen, or by `xcodebuild test`), collect the
-  iPad's log afterwards and filter it. `log collect` may ask for the Mac's admin password:
+  iPad's log afterwards and filter it. `log collect` from an attached device needs root, so it
+  needs the Mac's admin password (without `sudo` it stops with "Must be root"). In zsh, `log` is
+  a shell built-in, so call `/usr/bin/log`:
 
   ```bash
-  sudo log collect --device-udid "$IPAD_UDID" --last 30m --output ../build/ipad.logarchive
-  log show ../build/ipad.logarchive --style compact --predicate 'subsystem == "io.github.shev0k.starwire"' > ../build/app-log.txt
+  sudo /usr/bin/log collect --device-udid "$IPAD_UDID" --last 30m --output ../build/ipad.logarchive
+  /usr/bin/log show ../build/ipad.logarchive --style compact --predicate 'subsystem == "io.github.shev0k.starwire"' > ../build/app-log.txt
   grep "pacing window" ../build/app-log.txt
   ```
 
-  `$IPAD_UDID` is the iPad's UDID (`xcrun xctrace list devices` shows it in brackets), which isn't
-  always the identifier `devicectl` prints. If `log collect` doesn't work, say so in the report;
-  the overlay samples below carry the same pacing numbers.
+  `$IPAD_UDID` is the iPad's UDID (`xcrun xctrace list devices` shows it in brackets). With
+  Xcode 27 `devicectl list devices` printed the UDID as the identifier, so the two were the same.
+  If `log collect` can't be run, say so in the report; the overlay samples carry the short pacing
+  line, but not the full `pacing window` lines.
 
 Logs never contain the pairing PIN or the stream's input key (`rikey` is shown as
 `<redacted>`). They do contain the PC's addresses: remove those before quoting lines in a report.
@@ -257,9 +263,18 @@ grep -A8 "\[device-run\]" ../build/run-B.log
 
 - `xcodebuild test` installs the app over the old copy, which keeps the pairing. It also installs
   the test runner (`io.github.shev0k.starwire.devicerun.xctrunner`), a second free-signed app.
+  A free account allows 3 such apps on the iPad. If the install fails with "reached the maximum
+  number of installed apps using a free developer profile", the error lists them. The phase 0
+  runner (`io.github.shev0k.starwire.uitests.xctrunner`) isn't needed any more and can go, with
+  the owner's OK: `xcrun devicectl device uninstall app --device "$IPAD"
+  io.github.shev0k.starwire.uitests.xctrunner`. Never uninstall `io.github.shev0k.starwire`.
+- After the first run, use `test-without-building` instead of `test` with the same options: it
+  skips the build and install, which saves about half a minute per run.
 - A result bundle path must be new for each run: delete the old `.xcresult` or use a new name.
 - The overlay samples are the `[device-run]` lines in the log, and attachments in the result
   bundle (`open ../build/run-B.xcresult`).
+- The sample at 0 s is taken the moment the overlay appears, before the stream settles (15 to
+  110 FPS, decode max near 30 ms). Leave it out of means.
 - On the iPad Pro, `XCUIDevice.shared.press(.home)` didn't send the app to the background in the
   first run; activating the Settings app does, which is what the test uses.
 
@@ -336,13 +351,15 @@ How to read a window:
 | Many bursts and most drops "after burst", "held 2+" near 0 | Frames arrive in clumps (host capture timing or Wi-Fi); a deeper buffer or a virtual display may help |
 | "skipped" above 0 | The compositor threw drawables away: frames lost without being counted as drops |
 | Drops near 0 but "held 2+" high | Frames arrived late (starved), not dropped: look at network latency |
+| Drops steady, bursts 0, "held 2+" far below the drop rate | The consumer takes frames off the queue more slowly than they arrive, but not one refresh at a time: look at the render loop, not pacing policy (the phase 1a run) |
 
 ### The A/B runs
 
 Open https://www.testufo.com on the PC's streamed screen first (ask the owner), or any video at
 120 FPS. Keep the app's settings as in the first run: Safe Area (2420x1668), 120 FPS, HEVC,
 70 Mbps, Frames to buffer 2, Statistics Overlay on. Run `testStreamAndSample` once per row, 300
-seconds each, with only the listed variables set:
+seconds each, with only the listed variables set. If the drop rate is steady from sample to
+sample, 120 seconds (`TEST_RUNNER_STARWIRE_SECONDS=120`) is enough; say so in the report.
 
 | Run | Variables | Why |
 | --- | --- | --- |
@@ -354,6 +371,10 @@ seconds each, with only the listed variables set:
 
 Run A and B always. Run C, D and E if B is still at 1% or more, or if B's windows show bursts.
 E changes what the PC shows: tell the owner first, and open testufo.com on the virtual display.
+Before E, quit Desktop on the PC (tap the tile on the iPad, then Quit App): if it is still
+running, the test taps Resume App and the session stays on the display it started on. Then ask
+the owner whether the PC really switched (testufo.com on the PC shows the refresh rate). In the
+phase 1a run Vibeshine kept streaming the 480 Hz monitor even on a fresh launch.
 
 For each run, put in the report: the drop percentage from the overlay at about 60 s and at the
 end, the mean over all samples, the pacing line, the network latency, and the decode time. If
@@ -377,10 +398,12 @@ setting was best. The goal is under 1% pacing drops without a deeper buffer than
    certificate, so the app no longer depends on 47989. If curl shows HTTP timing out too, the PC
    side is worth a look (Vibeshine serves HTTP serverinfo on one shared worker thread, which an
    encoder probe can hold up); note it in the report, but it's not this branch's to fix.
-   An HTTPS answer of 401 or 403 from curl is normal: curl has no client certificate.
+   curl has no client certificate, so HTTPS gets no answer: Vibeshine closes the connection in
+   the TLS handshake (curl exit 56, code 000, in about 0.1 s). That is normal; a timeout is not.
 3. Logs: start the app with `devicectl ... --console` (section 5) on a Release build and confirm
-   lines from the app itself appear, for example `Pacing: frames to buffer 2, drop policy
-   alternate, present timing nearest`. Quote one in the report.
+   lines from the app itself appear, for example `[network] <INFO> Starting mDNS discovery` at
+   launch. The pacing settings line only comes when a stream starts, so it needs a stream while
+   the console is attached. Quote one line in the report.
 
 ## 8. Write the report
 
@@ -400,7 +423,7 @@ Commit only the report and its pictures, in UTC, following the rules in `AGENTS.
 
 ```bash
 git add docs/ios/device-runs/
-TZ=UTC git commit -m "docs(ios): add the device run for feature/ios-phase-0"
+TZ=UTC git commit -m "docs(ios): add the device run for $(git branch --show-current)"
 bash .github/tools/check-commits.sh
 git push
 ```
