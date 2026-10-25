@@ -562,11 +562,24 @@ final class SettingsLayoutTests: XCTestCase {
         parser.delegate = collector
         XCTAssertTrue(parser.parse(), "strings-ios.xml didn't parse")
         XCTAssertEqual(Set(collector.names).count, collector.names.count, "a name is repeated")
-        let used = allReferencedKeys()
+        // Used by the layouts, or by the app's screens (L("name") in their Swift code, and the
+        // game screen's texts that Android writes in its code, which keep the names it would use)
+        var used = allReferencedKeys()
+        var gameScreenTexts = Set(OverrideText.allCases.map(\.rawValue))
+        gameScreenTexts.formUnion(QuickLaunchText.allCases.map(\.rawValue))
+        used.formUnion(gameScreenTexts)
+        used.formUnion(SettingsCredits.projects.map(\.usedForKey))
+        let app = repo.appendingPathComponent("ios/Limelight")
+        for case let file as URL in FileManager.default.enumerator(at: app, includingPropertiesForKeys: nil)!
+            where file.pathExtension == "swift" {
+            let source = try String(contentsOf: file, encoding: .utf8)
+            for match in matches(#"\bL\("([A-Za-z0-9_.]+)""#, in: source) { used.insert(match[0]) }
+            for match in matches("return \"(ios_[a-z_]+)\"", in: source) { used.insert(match[0]) }
+        }
         let resources = try StringResources.load()
         for name in collector.names {
-            XCTAssertTrue(name.hasPrefix("ios_"), name)
-            XCTAssertTrue(used.contains(name), "\(name) is not used by the layout")
+            XCTAssertTrue(name.hasPrefix("ios_") || gameScreenTexts.contains(name), name)
+            XCTAssertTrue(used.contains(name), "\(name) is not used by the layout or the app")
             XCTAssertFalse(resources.android.contains(name), "\(name) is also in strings.xml")
         }
         // Plain English, no em dashes
@@ -859,10 +872,12 @@ final class SettingsLayoutTests: XCTestCase {
 
         // The iOS-only ones sit at the end of their heading
         XCTAssertEqual(SettingsCredits.projects.count, SettingsCredits.androidProjects.count + SettingsCredits.iosProjects.count)
+        let iosMoonlight = SettingsCredits.iosProjects.filter { $0.sectionKey == "credits_section_moonlight" }.map(\.project)
+        XCTAssertEqual(iosMoonlight, ["Moonlight iOS", "Moonlight iOS (Metal renderer)", "VoidLink", "Artemis iOS"])
         let moonlight = SettingsCredits.projects(inSection: "credits_section_moonlight")
-        XCTAssertEqual(moonlight.last?.project, "VoidLink")
-        XCTAssertEqual(moonlight.dropLast().map(\.project), SettingsCredits.androidProjects.prefix(9).map(\.project))
-        XCTAssertEqual(SettingsCredits.projects.filter(\.iosOnly).map(\.project), ["VoidLink"])
+        XCTAssertEqual(Array(moonlight.suffix(iosMoonlight.count)).map(\.project), iosMoonlight)
+        XCTAssertEqual(moonlight.dropLast(iosMoonlight.count).map(\.project), SettingsCredits.androidProjects.prefix(9).map(\.project))
+        XCTAssertEqual(SettingsCredits.projects.filter(\.iosOnly).map(\.project), SettingsCredits.iosProjects.map(\.project))
         XCTAssertEqual(Set(SettingsCredits.projects.map(\.project)).count, SettingsCredits.projects.count)
     }
 }

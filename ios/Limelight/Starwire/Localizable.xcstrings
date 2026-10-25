@@ -15152,6 +15152,116 @@
         }
       }
     },
+    "ios_about_text" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Starwire streams games and your desktop from your PC to this device. It is free and open source, made for personal use, and built on the projects below."
+          }
+        }
+      }
+    },
+    "ios_about_title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "About Starwire"
+          }
+        }
+      }
+    },
+    "ios_add" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add"
+          }
+        }
+      }
+    },
+    "ios_add_pc_help" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Type your PC's IP address or name if Starwire doesn't find it by itself."
+          }
+        }
+      }
+    },
+    "ios_adding_pc" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Looking for the PC…"
+          }
+        }
+      }
+    },
+    "ios_app_gone" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This app is no longer on the PC. Refresh the list and try again."
+          }
+        }
+      }
+    },
+    "ios_app_menu" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "App menu"
+          }
+        }
+      }
+    },
+    "ios_back" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Back"
+          }
+        }
+      }
+    },
+    "ios_back_to_pcs" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Back to your PCs"
+          }
+        }
+      }
+    },
+    "ios_bitrate_in_mbps" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Type the bitrate in Mbps, like 80."
+          }
+        }
+      }
+    },
     "ios_category_app_specific" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -15163,6 +15273,72 @@
         }
       }
     },
+    "ios_codec_auto" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Automatic codec"
+          }
+        }
+      }
+    },
+    "ios_credit_andy_metal" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The Metal renderer, frame queue and audio output"
+          }
+        }
+      }
+    },
+    "ios_credit_artemis_ios" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stream start and stop fixes and the input recording tests"
+          }
+        }
+      }
+    },
+    "ios_credit_moonlight_ios" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The iOS app this one is built on: streaming, pairing and input"
+          }
+        }
+      }
+    },
+    "ios_credit_swift_crypto" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The encryption behind the microphone, on iOS and in the tests on Windows"
+          }
+        }
+      }
+    },
+    "ios_credit_vibeshine" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The PC software Starwire for iOS talks to, and its moonlight-common-c"
+          }
+        }
+      }
+    },
     "ios_credit_voidlink" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -15170,6 +15346,204 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Apple Pencil pressure curves and frame interpolation"
+          }
+        }
+      }
+    },
+    "ios_custom_value" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Other value…"
+          }
+        }
+      }
+    },
+    "ios_custom_value_bad" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "That value isn't one Starwire can use."
+          }
+        }
+      }
+    },
+    "ios_custom_value_help" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Type the value you want."
+          }
+        }
+      }
+    },
+    "ios_demo_end_stream" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "End the demo stream"
+          }
+        }
+      }
+    },
+    "ios_demo_how" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The demo shows Starwire without a PC. To start it, open Starwire with the launch argument -StarwireDemoMode YES, as the device tests do."
+          }
+        }
+      }
+    },
+    "ios_demo_no_pc" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The demo has no real PC."
+          }
+        }
+      }
+    },
+    "ios_demo_try" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Try the demo"
+          }
+        }
+      }
+    },
+    "ios_detail_active_address" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Address in use"
+          }
+        }
+      }
+    },
+    "ios_detail_hdr" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "HDR"
+          }
+        }
+      }
+    },
+    "ios_detail_https_port" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "HTTPS port"
+          }
+        }
+      }
+    },
+    "ios_detail_ipv6_address" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "IPv6 address"
+          }
+        }
+      }
+    },
+    "ios_detail_local_address" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Local address"
+          }
+        }
+      }
+    },
+    "ios_detail_mac" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "MAC address"
+          }
+        }
+      }
+    },
+    "ios_detail_manual_address" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Address typed in"
+          }
+        }
+      }
+    },
+    "ios_detail_name" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Name"
+          }
+        }
+      }
+    },
+    "ios_detail_remote_address" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Remote address"
+          }
+        }
+      }
+    },
+    "ios_detail_running" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Running"
+          }
+        }
+      }
+    },
+    "ios_detail_status" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Status"
           }
         }
       }
@@ -15218,6 +15592,17 @@
         }
       }
     },
+    "ios_game_settings_title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Settings for this game"
+          }
+        }
+      }
+    },
     "ios_group_pacing_tests" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -15236,6 +15621,369 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "On this device"
+          }
+        }
+      }
+    },
+    "ios_hidden" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hidden"
+          }
+        }
+      }
+    },
+    "ios_hide_hidden_apps" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hide hidden apps"
+          }
+        }
+      }
+    },
+    "ios_is_running" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ is running on the PC."
+          }
+        }
+      }
+    },
+    "ios_last_played" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Last played"
+          }
+        }
+      }
+    },
+    "ios_licences_text" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Starwire for iOS is free software under the GPL-3.0. It contains code from these projects, each under its own licence. Tap one to read it."
+          }
+        }
+      }
+    },
+    "ios_mic_no_permission" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Starwire can't use the microphone. Allow it in iOS Settings, Privacy and Security, Microphone."
+          }
+        }
+      }
+    },
+    "ios_mic_not_paired" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not paired"
+          }
+        }
+      }
+    },
+    "ios_mic_pair" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pair"
+          }
+        }
+      }
+    },
+    "ios_mic_pair_again" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pair again"
+          }
+        }
+      }
+    },
+    "ios_mic_pair_bad_code" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The code has 16 letters and numbers, like 2491-650N-2RBH-G690."
+          }
+        }
+      }
+    },
+    "ios_mic_pair_code_help" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Type the code the PC's receiver shows. It works once, for 5 minutes."
+          }
+        }
+      }
+    },
+    "ios_mic_pair_expired" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "That code has expired or was used. Get a new one from the PC."
+          }
+        }
+      }
+    },
+    "ios_mic_pair_failed" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pairing failed. Get a new code from the PC and try again."
+          }
+        }
+      }
+    },
+    "ios_mic_pair_help" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pair once with each PC you send your microphone to. On the PC, open the Starwire microphone receiver's menu and choose Pair a device. It shows a code of 16 letters and numbers."
+          }
+        }
+      }
+    },
+    "ios_mic_pair_no_address" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This PC has no address on your home network or a private VPN, so Starwire won't pair with it."
+          }
+        }
+      }
+    },
+    "ios_mic_pair_no_answer" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The PC's microphone receiver didn't answer. Check it is running and that the port in Settings matches."
+          }
+        }
+      }
+    },
+    "ios_mic_pair_no_pcs" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add a PC first."
+          }
+        }
+      }
+    },
+    "ios_mic_pair_not_pairing" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The PC isn't waiting to pair. Choose Pair a device in the receiver's menu first."
+          }
+        }
+      }
+    },
+    "ios_mic_pair_not_saved" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Paired, but the key couldn't be saved in the Keychain. Try again."
+          }
+        }
+      }
+    },
+    "ios_mic_pair_security" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pairing makes a key that only this device and that PC have. It stays in this device's Keychain and is never exported. Your voice is encrypted with it on the way to the PC."
+          }
+        }
+      }
+    },
+    "ios_mic_pair_with" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pair with %1$@"
+          }
+        }
+      }
+    },
+    "ios_mic_pair_wrong_code" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "That code isn't the one the PC shows. Check it and try again."
+          }
+        }
+      }
+    },
+    "ios_mic_paired_with" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Paired with %1$@"
+          }
+        }
+      }
+    },
+    "ios_mic_pairing" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pairing with the PC's receiver…"
+          }
+        }
+      }
+    },
+    "ios_mic_unpair" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unpair"
+          }
+        }
+      }
+    },
+    "ios_mic_unpair_help" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This device forgets the key. Unpair it in the PC's receiver too."
+          }
+        }
+      }
+    },
+    "ios_no" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No"
+          }
+        }
+      }
+    },
+    "ios_no_apps" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This PC shows no apps. Add some in Vibeshine's web page on the PC."
+          }
+        }
+      }
+    },
+    "ios_none" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "None"
+          }
+        }
+      }
+    },
+    "ios_off" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Off"
+          }
+        }
+      }
+    },
+    "ios_ok" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OK"
+          }
+        }
+      }
+    },
+    "ios_on" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "On"
+          }
+        }
+      }
+    },
+    "ios_on_pc" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "On %1$@"
           }
         }
       }
@@ -15284,6 +16032,160 @@
         }
       }
     },
+    "ios_open" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open"
+          }
+        }
+      }
+    },
+    "ios_opens_website" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Opens the project's website"
+          }
+        }
+      }
+    },
+    "ios_osc_reset_done" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The on-screen controls are back to their default layout."
+          }
+        }
+      }
+    },
+    "ios_pc_gone" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This PC is no longer saved."
+          }
+        }
+      }
+    },
+    "ios_pc_menu" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "PC menu"
+          }
+        }
+      }
+    },
+    "ios_pc_online_paired" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Online and paired"
+          }
+        }
+      }
+    },
+    "ios_pc_online_unpaired" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Online, not paired"
+          }
+        }
+      }
+    },
+    "ios_pc_running" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Running %1$@"
+          }
+        }
+      }
+    },
+    "ios_pc_sleep" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Put the PC to sleep"
+          }
+        }
+      }
+    },
+    "ios_pc_sleep_confirm" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sleep"
+          }
+        }
+      }
+    },
+    "ios_pc_sleep_failed" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn't reach the PC to put it to sleep."
+          }
+        }
+      }
+    },
+    "ios_pc_sleep_question" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Put %1$@ to sleep?"
+          }
+        }
+      }
+    },
+    "ios_pc_sleep_wake_help" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Wake it with its power button, its keyboard or Wake-on-LAN."
+          }
+        }
+      }
+    },
+    "ios_pc_sleeping" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The PC is going to sleep."
+          }
+        }
+      }
+    },
     "ios_pencil_curve_firm" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -15317,6 +16219,17 @@
         }
       }
     },
+    "ios_play" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Play"
+          }
+        }
+      }
+    },
     "ios_present_timing_frame" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -15335,6 +16248,127 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Nearest refresh"
+          }
+        }
+      }
+    },
+    "ios_resume_running" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Resume %1$@"
+          }
+        }
+      }
+    },
+    "ios_running_now" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Running now"
+          }
+        }
+      }
+    },
+    "ios_searching_help" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Make sure Vibeshine or Sunshine is running on your PC and that this device is on the same network."
+          }
+        }
+      }
+    },
+    "ios_settings_export" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Export settings"
+          }
+        }
+      }
+    },
+    "ios_settings_import" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Import settings"
+          }
+        }
+      }
+    },
+    "ios_settings_imported" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Settings imported: %1$@"
+          }
+        }
+      }
+    },
+    "ios_settings_title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Settings"
+          }
+        }
+      }
+    },
+    "ios_settings_transfer" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Move settings to another device"
+          }
+        }
+      }
+    },
+    "ios_settings_transfer_help" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The file holds your settings and each game's settings in Starwire for Android's format. It never holds pairings or keys."
+          }
+        }
+      }
+    },
+    "ios_show_app" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Show App"
+          }
+        }
+      }
+    },
+    "ios_show_hidden_apps" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Show hidden apps"
           }
         }
       }
@@ -15368,6 +16402,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Off"
+          }
+        }
+      }
+    },
+    "ios_start" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Start"
           }
         }
       }
@@ -15588,6 +16633,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Sends colour at full detail instead of half, which helps with text and thin lines. The PC has to support it."
+          }
+        }
+      }
+    },
+    "ios_this_games_settings" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This game's settings"
           }
         }
       }
@@ -15823,6 +16879,17 @@
         }
       }
     },
+    "ios_vibeshine_remote" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vibeshine Remote"
+          }
+        }
+      }
+    },
     "ios_video_renderer_auto" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -15852,6 +16919,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Render loop (old)"
+          }
+        }
+      }
+    },
+    "ios_yes" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Yes"
           }
         }
       }
@@ -20496,6 +21574,105 @@
         }
       }
     },
+    "overrides_bitrate_dialog_message" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bitrate in Mbps: 0 for the default, at most %1$d"
+          }
+        }
+      }
+    },
+    "overrides_bitrate_dialog_title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Set the bitrate override"
+          }
+        }
+      }
+    },
+    "overrides_bitrate_maximum" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The highest bitrate is %1$d Mbps"
+          }
+        }
+      }
+    },
+    "overrides_bitrate_mbps" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bitrate: %1$d Mbps"
+          }
+        }
+      }
+    },
+    "overrides_codec_av1" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Codec: AV1"
+          }
+        }
+      }
+    },
+    "overrides_codec_default" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Codec: Default"
+          }
+        }
+      }
+    },
+    "overrides_codec_hevc" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Codec: HEVC"
+          }
+        }
+      }
+    },
+    "overrides_codec_pyrowave" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Codec: PyroWave"
+          }
+        }
+      }
+    },
+    "overrides_invalid_number" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "That isn't a whole number"
+          }
+        }
+      }
+    },
     "overrides_section_title" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -20503,6 +21680,39 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Overrides"
+          }
+        }
+      }
+    },
+    "overrides_stats_default" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stats overlay: Default"
+          }
+        }
+      }
+    },
+    "overrides_stats_disabled" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stats overlay: Off"
+          }
+        }
+      }
+    },
+    "overrides_stats_enabled" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stats overlay: On"
           }
         }
       }
@@ -26063,6 +27273,28 @@
         }
       }
     },
+    "quick_launch_cannot_move_left" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "It is already first"
+          }
+        }
+      }
+    },
+    "quick_launch_cannot_move_right" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "It is already last"
+          }
+        }
+      }
+    },
     "quick_launch_delete" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -26103,6 +27335,39 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Move Right"
+          }
+        }
+      }
+    },
+    "quick_launch_pc_not_found" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The PC for this Quick Launch entry isn't saved any more."
+          }
+        }
+      }
+    },
+    "quick_launch_remove_message" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Remove this game from Quick Launch?"
+          }
+        }
+      }
+    },
+    "quick_launch_remove_title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Remove from Quick Launch"
           }
         }
       }
