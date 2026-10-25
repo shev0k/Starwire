@@ -154,23 +154,47 @@ test)
     done
     label+="-$(date -u +%H%M%S)"
     mkdir -p "$OUT"
+    # The test runs detached on the Mac, so a dropped SSH connection (a Wi-Fi blip, the Mac
+    # dozing) doesn't stop it or start a second one; the PC polls until it's done.
     remote '
 need_team
 need_ipad
 method=$1
 label=$2
 shift 2
-cd ios
-status=0
-env "$@" caffeinate -i xcodebuild test-without-building -project Starwire.xcodeproj -scheme StarwireDeviceRun \
-    -configuration Release -destination "id=$IPAD" -derivedDataPath ../build/DerivedData \
-    -resultBundlePath "../build/runs/$label.xcresult" \
-    -only-testing:"StarwireDeviceRun/StreamDeviceRunTests/$method" > "../build/runs/$label.log" 2>&1 || status=$?
-echo "test $method ($*), exit $status"
-grep -E "\[device-run\]|^ *(Video stream|Network:|Pacing|Shown for|Frames dropped|Average network|Decode time|Frame queue)|error:|Test Case .*(passed|failed)|\*\* TEST" "../build/runs/$label.log" || true
-exit $status
-' "$method" "$label" "${vars[@]}" | tee "$OUT/$label.txt"
-    exit "${PIPESTATUS[0]}"
+if pgrep -f "xcodebuild test-without-building" >/dev/null; then
+    echo "another device test is already running on the Mac; not starting a second one" >&2
+    exit 7
+fi
+vars=""
+for kv in "$@"; do vars+=" $(printf "%q" "$kv")"; done
+nohup bash -c "cd ios; status=0; env$vars caffeinate -i xcodebuild test-without-building -project Starwire.xcodeproj \
+    -scheme StarwireDeviceRun -configuration Release -destination id=$IPAD -derivedDataPath ../build/DerivedData \
+    -resultBundlePath ../build/runs/$label.xcresult -only-testing:StarwireDeviceRun/StreamDeviceRunTests/$method \
+    > ../build/runs/$label.log 2>&1 || status=\$?; echo \$status > ../build/runs/$label.done" >/dev/null 2>&1 &
+echo "started $method ($*) as $label"
+' "$method" "$label" "${vars[@]}" || exit $?
+    # Poll, riding out SSH failures, for as long as the stream could take plus setup
+    seconds=300
+    for kv in "$@"; do
+        case "$kv" in SECONDS=*) seconds=${kv#SECONDS=} ;; STREAMS=*) seconds=$(( ${kv#STREAMS=} * 25 )) ;; esac
+    done
+    deadline=$(( $(date +%s) + seconds + 600 ))
+    while :; do
+        sleep 15
+        done_status=$(ssh_mac "cat '$REPO/build/runs/$label.done' 2>/dev/null" 2>/dev/null) || continue
+        [ -n "$done_status" ] && break
+        if [ "$(date +%s)" -gt "$deadline" ]; then
+            echo "the test hasn't finished in time; it may still be running on the Mac ($label)" >&2
+            exit 8
+        fi
+    done
+    remote '
+label=$1
+echo "test $label, exit $(cat build/runs/$label.done)"
+grep -E "\[device-run\]|^ *(Video stream|Network:|Pacing|Shown for|Frames dropped|Average network|Decode time|Frame queue)|error:|Test Case .*(passed|failed|skipped)|\*\* TEST" "build/runs/$label.log" || true
+' "$label" | tee "$OUT/$label.txt"
+    exit "$done_status"
     ;;
 
 unit)
