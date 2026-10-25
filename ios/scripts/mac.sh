@@ -229,6 +229,9 @@ ci)
     # needed at the end of a batch. Each step's log is in build/ci/ on the Mac; a summary line per
     # step comes back. It doesn't stop at the first failure, so one run shows everything.
     remote '
+# From clean, as GitHub's runners are: a precompiled header kept from the last run fails the
+# build when the module maps under it change
+rm -rf build/ci
 mkdir -p build/ci
 log=$PWD/build/ci
 results=""
