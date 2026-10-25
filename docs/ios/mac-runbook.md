@@ -6,8 +6,10 @@ installed on the iPad and tested against the PC. The plan is [port-plan.md](port
 
 Written 25 Oct 2026, before any of it was run on the Mac. Fixed after the first run
 ([device-runs/2026-10-24-feature-ios-phase-0.md](device-runs/2026-10-24-feature-ios-phase-0.md))
-and the phase 1a run
-([device-runs/2026-10-25-feature-ios-phase-1a.md](device-runs/2026-10-25-feature-ios-phase-1a.md)).
+the phase 1a run
+([device-runs/2026-10-25-feature-ios-phase-1a.md](device-runs/2026-10-25-feature-ios-phase-1a.md))
+and the pacing run
+([device-runs/2026-10-25-feature-ios-pacing.md](device-runs/2026-10-25-feature-ios-pacing.md)).
 When a run shows something else wrong here, fix this page in the same branch as that run's report.
 
 ## Rules for every run
@@ -342,7 +344,7 @@ overlay's last three lines:
 ```
 Pacing: bursts x%, drops after burst n, skipped n, late n
 Shown for 4.2/8.3/12.5/16.7/20.8/25+ ms: a/b/c/d/e/f%, mean m ms, refresh r ms, decode to screen l ms
-Pacing summary (loop): 120 s, in 14400, drops x% (incoming n, oldest n, replaced n), shown n, shown for ..., ...
+Pacing summary (loop): 120 s, in 14400, drops x% (incoming n, oldest n, replaced n), arrival late n, gaps n, max gap g ms; shown n, shown for ..., mean m ms, max s ms, ...
 ```
 
 The first two cover the last 5 second window. The summary line covers the whole stream so far
@@ -354,6 +356,8 @@ everything, including the refresh histogram.
 | --- | --- |
 | Shown for | How long each frame stayed on screen. At 120 FPS on 120 Hz it should be nearly all 8.3 ms |
 | mean (shown) | The mean of those times. 8.33 ms is 120 FPS on screen; 9.4 ms is about 106 |
+| max (shown) | The longest a frame stayed up: the worst freeze |
+| arrival late, gaps, max gap | Decoded frames that came 1.5 to 2.5 frames after the one before (late), or more than 2.5 frames after it (gaps), and the longest gap. Measured as frames leave the decoder, before either presenter |
 | refresh | The display's refresh interval while streaming, from the display link. 8.33 ms is 120 Hz |
 | off grid | Times more than a quarter step off the 4.17 ms grid: the panel isn't on a fixed grid |
 | late | Display presenter only: frames shown more than half a step after the refresh they were drawn for |
@@ -381,6 +385,7 @@ loop.
 | Refresh mean above 8.33 ms, or off grid | The display isn't running a steady 120 Hz while streaming. Check Low Power Mode and Settings > Accessibility > Motion > Limit Frame Rate, and say what they were |
 | Display: drops under 1%, shown for nearly all 8.3 ms, decode to screen no higher than the loop's | Fixed |
 | Display: "replaced" and "refreshes without a new frame" both high, about equal | Frames arrive unevenly against the refresh: one refresh gets none, the next gets two. The host or Wi-Fi is uneven; try the virtual display run, and say so |
+| Arrival gaps every second, max gap far above 8.33 ms, decode time normal, shown for nearly all 8.3 ms or 25+ ms | Frames reach the iPad in clumps with holes between them, so the picture freezes for the length of each hole. No presenter can fix that. The 25 Oct pacing run saw this (90 gaps in 45 s, up to 141 ms). Check the iPad's Wi-Fi: the band, and AirDrop, Handoff and Cursor and Keyboard, which share the radio (AWDL). Ask the owner to turn those off, then run D again |
 | Display: "late" above 1% | Frames are drawn too late for their refresh: the GPU or the compositor is slow. Compare the GPU time in an Instruments trace |
 | "skipped" above 0 | The compositor threw drawables away: frames lost without being counted as drops |
 
@@ -389,7 +394,8 @@ loop.
 Open https://www.testufo.com on the PC's streamed screen first (ask the owner). Keep the app's
 settings as in phase 1a: Safe Area (2420x1668), 120 FPS, HEVC, 70 Mbps, Frames to buffer 2,
 Statistics Overlay on. Run `testStreamAndSample` once per row with only the listed variables, and
-`TEST_RUNNER_STARWIRE_SECONDS=120` unless the row says otherwise.
+`TEST_RUNNER_STARWIRE_SECONDS=120` unless the row says otherwise. Tell the owner before L that it
+is the old render loop and will stutter: it is the baseline, not the fix.
 
 | Run | Variables | Why |
 | --- | --- | --- |
