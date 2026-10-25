@@ -8,6 +8,9 @@
 #undef LOG_FILE_CATEGORY
 #define LOG_FILE_CATEGORY LOGCAT_VIDEO
 
+@interface MetalView () <CAMetalDisplayLinkDelegate>
+@end
+
 @implementation MetalView {
     // The secondary thread containing the render loop.
     NSThread *_renderThread;
@@ -82,7 +85,17 @@
     // Render on a new thread
     dispatch_semaphore_t exited = dispatch_semaphore_create(0);
     _renderThreadExited = exited;
+    BOOL usesDisplayLink = self.usesDisplayLink;
     _renderThread = [[NSThread alloc] initWithBlock:^{
+        if (usesDisplayLink) {
+            if (@available(iOS 17.0, tvOS 17.0, *)) {
+                [self runDisplayLink];
+                Log(LOG_I, @"[MetalView] renderThread is exiting");
+                dispatch_semaphore_signal(exited);
+                return;
+            }
+            Log(LOG_W, @"[MetalView] CAMetalDisplayLink needs iOS 17, using the render loop");
+        }
         while (![NSThread currentThread].isCancelled) {
             @autoreleasepool {
                 id<MetalViewDelegate> delegate = self.delegate;
@@ -114,6 +127,44 @@
     defaultDrawableSize.height *= self.layer.contentsScale;
     [self.delegate drawableResize:defaultDrawableSize];
 #endif
+}
+
+#pragma mark - Display link
+
+// The display presenter's thread, as in Apple's "Achieving smooth frame rates with a Metal
+// display link" sample: the link lives on this thread's run loop, so a callback that waits a
+// little for a frame never holds up the main thread. The settings follow Nonary's moonlight-qt
+// (vt_metal.mm, by Cameron Gutman): the stream's rate as minimum, maximum and preferred, and a
+// frame latency of 1, so the drawable is handed over one refresh before it is shown.
+- (void)runDisplayLink API_AVAILABLE(ios(17.0), tvos(17.0)) {
+    CAMetalDisplayLink *link = [[CAMetalDisplayLink alloc] initWithMetalLayer:self.metalLayer];
+    link.delegate = self;
+    float fps = self.framerate > 0 ? self.framerate : 60;
+    link.preferredFrameRateRange = CAFrameRateRangeMake(fps, fps, fps);
+    link.preferredFrameLatency = 1;
+
+    NSRunLoop *runLoop = [NSRunLoop currentRunLoop];
+    // A port keeps runMode from returning at once if the link has nothing scheduled
+    [runLoop addPort:[NSMachPort port] forMode:NSDefaultRunLoopMode];
+    [link addToRunLoop:runLoop forMode:NSDefaultRunLoopMode];
+    Log(LOG_I, @"[MetalView] CAMetalDisplayLink started at %.0f FPS", fps);
+
+    while (![NSThread currentThread].isCancelled && self.delegate) {
+        @autoreleasepool {
+            [runLoop runMode:NSDefaultRunLoopMode beforeDate:[NSDate dateWithTimeIntervalSinceNow:0.1]];
+        }
+    }
+    [link invalidate];
+}
+
+- (void)metalDisplayLink:(CAMetalDisplayLink *)link needsUpdate:(CAMetalDisplayLinkUpdate *)update API_AVAILABLE(ios(17.0), tvos(17.0)) {
+    if ([NSThread currentThread].isCancelled) {
+        return;
+    }
+    id<MetalViewDelegate> delegate = self.delegate;
+    if ([delegate respondsToSelector:@selector(renderUpdate:toLayer:)]) {
+        [delegate renderUpdate:update toLayer:self.metalLayer];
+    }
 }
 
 #pragma mark - Resizing

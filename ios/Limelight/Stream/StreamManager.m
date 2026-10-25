@@ -199,7 +199,9 @@ static NSString *interleaveStrings(NSString *str1, NSString *str2) {
     if (window.arrivals == 0) {
         return @"";
     }
-    return [@"\n" stringByAppendingString:[PacingStats overlayLineForWindow:window]];
+    // The summary since the stream started is what the device-run tests read last
+    return [NSString stringWithFormat:@"\n%@\n%@", [pacingStats overlayLineForWindow:window],
+            [pacingStats summaryLineForWindow:[pacingStats totalWindow]]];
 }
 
 - (NSString*) getStatsOverlayText {

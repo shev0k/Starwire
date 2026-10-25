@@ -36,6 +36,10 @@ NS_ASSUME_NONNULL_BEGIN
 - (nullable Frame *)dequeue;
 // Waits up to `timeout` seconds for a frame. Returns nil at once when paused.
 - (nullable Frame *)dequeueWithTimeout:(CFTimeInterval)timeout;
+// For the display presenter: waits up to `timeout` seconds if the queue is empty, then returns
+// the newest frame and drops every older one (PacingDropReplaced). They were decoded already, so
+// dropping one, an IDR frame included, only means it isn't shown. Returns nil at once when paused.
+- (nullable Frame *)dequeueNewestWithTimeout:(CFTimeInterval)timeout;
 // Frames per second arriving, from the frames' decodedAt times
 - (CFTimeInterval)estimatedFramerate;
 - (int)currentSoftCap;

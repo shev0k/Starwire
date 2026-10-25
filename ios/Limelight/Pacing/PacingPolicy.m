@@ -5,7 +5,8 @@
 
 #import "PacingPolicy.h"
 
-NSString *const PacingPresentTimingKey = @"StarwirePresentTiming";
+NSString *const PacingPresenterKey = @"StarwirePresenter";
+NSString *const PacingPresentTimingKey =@"StarwirePresentTiming";
 NSString *const PacingDropPolicyKey = @"StarwireDropPolicy";
 NSString *const PacingFramesToBufferKey = @"StarwireFramesToBuffer";
 NSString *const StreamVirtualDisplayKey = @"StarwireVirtualDisplay";
@@ -19,6 +20,9 @@ NSString *const StreamVirtualDisplayKey = @"StarwireVirtualDisplay";
 - (instancetype)initWithDefaults:(NSUserDefaults *)defaults {
     self = [super init];
     if (self) {
+        NSString *presenter = [defaults stringForKey:PacingPresenterKey];
+        _presenter = [presenter isEqualToString:@"display"] ? PacingPresenterDisplay : PacingPresenterLoop;
+
         NSString *timing = [defaults stringForKey:PacingPresentTimingKey];
         _presentTiming = [timing isEqualToString:@"frame"] ? PresentTimingFrameInterval : PresentTimingNearestRefresh;
 
@@ -36,6 +40,14 @@ NSString *const StreamVirtualDisplayKey = @"StarwireVirtualDisplay";
         return _framesToBufferOverride;
     }
     return appSetting > 0 ? appSetting : 2;
+}
+
+- (FrameDropPolicy)effectiveDropPolicy {
+    return _presenter == PacingPresenterDisplay ? FrameDropPolicyNewest : _dropPolicy;
+}
+
+- (NSString *)presenterName {
+    return _presenter == PacingPresenterDisplay ? @"display" : @"loop";
 }
 
 - (NSString *)presentTimingName {
@@ -65,6 +77,11 @@ CFTimeInterval PacingMinimumPresentDuration(PresentTiming timing, double streamF
     double refreshInterval = 1.0 / displayHz;
     double duration = frameInterval - refreshInterval / 2.0;
     return duration > 0 ? duration : 0;
+}
+
+CFTimeInterval PacingDisplayFrameWait(CFTimeInterval now, CFTimeInterval targetTimestamp) {
+    CFTimeInterval left = targetTimestamp - now;
+    return left > 0 ? left / 2.0 : 0;
 }
 
 BOOL StreamUsesVirtualDisplay(NSUserDefaults *defaults) {

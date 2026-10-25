@@ -19,6 +19,7 @@
 // - clear releases the queued frames, and start and stop are scoped to an owner (from VoidLink)
 // - the frame rate estimate uses the frames' own timestamps, so it can be tested
 // - instances can be made for tests; the app uses sharedInstance
+// - dequeueNewestWithTimeout for the display presenter, which counts the frames it skips
 
 @implementation FrameQueue {
     NSMutableArray<id> *_buffer;
@@ -28,6 +29,10 @@
     int _count;
 
     BOOL _droppedLast;
+    // Frames the display presenter skipped since the last enqueue. They go into the next
+    // enqueue's frameDropMetrics sample, so the overlay's drop share counts them and still has
+    // one sample per arriving frame.
+    int _replacedSinceEnqueue;
     int _framesIn;
     CMTime _ptsCorrection;
     pthread_mutex_t _mutex;
@@ -204,6 +209,8 @@
     // regardless of drop status, every enqueue is a frame
     // for estimatedFramerate purposes
     _framesIn++;
+    dropCount += _replacedSinceEnqueue;
+    _replacedSinceEnqueue = 0;
     [_frameDropMetrics addValue:(float)dropCount];
     [_pacingStats noteQueueDepth:_count];
 
@@ -291,6 +298,30 @@ static struct timespec TimespecFromInterval(CFTimeInterval interval) {
     return frame;
 }
 
+- (Frame *)dequeueNewestWithTimeout:(CFTimeInterval)timeout {
+    if (self.paused) {
+        return nil;
+    }
+
+    pthread_mutex_lock(&_mutex);
+    if (_count == 0 && timeout > 0 && !self.paused) {
+        struct timespec ts = TimespecFromInterval(timeout);
+        pthread_cond_timedwait_relative_np(&_cond, &_mutex, &ts);
+    }
+    Frame *frame = nil;
+    if (!self.paused) {
+        while (_count > 1) {
+            Frame *older = [self _popFrame];
+            [older setDurationFromNext:[self _peekFrame]];
+            [self _noteDroppedFrame:older reason:PacingDropReplaced];
+            _replacedSinceEnqueue++;
+        }
+        frame = [self _unsafeDequeue];
+    }
+    pthread_mutex_unlock(&_mutex);
+    return frame;
+}
+
 - (NSUInteger)count {
     pthread_mutex_lock(&_mutex);
     NSUInteger c = _count;
@@ -309,6 +340,7 @@ static struct timespec TimespecFromInterval(CFTimeInterval interval) {
     }
     _head = _tail = _count = 0;
     _droppedLast = NO;
+    _replacedSinceEnqueue = 0;
     _ptsCorrection = CMTimeMake(0, 90000);
     _frameDropMetrics = [[FloatBuffer alloc] initWithCapacity:512];
     _framesIn = 0;

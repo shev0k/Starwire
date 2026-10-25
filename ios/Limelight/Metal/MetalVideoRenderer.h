@@ -20,8 +20,16 @@
 @property (atomic) CFTimeInterval minimumPresentDuration;
 
 - (nonnull instancetype)initWithMetalDevice:(nonnull id<MTLDevice>)device drawablePixelFormat:(MTLPixelFormat)drawablePixelFormat framerate:(float)framerate;
-// Returns YES when the frame was committed for display
+// Render loop: takes the layer's next drawable and presents it after minimumPresentDuration.
+// Returns YES when the frame was committed for display.
 - (BOOL)renderFrame:(nonnull Frame *)frame toLayer:(nonnull CAMetalLayer *)layer;
+// Display presenter: draws into the drawable a CAMetalDisplayLink update handed over and presents
+// it with no minimum duration. targetTime is the update's targetPresentationTimestamp, which the
+// statistics compare with the time the frame really appeared.
+- (BOOL)renderFrame:(nonnull Frame *)frame
+       intoDrawable:(nonnull id<CAMetalDrawable>)drawable
+            ofLayer:(nonnull CAMetalLayer *)layer
+         targetTime:(CFTimeInterval)targetTime;
 - (void)waitToRenderTo:(nonnull CAMetalLayer *)layer;
 - (void)drawableResize:(CGSize)drawableSize;
 - (void)shutdown;

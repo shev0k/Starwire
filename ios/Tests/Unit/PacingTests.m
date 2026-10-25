@@ -224,7 +224,7 @@ static const double kMs = 1000.0;
     XCTAssertEqual(w.maxQueueDepth, 2);
 }
 
-- (void)testPresentHoldsAreCountedInRefreshes {
+- (void)testPresentIntervalsAreCountedInHalfRefreshSteps {
     PacingStats *stats = [self stats120];
     const double r = 1.0 / 120;
     double t = 200.0;
@@ -238,10 +238,120 @@ static const double kMs = 1000.0;
     [stats notePresentedAt:0];
     PacingWindow w = [stats currentWindow];
     XCTAssertEqual(w.presented, 5);
-    XCTAssertEqual(w.heldOneRefresh, 2);
-    XCTAssertEqual(w.heldTwoRefreshes, 1);
-    XCTAssertEqual(w.heldThreeOrMore, 1);
+    XCTAssertEqual(w.shown.total, 4);
+    XCTAssertEqual(w.shown.counts[2], 2);  // 8.33 ms
+    XCTAssertEqual(w.shown.counts[4], 1);  // 16.67 ms
+    XCTAssertEqual(w.shown.counts[6], 1);  // 25 ms and up
+    XCTAssertEqual(w.shown.offGrid, 0);
     XCTAssertEqual(w.presentSkipped, 1);
+}
+
+- (void)testIntervalBuckets {
+    const double step = 1.0 / 240;
+    XCTAssertEqual(PacingIntervalBucket(0, step), 0);
+    XCTAssertEqual(PacingIntervalBucket(0.0042, step), 1);
+    XCTAssertEqual(PacingIntervalBucket(0.00833, step), 2);
+    XCTAssertEqual(PacingIntervalBucket(0.0125, step), 3);
+    XCTAssertEqual(PacingIntervalBucket(0.01667, step), 4);
+    XCTAssertEqual(PacingIntervalBucket(0.0208, step), 5);
+    XCTAssertEqual(PacingIntervalBucket(0.1, step), PACING_INTERVAL_BUCKETS - 1);
+    XCTAssertEqual(PacingIntervalBucket(-1, step), 0);
+    XCTAssertEqual(PacingIntervalBucket(0.01, 0), 0);
+}
+
+// Regression: the old counter put anything under 1.5 refreshes in "held 1", and 1.5 refreshes
+// is exactly 12.5 ms at 120 Hz. A stream shown at 8.33 and 12.5 ms in turn averages 96 FPS
+// but showed as nearly all "held for one refresh". Each interval now has its own bucket.
+- (void)testFramesShownFor12_5MsAreNotCountedAsOneRefresh {
+    PacingStats *stats = [self stats120];
+    double t = 300.0;
+    [stats notePresentedAt:t];
+    for (int i = 0; i < 50; i++) {
+        // Slightly under 12.5 ms, as a clock can report it
+        [stats notePresentedAt:(t += 1.0 / 120)];
+        [stats notePresentedAt:(t += 0.0124999)];
+    }
+    PacingWindow w = [stats currentWindow];
+    XCTAssertEqual(w.shown.counts[2], 50);
+    XCTAssertEqual(w.shown.counts[3], 50);
+    XCTAssertEqualWithAccuracy(w.shown.sumSeconds * 1000.0 / w.shown.total, 10.4167, 0.001);
+    NSString *overlay = [stats overlayLineForWindow:w];
+    XCTAssertTrue([overlay containsString:@"4.2/8.3/12.5/16.7/20.8/25+ ms: 0.0/50.0/50.0/0.0/0.0/0.0%"], @"%@", overlay);
+}
+
+- (void)testIntervalsOffTheGridAreCounted {
+    PacingStats *stats = [self stats120];
+    // 10.4 ms is halfway between two 4.17 ms steps
+    [stats noteRefreshInterval:0.0104];
+    [stats noteRefreshInterval:1.0 / 120];
+    [stats noteRefreshInterval:0];
+    PacingWindow w = [stats currentWindow];
+    XCTAssertEqual(w.refresh.total, 2);
+    XCTAssertEqual(w.refresh.offGrid, 1);
+    XCTAssertEqualWithAccuracy(w.refresh.maxSeconds, 0.0104, 1e-9);
+}
+
+- (void)testPresentLaterThanItsTargetIsLate {
+    PacingStats *stats = [self stats120];
+    [stats notePresentedAt:10.0 target:10.0];
+    // 1 ms late is the same refresh as far as the panel is concerned
+    [stats notePresentedAt:10.0093 target:10.0083];
+    // a whole refresh late
+    [stats notePresentedAt:10.025 target:10.0167];
+    // no target known (the render loop)
+    [stats notePresentedAt:10.05];
+    XCTAssertEqual([stats currentWindow].presentLate, 1);
+}
+
+- (void)testRefreshesWithAndWithoutAFrame {
+    PacingStats *stats = [self stats120];
+    [stats noteRefreshWithNewFrame:YES];
+    [stats noteRefreshWithNewFrame:YES];
+    [stats noteRefreshWithNewFrame:NO];
+    PacingWindow w = [stats currentWindow];
+    XCTAssertEqual(w.refreshesWithFrame, 2);
+    XCTAssertEqual(w.refreshesWithoutFrame, 1);
+}
+
+- (void)testDrawableWaits {
+    PacingStats *stats = [self stats120];
+    [stats noteDrawableWait:0.002];
+    [stats noteDrawableWait:0.008];
+    [stats noteDrawableWait:-1];
+    PacingWindow w = [stats currentWindow];
+    XCTAssertEqual(w.drawableWaits, 2);
+    XCTAssertEqualWithAccuracy(w.drawableWaitSeconds, 0.010, 1e-9);
+    XCTAssertEqualWithAccuracy(w.maxDrawableWaitMs, 8.0, 1e-6);
+}
+
+- (void)testTotalAddsFinishedWindowsAndTheCurrentOne {
+    PacingStats *stats = [self stats120];
+    [stats noteArrivalAt:10.0];
+    [stats noteDrop:PacingDropIncoming queueDepth:2];
+    [stats notePresentedAt:10.0];
+    [stats notePresentedAt:10.0 + 1.0 / 120];
+    // Ends the first window
+    [stats noteArrivalAt:15.0];
+    [stats noteDrop:PacingDropReplaced queueDepth:1];
+    [stats notePresentedAt:15.0];
+
+    PacingWindow total = [stats totalWindow];
+    XCTAssertEqual(total.arrivals, 2);
+    XCTAssertEqual(total.drops[PacingDropIncoming], 1);
+    XCTAssertEqual(total.drops[PacingDropReplaced], 1);
+    XCTAssertEqual(total.presented, 3);
+    XCTAssertEqual(total.shown.total, 2);
+    XCTAssertEqualWithAccuracy(total.windowSeconds, 5.0, 0.0001);
+    // The current window alone has only what came after the roll
+    XCTAssertEqual([stats currentWindow].arrivals, 1);
+}
+
+- (void)testReplacedDropsAreNotCountedAsAfterABurst {
+    PacingStats *stats = [self stats120];
+    [stats noteArrivalAt:1.0];
+    [stats noteArrivalAt:1.0005];
+    [stats noteDrop:PacingDropReplaced queueDepth:2];
+    XCTAssertEqual([stats currentWindow].dropsAfterBurst, 0);
 }
 
 - (void)testWindowRollsAfterItsLength {
@@ -265,12 +375,135 @@ static const double kMs = 1000.0;
     [stats noteArrivalAt:1.0005];
     [stats noteDrop:PacingDropIncoming queueDepth:2];
     PacingWindow w = [stats currentWindow];
-    NSString *log = [PacingStats logLineForWindow:w];
+    NSString *log = [stats logLineForWindow:w];
     XCTAssertTrue([log containsString:@"in 2"], @"%@", log);
     XCTAssertTrue([log containsString:@"drops 1"], @"%@", log);
-    NSString *overlay = [PacingStats overlayLineForWindow:w];
+    NSString *overlay = [stats overlayLineForWindow:w];
     XCTAssertTrue([overlay hasPrefix:@"Pacing: "], @"%@", overlay);
     XCTAssertTrue([overlay containsString:@"bursts 100.0%"], @"%@", overlay);
+    XCTAssertTrue([overlay containsString:@"\nShown for "], @"%@", overlay);
+}
+
+- (void)testSummaryLineNamesThePresenter {
+    PacingStats *stats = [self stats120];
+    stats.presenterName = @"display";
+    for (int i = 0; i < 4; i++) {
+        [stats noteArrivalAt:1.0 + i / 120.0];
+        [stats notePresentedAt:1.01 + i / 120.0];
+    }
+    [stats noteDrop:PacingDropReplaced queueDepth:1];
+    NSString *summary = [stats summaryLineForWindow:[stats totalWindow]];
+    XCTAssertTrue([summary hasPrefix:@"Pacing summary (display): "], @"%@", summary);
+    XCTAssertTrue([summary containsString:@"in 4, drops 25.00% (incoming 0, oldest 0, replaced 1)"], @"%@", summary);
+    XCTAssertTrue([summary containsString:@"shown for 4.2/8.3/12.5/16.7/20.8/25+ ms: 0.0/100.0/0.0/0.0/0.0/0.0%"], @"%@", summary);
+}
+
+#pragma mark - Display presenter
+
+- (void)testPresenterSettings {
+    PacingSettings *settings = [[PacingSettings alloc] initWithDefaults:_defaults];
+    XCTAssertEqual(settings.presenter, PacingPresenterLoop);
+    XCTAssertEqualObjects(settings.presenterName, @"loop");
+    XCTAssertEqual(settings.effectiveDropPolicy, FrameDropPolicyAlternate);
+
+    [_defaults setObject:@"display" forKey:PacingPresenterKey];
+    settings = [[PacingSettings alloc] initWithDefaults:_defaults];
+    XCTAssertEqual(settings.presenter, PacingPresenterDisplay);
+    XCTAssertEqualObjects(settings.presenterName, @"display");
+    // The display presenter always keeps the newest frame, whatever the drop policy says
+    XCTAssertEqual(settings.dropPolicy, FrameDropPolicyAlternate);
+    XCTAssertEqual(settings.effectiveDropPolicy, FrameDropPolicyNewest);
+}
+
+- (void)testDisplayFrameWaitIsHalfTheTimeLeft {
+    XCTAssertEqualWithAccuracy(PacingDisplayFrameWait(10.0, 10.006), 0.003, 1e-9);
+    XCTAssertEqual(PacingDisplayFrameWait(10.0, 10.0), 0);
+    XCTAssertEqual(PacingDisplayFrameWait(10.01, 10.0), 0);
+}
+
+- (void)testDequeueNewestDropsTheOlderFrames {
+    PacingStats *stats = [self stats120];
+    FrameQueue *queue = [self queueWithPolicy:FrameDropPolicyNewest buffer:3 stats:stats];
+    [queue enqueue:[self makeFrameOfType:FRAME_TYPE_IDR at:1.0]];
+    [queue enqueue:[self makeFrameAt:1.002]];
+    [queue enqueue:[self makeFrameAt:1.004]];
+
+    // Already decoded, so even the IDR frame can be skipped
+    XCTAssertEqual([queue dequeueNewestWithTimeout:0].frameNumber, 3);
+    XCTAssertEqual([queue count], 0);
+    XCTAssertEqual([stats currentWindow].drops[PacingDropReplaced], 2);
+
+    // Counted in the overlay's drop share with the next arriving frame
+    XCTAssertEqual(queue.frameDropMetrics.total, 0);
+    [queue enqueue:[self makeFrameAt:1.0083]];
+    XCTAssertEqual(queue.frameDropMetrics.total, 2);
+    XCTAssertEqual(queue.frameDropMetrics.count, 4);
+}
+
+- (void)testDequeueNewestOnAnEmptyQueue {
+    FrameQueue *queue = [self queueWithPolicy:FrameDropPolicyNewest buffer:2 stats:nil];
+    XCTAssertNil([queue dequeueNewestWithTimeout:0]);
+    [queue enqueue:[self makeFrameAt:1.0]];
+    [queue stop];
+    XCTAssertNil([queue dequeueNewestWithTimeout:0]);
+}
+
+// Frames arrive every 8.33 ms with up to 3 ms of jitter either way (a fixed-seed generator, so
+// every run is the same), and the display asks for one at every 120 Hz refresh, half a refresh
+// out of phase. Taking the newest frame at each refresh then shows every frame, one per
+// refresh, with nothing left waiting: no drops and no extra frame of buffering.
+- (void)testDisplayPresenterShowsEveryFrameWhenJitterIsUnderHalfARefresh {
+    PacingStats *stats = [self stats120];
+    FrameQueue *queue = [self queueWithPolicy:FrameDropPolicyNewest buffer:2 stats:stats];
+    const double r = 1.0 / 120;
+    uint32_t seed = 12345;
+    enum { frames = 1200 };
+    double arrivals[frames];
+    for (int i = 0; i < frames; i++) {
+        seed = seed * 1664525u + 1013904223u;
+        double jitter = ((double)(seed >> 8) / (double)(1u << 24) - 0.5) * 0.006;
+        arrivals[i] = 50.0 + i * r + jitter;
+    }
+
+    int shown = 0, empty = 0, next = 0;
+    NSUInteger maxLeft = 0;
+    for (int k = 0; k <= frames; k++) {
+        double refresh = 50.0 + k * r + r / 2;
+        while (next < frames && arrivals[next] <= refresh) {
+            [stats noteArrivalAt:arrivals[next]];
+            [queue enqueue:[self makeFrameAt:arrivals[next]]];
+            next++;
+        }
+        Frame *frame = [queue dequeueNewestWithTimeout:0];
+        if (frame) {
+            shown++;
+        } else {
+            empty++;
+        }
+        maxLeft = MAX(maxLeft, [queue count]);
+    }
+    XCTAssertEqual(shown, frames);
+    // Only the refresh after the last frame had nothing new
+    XCTAssertEqual(empty, 1);
+    PacingWindow total = [stats totalWindow];
+    XCTAssertEqual(total.drops[PacingDropReplaced] + total.drops[PacingDropOldest] + total.drops[PacingDropIncoming], 0);
+    XCTAssertEqual(maxLeft, 0u);
+}
+
+// Two frames in one refresh (a frame late, then one on time): the late one is replaced, which
+// is the one kind of drop the display presenter makes.
+- (void)testDisplayPresenterReplacesALateFrame {
+    PacingStats *stats = [self stats120];
+    FrameQueue *queue = [self queueWithPolicy:FrameDropPolicyNewest buffer:2 stats:stats];
+    [queue enqueue:[self makeFrameAt:1.000]];
+    XCTAssertEqual([queue dequeueNewestWithTimeout:0].frameNumber, 1);
+    // nothing arrives for this refresh
+    XCTAssertNil([queue dequeueNewestWithTimeout:0]);
+    // frame 2 is a refresh late and frame 3 is on time
+    [queue enqueue:[self makeFrameAt:1.0165]];
+    [queue enqueue:[self makeFrameAt:1.0168]];
+    XCTAssertEqual([queue dequeueNewestWithTimeout:0].frameNumber, 3);
+    XCTAssertEqual([stats currentWindow].drops[PacingDropReplaced], 1);
 }
 
 @end

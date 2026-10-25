@@ -27,6 +27,8 @@ The implementation of the cross-platform game view controller.
     MetalView *_metalView;
     MetricsHandler _metricsHandler;
     CADisplayLink *_displayLink;
+    // Display presenter: the refresh the last update was for (render thread only)
+    CFTimeInterval _lastTargetPresentation;
 }
 
 - (nonnull instancetype)initWithFrame:(CGRect)bounds framerate:(float)framerate enableHdr:(BOOL)enableHdr metricsHandler:(MetricsHandler)metricsHandler {
@@ -90,8 +92,16 @@ The implementation of the cross-platform game view controller.
     view.metalLayer.pixelFormat = renderer.colorPixelFormat;
     view.metalLayer.maximumDrawableCount = 3;
 
+    // Which presenter draws (PacingPresenter). The display presenter's CAMetalDisplayLink holds
+    // the frame rate itself.
+    view.usesDisplayLink = pacing.presenter == PacingPresenterDisplay;
+    Log(LOG_I, @"[MetalViewController] presenter %@", pacing.presenterName);
+    if (view.usesDisplayLink) {
+        return;
+    }
+
     // We need a no-op displaylink timer or iOS can decide to run at 60fps
-    // The overhead from this should be minimal.
+    // The overhead from this should be minimal. It also measures the refresh interval.
     _displayLink = [CADisplayLink displayLinkWithTarget:self selector:@selector(displayLinkHandler:)];
     if (@available(iOS 15.0, tvOS 15.0, *)) {
         _displayLink.preferredFrameRateRange = CAFrameRateRangeMake(_framerate, _framerate, _framerate);
@@ -102,7 +112,33 @@ The implementation of the cross-platform game view controller.
 }
 
 - (void)displayLinkHandler:(CADisplayLink *)link {
-    // Rendering does not use DisplayLink, this exists to fool iOS into keeping us running at the desired framerate
+    // Rendering does not use DisplayLink, this exists to fool iOS into keeping us running at the desired framerate.
+    // The time it gives this refresh is what the display is really doing (8.33 ms at 120 Hz).
+    [_frameQueue.pacingStats noteRefreshInterval:link.targetTimestamp - link.timestamp];
+}
+
+// Display presenter: one call per refresh, on the render thread. Takes the newest frame (waiting
+// a little if none has come yet), drops older ones, and draws it into this refresh's drawable.
+// A refresh with no new frame draws nothing, so the last frame stays up.
+- (void)renderUpdate:(CAMetalDisplayLinkUpdate *)update toLayer:(CAMetalLayer *)layer {
+    MetalVideoRenderer *renderer = self.renderer;
+    if (!renderer || renderer.isStopping) {
+        return;
+    }
+
+    PacingStats *stats = _frameQueue.pacingStats;
+    CFTimeInterval target = update.targetPresentationTimestamp;
+    if (_lastTargetPresentation > 0 && target > _lastTargetPresentation) {
+        [stats noteRefreshInterval:target - _lastTargetPresentation];
+    }
+    _lastTargetPresentation = target;
+
+    CFTimeInterval wait = PacingDisplayFrameWait(CACurrentMediaTime(), update.targetTimestamp);
+    Frame *frame = [_frameQueue dequeueNewestWithTimeout:wait];
+    [stats noteRefreshWithNewFrame:frame != nil];
+    if (frame) {
+        [renderer renderFrame:frame intoDrawable:update.drawable ofLayer:layer targetTime:target];
+    }
 }
 
 - (void)waitToRenderTo:(nonnull CAMetalLayer *)layer {

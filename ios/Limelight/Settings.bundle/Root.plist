@@ -37,6 +37,26 @@
 			<key>Type</key>
 			<string>PSMultiValueSpecifier</string>
 			<key>Title</key>
+			<string>Presenter</string>
+			<key>Key</key>
+			<string>StarwirePresenter</string>
+			<key>DefaultValue</key>
+			<string>loop</string>
+			<key>Titles</key>
+			<array>
+				<string>Render loop (old)</string>
+				<string>Display driven</string>
+			</array>
+			<key>Values</key>
+			<array>
+				<string>loop</string>
+				<string>display</string>
+			</array>
+		</dict>
+		<dict>
+			<key>Type</key>
+			<string>PSMultiValueSpecifier</string>
+			<key>Title</key>
 			<string>Present timing</string>
 			<key>Key</key>
 			<string>StarwirePresentTiming</string>

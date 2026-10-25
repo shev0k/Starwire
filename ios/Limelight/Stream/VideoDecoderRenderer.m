@@ -84,9 +84,11 @@ extern int ff_isom_write_av1c(AVIOContext *pb, const uint8_t *buf, int size,
     _frameQueue = [FrameQueue sharedInstance];
     [_frameQueue startForOwner:self];
     [_frameQueue setHighWaterMark:framesToBuffer];
-    [_frameQueue setDropPolicy:_pacingSettings.dropPolicy];
-    Log(LOG_I, @"Pacing: frames to buffer %d, drop policy %@, present timing %@, display %.0f Hz",
-        framesToBuffer, _pacingSettings.dropPolicyName, _pacingSettings.presentTimingName, _displayHz);
+    [_frameQueue setDropPolicy:[_pacingSettings effectiveDropPolicy]];
+    Log(LOG_I, @"Pacing: presenter %@, frames to buffer %d, drop policy %@, present timing %@, display %.0f Hz",
+        _pacingSettings.presenterName,
+        framesToBuffer, [_pacingSettings effectiveDropPolicy] == FrameDropPolicyNewest ? @"newest" : @"alternate",
+        _pacingSettings.presentTimingName, _displayHz);
 
     if (_formatDesc != nil) {
         CFRelease(_formatDesc);
@@ -114,6 +116,7 @@ extern int ff_isom_write_av1c(AVIOContext *pb, const uint8_t *buf, int size,
     _frameQueue.pacingStats = [[PacingStats alloc] initWithFrameInterval:1.0 / (frameRate > 0 ? frameRate : 60)
                                                          refreshInterval:1.0 / (_displayHz > 0 ? _displayHz : 60)
                                                             windowLength:5.0];
+    _frameQueue.pacingStats.presenterName = _pacingSettings.presenterName;
 
     // RENDER_METAL begins in StreamFrameViewController
 }
@@ -164,7 +167,8 @@ int DrSubmitDecodeUnit(PDECODE_UNIT decodeUnit);
 {
     PacingStats *pacingStats = _frameQueue.pacingStats;
     if (pacingStats) {
-        Log(LOG_I, @"Last pacing at stop: %@", [PacingStats logLineForWindow:[pacingStats currentWindow]]);
+        Log(LOG_I, @"Last pacing at stop: %@", [pacingStats logLineForWindow:[pacingStats currentWindow]]);
+        Log(LOG_I, @"%@", [pacingStats summaryLineForWindow:[pacingStats totalWindow]]);
     }
     // Only stops the queue if no newer stream has started it
     [_frameQueue stopForOwner:self];

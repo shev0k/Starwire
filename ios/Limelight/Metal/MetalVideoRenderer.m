@@ -488,6 +488,16 @@ static void ReleaseTextures(CVMetalTextureRef *textures, size_t count) {
 }
 
 - (BOOL)renderFrame:(Frame *)frame toLayer:(CAMetalLayer *)layer {
+    return [self renderFrame:frame layer:layer givenDrawable:nil targetTime:0];
+}
+
+- (BOOL)renderFrame:(Frame *)frame intoDrawable:(id<CAMetalDrawable>)drawable ofLayer:(CAMetalLayer *)layer targetTime:(CFTimeInterval)targetTime {
+    return [self renderFrame:frame layer:layer givenDrawable:drawable targetTime:targetTime];
+}
+
+// givenDrawable nil: the render loop, which takes the layer's next drawable. Otherwise the
+// display presenter's drawable.
+- (BOOL)renderFrame:(Frame *)frame layer:(CAMetalLayer *)layer givenDrawable:(id<CAMetalDrawable>)givenDrawable targetTime:(CFTimeInterval)targetTime {
     @autoreleasepool {
         if (self.isStopping) {
             return NO;
@@ -501,6 +511,12 @@ static void ReleaseTextures(CVMetalTextureRef *textures, size_t count) {
         // Handle changes to the frame's colorspace from last time we rendered
         BOOL layerDidChange = NO;
         if (![self updateColorSpaceForFrame:frame toLayer:layer layerDidChange:&layerDidChange]) {
+            return NO;
+        }
+        // A display link drawable made before the layer's pixel format changed doesn't match the
+        // new pipeline. Skip this refresh; the next drawable has the new format.
+        if (givenDrawable && givenDrawable.texture.pixelFormat != layer.pixelFormat) {
+            Log(LOG_I, @"Drawable is from before the pixel format change, skipping frame %d", frame.frameNumber);
             return NO;
         }
 
@@ -621,7 +637,14 @@ static void ReleaseTextures(CVMetalTextureRef *textures, size_t count) {
             return NO;
         }
 
-        id<CAMetalDrawable> drawable = [layer nextDrawable];
+        PacingStats *pacingStats = [FrameQueue sharedInstance].pacingStats;
+        id<CAMetalDrawable> drawable = givenDrawable;
+        if (!drawable) {
+            // How long the loop waits here shows whether drawables, not frames, set its pace
+            CFTimeInterval waitStart = CACurrentMediaTime();
+            drawable = [layer nextDrawable];
+            [pacingStats noteDrawableWait:CACurrentMediaTime() - waitStart];
+        }
         if (!drawable) {
             Log(LOG_E, @"Failed to get nextDrawable");
             dispatch_semaphore_signal(_inFlightSemaphore);
@@ -663,13 +686,12 @@ static void ReleaseTextures(CVMetalTextureRef *textures, size_t count) {
 #if !TARGET_OS_SIMULATOR
         // Why can't the simulator support this?
         __weak MetalVideoRenderer *weakSelf = self;
-        PacingStats *pacingStats = [FrameQueue sharedInstance].pacingStats;
         int frameNumber = frame.frameNumber;
         [drawable addPresentedHandler:^(id<MTLDrawable> d) {
             CFTimeInterval presentedTime = d.presentedTime;
             os_signpost_interval_end(pacingLog, presentId, "present", "frame %d shown %d", frameNumber, presentedTime > 0);
             // presentedTime is 0 when the compositor skipped this drawable
-            [pacingStats notePresentedAt:presentedTime];
+            [pacingStats notePresentedAt:presentedTime target:targetTime];
             MetalVideoRenderer *strongSelf = weakSelf;
             if (!strongSelf || presentedTime <= 0) {
                 return;
@@ -715,9 +737,15 @@ static void ReleaseTextures(CVMetalTextureRef *textures, size_t count) {
 #if TARGET_OS_SIMULATOR
         [commandBuffer presentDrawable:drawable];
 #else
-        // Present for a minimum duration for frame pacing. See PacingMinimumPresentDuration: the
-        // old 1/fps hold sat exactly on a refresh boundary at 120 FPS on a 120 Hz display.
-        [commandBuffer presentDrawable:drawable afterMinimumDuration:_minimumPresentDuration];
+        if (givenDrawable) {
+            // The display link picked the refresh this drawable is for; a minimum duration
+            // would only let the compositor move it later
+            [commandBuffer presentDrawable:drawable];
+        } else {
+            // Present for a minimum duration for frame pacing. See PacingMinimumPresentDuration:
+            // the old 1/fps hold sat exactly on a refresh boundary at 120 FPS on a 120 Hz display.
+            [commandBuffer presentDrawable:drawable afterMinimumDuration:_minimumPresentDuration];
+        }
 #endif
 
         // No waitUntilCompleted: the in-flight semaphore already bounds the work queued on the GPU,
