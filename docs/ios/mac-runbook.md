@@ -55,7 +55,11 @@ The PC is also the Vibeshine host, and the owner may be using it during a run. I
 empty profile, on the stream's own virtual display. The app's entry sets
 `"virtual-display-layout": "extended_isolated"`, so the PC's monitors stay on (Vibeshine's default
 layout, `exclusive`, turns them off for every stream), and the device tests pass
-`-StarwirePlayAudioOnPC YES` so the PC keeps its sound. Other apps keep the host's defaults. It
+`-StarwirePlayAudioOnPC YES` so the PC keeps its sound. Other apps keep the host's defaults. A
+second app, "Starwire colour bars", shows `ios/scripts/colour-bars.html` the same way, for colour
+checks: run `test stream "APP=Starwire colour bars" FRESH=1` (add `AVSB=1` for the system's video
+layer instead of Metal), export the screenshots with `xcrun xcresulttool export attachments`, and
+measure them with `swift ios/scripts/colour-bars.swift <png>`. It
 was added on 25 Oct 2026 with the owner's OK; `apps.json` was backed up next to itself first.
 
 ## Rules for every run

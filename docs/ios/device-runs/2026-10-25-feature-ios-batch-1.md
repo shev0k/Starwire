@@ -115,6 +115,30 @@ stays as a test choice.
 | Background and resume | `testBackgroundAndResume` passed (left the app by opening Settings) |
 | Streams in a row | `testStreamsInARow`: 10 of 10, no alert, no crash (235 s) |
 
+## Colours: full screen against picture in picture (after the owner's report)
+
+The owner saw full screen look washed out and a little yellow next to picture in picture, a
+second or two after returning from it. By then the app's settings were AV1 with HDR on, and the
+PC's monitors were in Windows HDR, so Vibeshine made its virtual display HDR and sent HDR10 (PQ,
+Rec. 2020, mastering peak 990 nits). Measured with the new "Starwire colour bars" test app and the
+iPad's screenshots (`ios/scripts/colour-bars.swift`, centre of each bar, sRGB):
+
+| Bar | PC | Metal, HDR10 metadata (before) | Metal, relative (after) | System video layer (PiP) |
+| --- | --- | --- | --- | --- |
+| White | 255 | 197 | 254 | 246 |
+| 75% grey | 191 | 168 | 203 | 233 |
+| 50% grey | 128 | 126 | 136 | 180 |
+| 25% grey | 64 | 74 | 68 | 97 |
+| Red, green, blue | 255 | 220, 205, 219 | 255 | 255 |
+
+With HDR10 metadata on the layer, iPadOS showed the desktop in absolute nits, dimmer than the
+screen's own white, and squeezed every full colour. Asking for Rec. 709 instead of 601, or for
+standard dynamic range, changed nothing. The fix maps BT.2408 reference white (203 nits) to the
+screen's white and eases highlights into the headroom left, with no metadata. The system's video
+layer lifts the mid greys well above the PC's; full screen now follows the PC more closely than
+picture in picture does. Not yet re-checked by eye, and an HDR game (highlights above white) not
+tried.
+
 ## Problems
 
 1. **The test runs turned off the PC's monitors** and could take its sound: Vibeshine's default
@@ -135,7 +159,8 @@ stays as a test choice.
 7. **The Mac slept between runs.** Its power settings say `sleep 1`; SSH dropped mid-batch and
    two tests ran at once until they were stopped. `mac.sh test` now runs detached and is polled,
    and a time-limited `caffeinate` keeps the Mac awake during a batch.
-8. **One summary test failed** after a new field was added; Xcode then spent minutes collecting
+8. **HDR looked washed out full screen.** See the colours section; fixed.
+9. **One summary test failed** after a new field was added; Xcode then spent minutes collecting
    simulator diagnostics. Fixed the test, and `mac.sh unit` no longer collects them.
 
 ## Parity rows this run verifies
