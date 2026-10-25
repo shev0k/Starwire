@@ -344,10 +344,16 @@ final class InputDeviceRunTests: XCTestCase {
             var args = ["-StarwireStatsOverlay", "YES", "-StarwirePlayAudioOnPC", "YES", "-list_touch_mode", mode,
                         "-StarwireLatencyProbe", "YES"]
             if let v = env["STARWIRE_FPS"] { args += ["-StarwireFrameRate", v] }
+            // TOUCH_LINK=NO: without the low-latency touch delivery, to compare
+            if let v = env["STARWIRE_TOUCH_LINK"] { args += ["-StarwireTouchUpdateLink", v] }
             app.launchArguments = args
             app.launch()
             try startStream()
-            let frame = app.windows.firstMatch.frame
+            let frame = streamScreen.frame
+            let screen = XCUIScreen.main.screenshot().image.size
+            if frame.width * frame.height < screen.width * screen.height * 0.9 {
+                record("scroll \(mode): the app is in a window (\(frame.size)), not full screen")
+            }
             // Multi-touch scrolls with one finger, as on a touchscreen; the other modes with two
             let fingers = mode == "multi_touch" ? 1 : 2
             for drag in 0..<drags {
@@ -378,7 +384,7 @@ final class InputDeviceRunTests: XCTestCase {
         case .landscapeLeft: return .landscapeRight
         case .landscapeRight: return .landscapeLeft
         default:
-            let frame = app.windows.firstMatch.frame
+            let frame = streamScreen.frame
             return frame.width > frame.height ? .landscapeRight : .portrait
         }
     }
