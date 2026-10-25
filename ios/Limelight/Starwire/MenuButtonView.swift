@@ -78,6 +78,22 @@ final class FloatingMenuButton: UIView {
 
     var isDocked: Bool { dockedEdge != nil }
 
+    /// New options during a stream (the menu's More settings)
+    func apply(_ newOptions: MenuButtonOptions) {
+        options = newOptions
+        if options.style == .edge && dockedEdge == nil {
+            dockedEdge = .right
+        } else if options.style == .floating && dockedEdge != nil && options.autoHide == nil {
+            dockedEdge = nil
+            defaults.removeObject(forKey: Self.dockKey)
+        }
+        let size = options.size.points
+        bounds.size = isDocked ? CGSize(width: MenuButtonDock.tabWidth, height: MenuButtonDock.tabHeight) : CGSize(width: size, height: size)
+        restyle()
+        alpha = restingAlpha
+        scheduleAutoHide()
+    }
+
     // MARK: Look
 
     private func restyle() {

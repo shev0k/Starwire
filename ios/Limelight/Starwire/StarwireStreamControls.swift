@@ -26,6 +26,7 @@ final class StarwireStreamControls: NSObject {
     private var fullKeyboard: FullKeyboardView?
     private var controllerKeyboard: UIHostingController<ControllerKeyboardView>?
     private var pictureScaling: PictureScaling
+    private let touchDelivery = TouchDeliveryLink()
 
     // What only the stream screen can do
     @objc var onBitrate: (() -> Void)?
@@ -64,6 +65,13 @@ final class StarwireStreamControls: NSObject {
         super.init()
         input.onOpenMenu = { [weak self] in self?.openMenu() }
         input.onGesture = { [weak self] action in self?.gesture(action) }
+        input.onStreamShortcut = { [weak self] shortcut in
+            switch shortcut {
+            case .menu: self?.toggleMenu()
+            case .stats: self?.onToggleStats?()
+            case .disconnect: self?.onDisconnect?()
+            }
+        }
         input.onNotice = { [weak self] text in self?.onNotice?(text) }
         floatingButton.onTap = { [weak self] in self?.toggleMenu() }
         let gamepads = StarwireGamepads.shared
@@ -76,6 +84,7 @@ final class StarwireStreamControls: NSObject {
     @objc func streamStarted(hostFeatureFlags: UInt32, pcUUID: String?, host: String, appID: Int) {
         input.streamStarted(hostFeatureFlags: hostFeatureFlags, pcUUID: pcUUID, host: host, appID: appID)
         guard let view else { return }
+        touchDelivery.start(in: view)
         if StarwireSettings.store.bool("checkbox_show_onscreen_controls") {
             setOnScreenControls(shown: true)
         }
@@ -121,6 +130,7 @@ final class StarwireStreamControls: NSObject {
     /// before stopping the connection.
     @objc func streamStopping() -> Bool {
         fullKeyboard?.releaseAll()
+        touchDelivery.stop()
         menuHost?.view.removeFromSuperview()
         menuHost = nil
         StarwireGamepads.shared.menuOpen = false
@@ -366,6 +376,17 @@ final class StarwireStreamControls: NSObject {
     /// Settings changed mid-stream: apply the ones that can be
     private func settingsChanged() {
         StarwireSettings.reload()
+        let store = StarwireSettings.store
+        // Live: the gestures, the menu button's look, the full keyboard's layout and size
+        input.dispatcher.gestures.settings = GestureSettings(store: store)
+        floatingButton.apply(MenuButtonOptions(store: store))
+        if let view {
+            floatingButton.place(in: view.bounds.size)
+        }
+        if fullKeyboard != nil {
+            setFullKeyboard(shown: false)
+            setFullKeyboard(shown: true)
+        }
         menuModel.reload()
     }
 
