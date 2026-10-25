@@ -12,6 +12,7 @@
 #import "ServerInfoResponse.h"
 #import "HttpRequest.h"
 #import "DataManager.h"
+#import "Moonlight-Swift.h"
 
 #undef LOG_FILE_CATEGORY
 #define LOG_FILE_CATEGORY LOGCAT_NETWORK
@@ -88,6 +89,7 @@ static const float POLL_RATE = 2.0f; // Poll every 2 seconds
 
 - (void) discoverHost {
     BOOL receivedResponse = NO;
+    BOOL refused = NO;
     NSArray *addresses = [self getHostAddressList];
     
     Log(LOG_D, @"%@ has %d unique addresses", _host.name, [addresses count]);
@@ -104,16 +106,19 @@ static const float POLL_RATE = 2.0f; // Poll every 2 seconds
             }
             
             ServerInfoResponse* serverInfoResp = [self requestInfoAtAddress:address cert:_host.serverCert];
-            receivedResponse = [self checkResponse:serverInfoResp];
-            if (receivedResponse) {
-                _host.activeAddress = address;
-                [serverInfoResp populateHost:_host];
+            NSString* previousAddress = _host.activeAddress;
+            _host.activeAddress = address;
+            DiscoveryAnswer answer = [self acceptResponse:serverInfoResp atAddress:address];
+            if (answer == DiscoveryAnswerAccepted) {
+                receivedResponse = YES;
                 
                 // Update the database using the response
                 DataManager *dataManager = [[DataManager alloc] init];
                 [dataManager updateHost:_host];
                 break;
             }
+            _host.activeAddress = previousAddress;
+            refused |= answer == DiscoveryAnswerRefused;
         }
         
         if (receivedResponse) {
@@ -122,10 +127,69 @@ static const float POLL_RATE = 2.0f; // Poll every 2 seconds
         }
     }
 
+    if (!receivedResponse) {
+        NSNumber* since = _host.refusedSince;
+        [StarwirePairState noAnswerWithRefused:refused refusedSince:&since];
+        _host.refusedSince = since;
+    }
     _host.state = receivedResponse ? StateOnline : StateOffline;
     if (receivedResponse) {
         Log(LOG_D, @"Received response from: %@\n{\n\t address:%@ \n\t localAddress:%@ \n\t externalAddress:%@ \n\t ipv6Address:%@ \n\t uuid:%@ \n\t mac:%@ \n\t pairState:%d \n\t online:%d \n\t activeAddress:%@ \n}", _host.name, _host.address, _host.localAddress, _host.externalAddress, _host.ipv6Address, _host.uuid, _host.mac, _host.pairState, _host.state, _host.activeAddress);
     }
+}
+
+// Starwire: one odd answer can't unpair a PC (StarwirePairState, from daniel-zn's Artemis iOS and
+// Starwire for Android). A pinned PC that answers only without authenticating is ignored for 30
+// seconds, and a paired PC that says over HTTPS that it isn't is asked once more on its own.
+- (DiscoveryAnswer) acceptResponse:(ServerInfoResponse*)response atAddress:(NSString*)address {
+    if (![response isStatusOk]) {
+        return DiscoveryAnswerNone;
+    }
+    // If the response is from a different host then do not update this host
+    if (_host.uuid != nil && ![[response getStringTag:TAG_UNIQUE_ID] isEqualToString:_host.uuid]) {
+        Log(LOG_I, @"Received response from incorrect host: %@ expected: %@", [response getStringTag:TAG_UNIQUE_ID], _host.uuid);
+        return DiscoveryAnswerNone;
+    }
+
+    NSNumber* since = _host.refusedSince;
+    NSInteger state = [StarwirePairState evaluateWithAnswerState:[DiscoveryWorker pairStateOf:response]
+                                                   authenticated:response.authenticated
+                                                      knownState:_host.pairState
+                                                          pinned:_host.serverCert != nil
+                                                    refusedSince:&since
+                                                        askAgain:^NSInteger{
+        Log(LOG_W, @"%@ said it isn't paired; asking once more", self->_host.name);
+        return [self pairStateAgainAtAddress:address];
+    }];
+    _host.refusedSince = since;
+    if (state < 0) {
+        Log(LOG_I, @"%@ answered only without authenticating: not taken as unpaired or online yet", _host.name);
+        return DiscoveryAnswerRefused;
+    }
+
+    [response populateHost:_host];
+    _host.pairState = (PairState)state;
+    return DiscoveryAnswerAccepted;
+}
+
++ (PairState) pairStateOf:(ServerInfoResponse*)response {
+    NSInteger pairStatus;
+    if (![response getIntTag:TAG_PAIR_STATUS value:&pairStatus]) {
+        return PairStateUnknown;
+    }
+    return pairStatus ? PairStatePaired : PairStateUnpaired;
+}
+
+// One more serverinfo request over HTTPS, on its own, with no plain HTTP fallback. -1 if it
+// didn't get an authenticated answer.
+- (NSInteger) pairStateAgainAtAddress:(NSString*)address {
+    HttpManager* hMan = [DiscoveryWorker serverInfoManagerForAddress:address host:_host];
+    ServerInfoResponse* response = [[ServerInfoResponse alloc] init];
+    [hMan executeRequestSynchronously:[HttpRequest requestForResponse:response withUrlRequest:[hMan newServerInfoRequest:true]]];
+    if (![response isStatusOk] || !response.authenticated) {
+        return -1;
+    }
+    return [DiscoveryWorker pairStateOf:response];
 }
 
 // Starwire: a paired host is polled over HTTPS with its pinned certificate, on the HTTPS port it
@@ -145,18 +209,6 @@ static const float POLL_RATE = 2.0f; // Poll every 2 seconds
                                                        withUrlRequest:[hMan newServerInfoRequest:true]
                                        fallbackError:401 fallbackRequest:[hMan newHttpServerInfoRequest]]];
     return response;
-}
-
-- (BOOL) checkResponse:(ServerInfoResponse*)response {
-    if ([response isStatusOk]) {
-        // If the response is from a different host then do not update this host
-        if ((_host.uuid == nil || [[response getStringTag:TAG_UNIQUE_ID] isEqualToString:_host.uuid])) {
-            return YES;
-        } else {
-            Log(LOG_I, @"Received response from incorrect host: %@ expected: %@", [response getStringTag:TAG_UNIQUE_ID], _host.uuid);
-        }
-    }
-    return NO;
 }
 
 @end

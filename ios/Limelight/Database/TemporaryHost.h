@@ -25,6 +25,12 @@
 @property (atomic, nullable, retain) NSString *ipv6Address;
 @property (atomic, nullable, retain) NSString *mac;
 @property (atomic)                   int serverCodecModeSupport;
+// Starwire: since when this PC has answered only without authenticating, on StarwirePairState's
+// clock, or nil. Not saved.
+@property (atomic, nullable, retain) NSNumber *refusedSince;
+// Vibeshine: the PC lets this device put it to sleep (power actions, allowed per device by the
+// PC's owner). From the last authenticated serverinfo. Not saved.
+@property (atomic) BOOL canSleep;
 
 NS_ASSUME_NONNULL_BEGIN
 

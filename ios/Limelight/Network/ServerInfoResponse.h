@@ -24,6 +24,11 @@
 
 @interface ServerInfoResponse : HttpResponse <Response>
 
+// Starwire (from daniel-zn's Artemis iOS): YES when the answer came over HTTPS with the PC's
+// pinned certificate. A plain HTTP answer, like the fallback after a 401, always says "not
+// paired", so it can't be taken as the truth about a pinned PC (StarwirePairState).
+@property (nonatomic) BOOL authenticated;
+
 - (void) populateWithData:(NSData *)data;
 - (void) populateHost:(TemporaryHost*)host;
 

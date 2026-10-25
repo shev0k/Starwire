@@ -11,6 +11,7 @@
 #import "CryptoManager.h"
 #import "TemporaryApp.h"
 #import "ServerInfoResponse.h"
+#import "Moonlight-Swift.h"
 
 #include <libxml2/libxml/xmlreader.h>
 #include <string.h>
@@ -58,7 +59,9 @@
     // Use the same UID for all Moonlight clients to allow them
     // quit games started on another Moonlight client.
     _uniqueId = @"0123456789ABCDEF";
-    _deviceName = deviceName;
+    // Starwire: the name in the settings (or "Starwire on iPad"), not upstream's "roth". Vibeshine
+    // takes the name its owner types with the PIN; other hosts show this one.
+    _deviceName = [HttpManager urlEncode:[StarwireSettings clientName]];
     _serverCert = serverCert;
     
     NSString* address = [Utils addressPortStringToAddress:hostAddressPortString];
@@ -107,6 +110,15 @@
     }
     
     return YES;
+}
+
++ (NSString*) urlEncode:(NSString*)text {
+    NSMutableCharacterSet* allowed = [NSMutableCharacterSet alphanumericCharacterSet];
+    [allowed addCharactersInString:@"-._~"];
+    // alphanumericCharacterSet has letters beyond ASCII; keep only the RFC 3986 unreserved ones
+    NSCharacterSet* ascii = [NSCharacterSet characterSetWithRange:NSMakeRange(0, 128)];
+    [allowed formIntersectionWithCharacterSet:ascii];
+    return [text stringByAddingPercentEncodingWithAllowedCharacters:allowed] ?: @"";
 }
 
 // Logs now reach Release builds, so the stream's input key never goes into them
@@ -172,6 +184,13 @@
     
     if (!respError && request.response) {
         [request.response populateWithData:requestResp];
+        if ([(NSObject*)request.response isKindOfClass:[ServerInfoResponse class]]) {
+            // From daniel-zn's Artemis iOS: HTTPS here means our pinned certificate matched (the
+            // session delegate checks it); a fallback request below sets this again for its plain
+            // HTTP answer, where the host always says "not paired"
+            ((ServerInfoResponse*)request.response).authenticated =
+                _serverCert != nil && [request.request.URL.scheme isEqualToString:@"https"];
+        }
         
         // If the fallback error code was detected, issue the fallback request
         if (request.response.statusCode == request.fallbackError && request.fallbackRequest != NULL) {
@@ -292,10 +311,18 @@
     // indicated by a negative version in the last field.
     int fps = (config.frameRate > 60 && ![config.appVersion containsString:@".-"]) ? 0 : config.frameRate;
     
-    NSString* urlString = [NSString stringWithFormat:@"%@/%@?uniqueid=%@&appid=%@&mode=%dx%dx%d&additionalStates=1&sops=%d&rikey=%@&rikeyid=%d%@&localAudioPlayMode=%d&surroundAudioInfo=%d&remoteControllersBitmap=%d&gcmap=%d&gcpersist=%d%@%s",
+    // Starwire: Vibeshine's launch options from the settings (virtualDisplay, scaleFactor,
+    // clientVrrRequested, clientName), and an exact rate such as 119.88 in mode when the settings
+    // ask for one (StarwireSettings.swift)
+    NSString* mode = fps == config.frameRate
+        ? [StarwireSettings launchModeWithWidth:config.width height:config.height frameRate:config.frameRate]
+        : [NSString stringWithFormat:@"%dx%dx%d", config.width, config.height, fps];
+    NSString* vibeshineOptions = [StarwireSettings launchQueryExtrasWithWidth:config.width height:config.height frameRate:config.frameRate];
+    Log(LOG_I, @"Launch options: %@", [StarwireSettings launchSummaryWithWidth:config.width height:config.height frameRate:config.frameRate]);
+    NSString* urlString = [NSString stringWithFormat:@"%@/%@?uniqueid=%@&appid=%@&mode=%@&additionalStates=1&sops=%d&rikey=%@&rikeyid=%d%@&localAudioPlayMode=%d&surroundAudioInfo=%d&remoteControllersBitmap=%d&gcmap=%d&gcpersist=%d%@%s",
                            _baseHTTPSURL, verb, _uniqueId,
                            config.appID,
-                           config.width, config.height, fps,
+                           mode,
                            config.optimizeGameSettings ? 1 : 0,
                            [Utils bytesToHex:config.riKey], config.riKeyId,
                            (config.supportedVideoFormats & VIDEO_FORMAT_MASK_10BIT) ? @"&hdrMode=1&clientHdrCapVersion=0&clientHdrCapSupportedFlagsInUint32=0&clientHdrCapMetaDataId=NV_STATIC_METADATA_TYPE_1&clientHdrCapDisplayData=0x0x0x0x0x0x0x0x0x0x0": @"",
@@ -303,8 +330,7 @@
                            SURROUNDAUDIOINFO_FROM_AUDIO_CONFIGURATION(config.audioConfiguration),
                            config.gamepadMask, config.gamepadMask,
                            !config.multiController ? 1 : 0,
-                           // Vibeshine: stream a virtual display instead of the PC's monitor
-                           config.virtualDisplay ? @"&virtualDisplay=1" : @"",
+                           vibeshineOptions,
                            LiGetLaunchUrlQueryParameters()];
     Log(LOG_I, @"Requesting: %@", [HttpManager redactSecrets:urlString]);
     // This blocks while the app is launching

@@ -7,6 +7,7 @@
 //
 
 #import "ServerInfoResponse.h"
+#import "Moonlight-Swift.h"
 #import <libxml2/libxml/xmlreader.h>
 
 @implementation ServerInfoResponse
@@ -20,7 +21,8 @@
 - (void) populateHost:(TemporaryHost*)host {
     host.name = [[self getStringTag:TAG_HOSTNAME] trim];
     host.uuid = [[self getStringTag:TAG_UNIQUE_ID] trim];
-    host.mac = [[self getStringTag:TAG_MAC_ADDRESS] trim];
+    // Starwire: a plain HTTP answer says 00:00:00:00:00:00; keep the MAC Wake-on-LAN needs
+    host.mac = [StarwirePairState mergeMacWithSaved:host.mac polled:[[self getStringTag:TAG_MAC_ADDRESS] trim]];
     host.currentGame = [[self getStringTag:TAG_CURRENT_GAME] trim];
     
     NSInteger httpsPort;
@@ -95,6 +97,11 @@
         host.pairState = PairStateUnknown;
     }
     
+    // Vibeshine's power actions: only in the paired view, and only for a device the owner allowed
+    host.canSleep = [[self getStringTag:@"PowerActionVersion"] intValue] > 0 &&
+        [[self getStringTag:@"SleepSupported"] isEqualToString:@"1"] &&
+        [[self getStringTag:@"SleepAllowed"] isEqualToString:@"1"];
+
     NSString *serverCodecModeString = [self getStringTag:@"ServerCodecModeSupport"];
     if (serverCodecModeString != nil) {
         host.serverCodecModeSupport = [[serverCodecModeString trim] intValue];

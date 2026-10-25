@@ -346,6 +346,9 @@
 - (void)updateHost:(TemporaryHost*)host {
     // Discover the hosts before adding to eliminate duplicates
     Log(LOG_D, @"Found host through MDNS: %@:", host.name);
+    @synchronized (_hostQueue) {
+        [DiscoveryManager takeSavedPairingFrom:_hostQueue into:host];
+    }
     // Since this is on a background thread, we do not need to use the opQueue
     DiscoveryWorker* worker = (DiscoveryWorker*)[self createWorkerForHost:host];
     [worker discoverHost];
@@ -357,6 +360,35 @@
     } else {
         Log(LOG_D, @"Found existing host through MDNS: %@", host.name);
     }
+}
+
+// Starwire: a PC that mDNS finds again is polled as the saved PC it is, over HTTPS with its pinned
+// certificate, instead of over plain HTTP, where the host always says "not paired" and which timed
+// out on the iPad while HTTPS worked (phase 0 and 1a device runs). As Android's
+// PairStateCheck.takeSaved does. A PC that isn't saved yet still has to be asked over HTTP.
++ (BOOL) takeSavedPairingFrom:(NSArray<TemporaryHost*>*)savedHosts into:(TemporaryHost*)found {
+    NSMutableSet<NSString*>* foundAddresses = [NSMutableSet set];
+    for (NSString* address in @[ found.address ?: @"", found.localAddress ?: @"", found.ipv6Address ?: @"" ]) {
+        if (address.length > 0) {
+            [foundAddresses addObject:[Utils addressPortStringToAddress:address]];
+        }
+    }
+    for (TemporaryHost* saved in savedHosts) {
+        if (saved.serverCert == nil) {
+            continue;
+        }
+        for (NSString* address in @[ saved.address ?: @"", saved.localAddress ?: @"", saved.ipv6Address ?: @"", saved.activeAddress ?: @"" ]) {
+            if (address.length > 0 && [foundAddresses containsObject:[Utils addressPortStringToAddress:address]]) {
+                found.serverCert = saved.serverCert;
+                found.httpsPort = saved.httpsPort;
+                found.uuid = saved.uuid;
+                found.pairState = saved.pairState;
+                found.mac = saved.mac;
+                return YES;
+            }
+        }
+    }
+    return NO;
 }
 
 - (TemporaryHost*) getHostInDiscovery:(NSString*)uuidString {

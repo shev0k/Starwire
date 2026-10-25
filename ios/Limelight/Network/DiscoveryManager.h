@@ -28,4 +28,8 @@
 - (void) resumeDiscoveryForHost:(TemporaryHost *)host;
 - (void) discoverHost:(NSString*)hostAddress withCallback:(void (^)(TemporaryHost*, NSString*))callback;
 
+// For a PC mDNS found: if it is a saved, paired PC at one of the same addresses, copy that PC's
+// pinned certificate, HTTPS port, UUID, pair state and MAC, so it is polled over HTTPS
++ (BOOL) takeSavedPairingFrom:(NSArray<TemporaryHost*>*)savedHosts into:(TemporaryHost*)found;
+
 @end
