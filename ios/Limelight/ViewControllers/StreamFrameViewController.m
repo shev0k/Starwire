@@ -18,6 +18,7 @@
 #import "MetalVideoRenderer.h"
 #import "StreamAlertGate.h"
 #import "StreamPictureInPicture.h"
+#import "ExternalDisplay.h"
 #import "FrameQueue.h"
 
 #include <sys/socket.h>
@@ -287,6 +288,13 @@
     [self.view bringSubviewToFront:self.imguiView.mtkView];
 
 #if !TARGET_OS_TV
+    // The video goes to an external display when one is set up for it (ExternalDisplay.h)
+    [[NSNotificationCenter defaultCenter] addObserver:self
+                                             selector:@selector(placeVideoView)
+                                                 name:ExternalDisplayDidChangeNotification
+                                               object:nil];
+    [self placeVideoView];
+
     if (StreamUsesPictureInPicture([NSUserDefaults standardUserDefaults])) {
         _pictureInPicture = [[StreamPictureInPicture alloc] initWithView:self.view];
         [FrameQueue sharedInstance].decodedFrameObserver = _pictureInPicture;
@@ -306,6 +314,33 @@
 - (void)viewDidLayoutSubviews {
     [super viewDidLayoutSubviews];
     [_pictureInPicture layout];
+}
+
+// Puts the video on the external display's window while there is one, else back on this screen
+// under the statistics view
+- (void)placeVideoView {
+    UIView *video = self.metalViewController.view;
+    if (!video) {
+        return;
+    }
+#if !TARGET_OS_TV
+    UIView *target = ExternalDisplay.videoWindow.rootViewController.view ?: self.view;
+#else
+    UIView *target = self.view;
+#endif
+    if (video.superview == target) {
+        return;
+    }
+    [video removeFromSuperview];
+    video.frame = target.bounds;
+    video.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+    if (target == self.view) {
+        [self.view insertSubview:video belowSubview:self.imguiView.mtkView];
+        Log(LOG_I, @"Video on this screen");
+    } else {
+        [target addSubview:video];
+        Log(LOG_I, @"Video on the external display");
+    }
 }
 
 - (void)stopPictureInPicture {
@@ -329,6 +364,8 @@
         [self stopPictureInPicture];
         // Stop drawing before the view goes away (VoidLink stops the renderer explicitly too)
         [self.metalViewController shutdown];
+        // It may be on the external display's window, which outlives this screen
+        [self.metalViewController.view removeFromSuperview];
         [_controllerSupport cleanup];
         [UIApplication sharedApplication].idleTimerDisabled = NO;
         [_streamMan stopStream];

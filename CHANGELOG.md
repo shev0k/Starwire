@@ -59,6 +59,9 @@ steps and the checksums for each version.
 - **iOS: picture in picture,** off by default as on Android. With "Picture in picture" on in iOS
   Settings, leaving the app keeps the stream going in a small window you can watch but not
   control. Closing the window ends the stream.
+- **iOS: video on an external display.** "External display" in iOS Settings can put the stream's
+  video on a plugged-in or AirPlay display while the touch controls stay on the iPad or iPhone.
+  Mirroring stays the default. Not yet tried with a display.
 - **iOS: unit tests on the simulator in CI,** including Andy Grundman's frame queue tests, and a
   UI test the Mac runs on the iPad.
 

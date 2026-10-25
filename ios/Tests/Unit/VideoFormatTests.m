@@ -11,6 +11,7 @@
 #import "VideoFormatPolicy.h"
 #import "MetalVideoRenderer.h"
 #import "StreamPictureInPicture.h"
+#import "ExternalDisplay.h"
 #include "Limelight.h"
 
 @interface VideoFormatTests : XCTestCase
@@ -90,6 +91,21 @@
     XCTAssertFalse(StreamUsesPictureInPicture(defaults));
     [defaults setBool:YES forKey:StreamPictureInPictureKey];
     XCTAssertTrue(StreamUsesPictureInPicture(defaults));
+    [defaults removePersistentDomainForName:suite];
+}
+
+
+// Mirroring unless the video is set to go to the display, and only while one is connected
+- (void)testExternalDisplayMode {
+    XCTAssertFalse(ExternalDisplayShowsVideo(ExternalDisplayModeMirror, YES));
+    XCTAssertFalse(ExternalDisplayShowsVideo(ExternalDisplayModeVideo, NO));
+    XCTAssertTrue(ExternalDisplayShowsVideo(ExternalDisplayModeVideo, YES));
+    NSString *suite = @"VideoFormatTests.external";
+    NSUserDefaults *defaults = [[NSUserDefaults alloc] initWithSuiteName:suite];
+    [defaults removePersistentDomainForName:suite];
+    XCTAssertEqual(ExternalDisplayModeFromDefaults(defaults), ExternalDisplayModeMirror);
+    [defaults setObject:@"video" forKey:ExternalDisplayKey];
+    XCTAssertEqual(ExternalDisplayModeFromDefaults(defaults), ExternalDisplayModeVideo);
     [defaults removePersistentDomainForName:suite];
 }
 
