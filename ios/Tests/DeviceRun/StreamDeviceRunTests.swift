@@ -33,7 +33,13 @@
 //    TEST_RUNNER_STARWIRE_YUV444          "1" or "0" for the app's 4:4:4 setting
 //    TEST_RUNNER_STARWIRE_PC_AUDIO        "0" to move the PC's sound to the stream; by default it
 //                                         stays on the PC
-//    TEST_RUNNER_STARWIRE_VIRTUAL_DISPLAY "1" to stream a Vibeshine virtual display
+//    TEST_RUNNER_STARWIRE_VIRTUAL_DISPLAY "1" for a Vibeshine virtual display, "0" for the PC's monitor
+//    TEST_RUNNER_STARWIRE_DISPLAY_MODE    "host", "virtual" or "primary" (Display on the PC)
+//    TEST_RUNNER_STARWIRE_SCALE           the virtual display's scale in percent, like 150
+//    TEST_RUNNER_STARWIRE_EXACT_FPS       an exact rate for mode, like 119.88
+//    TEST_RUNNER_STARWIRE_VRR             "1" to ask for a variable refresh rate virtual display
+//    TEST_RUNNER_STARWIRE_DEMO            "1" for the demo mode (testDemoMode sets it)
+//    TEST_RUNNER_STARWIRE_BITRATES        Mbps to switch to in testBitrateChange (default "20,70")
 //  They become the app's launch arguments, which the app reads as user defaults. The app has no
 //  code for tests.
 //
@@ -73,7 +79,12 @@ final class StreamDeviceRunTests: XCTestCase {
         if let v = env["STARWIRE_YUV444"] { args += ["-StarwireYUV444", v == "1" ? "YES" : "NO"] }
         // The PC's sound stays on the PC unless a run asks otherwise: the owner may be using it
         args += ["-StarwirePlayAudioOnPC", env["STARWIRE_PC_AUDIO"] == "0" ? "NO" : "YES"]
-        if let v = env["STARWIRE_VIRTUAL_DISPLAY"] { args += ["-StarwireVirtualDisplay", v == "1" ? "YES" : "NO"] }
+        if let v = env["STARWIRE_VIRTUAL_DISPLAY"] { args += ["-StarwireVirtualDisplayMode", v == "1" ? "virtual" : "primary"] }
+        if let v = env["STARWIRE_DISPLAY_MODE"] { args += ["-StarwireVirtualDisplayMode", v] }
+        if let v = env["STARWIRE_SCALE"] { args += ["-StarwireScaleFactor", v] }
+        if let v = env["STARWIRE_EXACT_FPS"] { args += ["-StarwireExactFrameRate", v] }
+        if let v = env["STARWIRE_VRR"] { args += ["-StarwireRequestVRR", v == "1" ? "YES" : "NO"] }
+        if let v = env["STARWIRE_DEMO"] { args += ["-StarwireDemoMode", v == "1" ? "YES" : "NO"] }
         app.launchArguments = args
         app.launch()
         record("launch arguments: \(args.joined(separator: " "))")
@@ -168,6 +179,97 @@ final class StreamDeviceRunTests: XCTestCase {
             try assertBackAtAppList()
             XCTAssertEqual(app.state, .runningForeground, "the app is still running after stream \(i)")
         }
+    }
+
+    // Vibeshine's /bitrate during a stream: the stream menu button, a bitrate, the PC's answer.
+    // The overlay is sampled before and after each change, so the report shows the bandwidth.
+    func testBitrateChange() throws {
+        let steps = (env["STARWIRE_BITRATES"] ?? "20,70").split(separator: ",").map(String.init)
+        try startStream()
+        let overlay = try waitForOverlay()
+        sleep(10)
+        record("before:\n\(overlay.label)")
+        for mbps in steps {
+            let button = app.buttons["StreamMenuButton"]
+            XCTAssertTrue(button.waitForExistence(timeout: 10), "no stream menu button")
+            button.tap()
+            let choice = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "\(mbps) Mbps")).firstMatch
+            XCTAssertTrue(choice.waitForExistence(timeout: 5), "no \(mbps) Mbps in the bitrate menu")
+            choice.tap()
+            let toast = app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", "Bitrate")).firstMatch
+            XCTAssertTrue(toast.waitForExistence(timeout: 10), "no answer from the PC")
+            record("asked \(mbps) Mbps: \(toast.label)")
+            XCTAssertEqual(toast.label, "Bitrate \(mbps) Mbps", "the PC didn't apply \(mbps) Mbps")
+            sleep(15)
+            record("15 s after \(mbps) Mbps:\n\(overlay.label)")
+        }
+        screenshot("after the bitrate changes")
+        stopStreamWithEdgeSwipe()
+        try assertBackAtAppList()
+    }
+
+    // Vibeshine's Remote Input tile: a stream with input only, next to whatever runs on the PC
+    func testRemoteInput() throws {
+        let tile = app.buttons.matching(NSPredicate(format: "label == %@", "Remote Input")).firstMatch
+        XCTAssertTrue(tile.waitForExistence(timeout: 30), "no Remote Input tile")
+        tile.tap()
+        let overlay = try waitForOverlay()
+        sleep(10)
+        record("Remote Input:\n\(overlay.label)")
+        screenshot("remote input")
+        stopStreamWithEdgeSwipe()
+        try assertBackAtAppList()
+    }
+
+    // Vibeshine's Remote Monitor tile: this device's own virtual display, kept after the stream
+    // until Disconnect Monitor, whose answer (HTTP 410) the app shows as a message
+    func testRemoteMonitor() throws {
+        let tile = app.buttons.matching(NSPredicate(format: "label == %@", "Remote Monitor")).firstMatch
+        XCTAssertTrue(tile.waitForExistence(timeout: 30), "no Remote Monitor tile")
+        tile.tap()
+        let overlay = try waitForOverlay()
+        sleep(10)
+        record("Remote Monitor:\n\(overlay.label)")
+        screenshot("remote monitor")
+        stopStreamWithEdgeSwipe()
+
+        let disconnect = app.buttons.matching(NSPredicate(format: "label == %@", "Disconnect Monitor")).firstMatch
+        XCTAssertTrue(disconnect.waitForExistence(timeout: 30), "no Disconnect Monitor tile after the stream")
+        disconnect.tap()
+        let alert = app.alerts.firstMatch
+        XCTAssertTrue(alert.waitForExistence(timeout: 30), "no message after Disconnect Monitor")
+        let message = alert.staticTexts.allElementsBoundByIndex.map(\.label).joined(separator: " ")
+        record("Disconnect Monitor: \(message)")
+        screenshot("disconnect monitor")
+        XCTAssertTrue(message.contains("disconnected"), message)
+        alert.buttons["OK"].tap()
+        try assertBackAtAppList()
+    }
+
+    // The demo mode: a made-up PC, a stream of a generated picture, and touches counted
+    func testDemoMode() throws {
+        app.terminate()
+        app.launchArguments += ["-StarwireDemoMode", "YES"]
+        app.launch()
+        let host = app.descendants(matching: .any)["DemoHost"]
+        XCTAssertTrue(host.waitForExistence(timeout: 10), "no demo PC")
+        host.tap()
+        let desktop = app.descendants(matching: .any)["DemoApp-Desktop"]
+        XCTAssertTrue(desktop.waitForExistence(timeout: 10), "no demo apps")
+        desktop.tap()
+        let streaming = app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", "Streaming the demo picture")).firstMatch
+        XCTAssertTrue(streaming.waitForExistence(timeout: 10), "the demo stream didn't start")
+        let video = app.descendants(matching: .any)["DemoVideo"]
+        for _ in 0..<3 {
+            video.tap()
+        }
+        sleep(2)
+        let counts = app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "input events")).firstMatch.label
+        record("demo: \(counts)")
+        screenshot("demo stream")
+        let numbers = counts.split(whereSeparator: { !$0.isNumber }).compactMap { Int($0) }
+        XCTAssertGreaterThan(numbers.first ?? 0, 60, "too few frames: \(counts)")
+        XCTAssertGreaterThanOrEqual(numbers.last ?? 0, 6, "the taps weren't recorded: \(counts)")
     }
 
     // MARK: - Helpers

@@ -56,7 +56,6 @@ extern NSString *const PacingPresenterKey;         // "loop", "display" or "syst
 extern NSString *const PacingPresentTimingKey;     // "nearest" or "frame"
 extern NSString *const PacingDropPolicyKey;        // "alternate" or "newest"
 extern NSString *const PacingFramesToBufferKey;    // 0 = the app's "Frames to buffer" setting, else 1 to 5
-extern NSString *const StreamVirtualDisplayKey;    // YES = ask Vibeshine for a virtual display
 extern NSString *const PacingReduceRefreshRateKey; // YES = let the display drop to the stream's rate
 extern NSString *const StatsOverlayLevelKey;       // "full" or "lite"
 extern NSString *const StreamFrameRateKey;         // a frame rate that replaces the app's setting, for tests
@@ -152,7 +151,5 @@ int PacingRefreshesPerFrame(double linkHz, double presentFps);
 // cadence stays even instead of alternating 8.3 and 25 ms.
 BOOL PacingDisplayShouldTakeFrame(int refreshesSinceShown, int refreshesPerFrame);
 
-// Whether to ask the host for a virtual display (Vibeshine's virtualDisplay=1 launch parameter)
-BOOL StreamUsesVirtualDisplay(NSUserDefaults *defaults);
 
 NS_ASSUME_NONNULL_END

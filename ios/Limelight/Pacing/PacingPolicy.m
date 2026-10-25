@@ -9,7 +9,6 @@ NSString *const PacingPresenterKey = @"StarwirePresenter";
 NSString *const PacingPresentTimingKey =@"StarwirePresentTiming";
 NSString *const PacingDropPolicyKey = @"StarwireDropPolicy";
 NSString *const PacingFramesToBufferKey = @"StarwireFramesToBuffer";
-NSString *const StreamVirtualDisplayKey = @"StarwireVirtualDisplay";
 NSString *const PacingReduceRefreshRateKey = @"StarwireReduceRefreshRate";
 NSString *const StatsOverlayLevelKey = @"StarwireOverlay";
 NSString *const StreamFrameRateKey = @"StarwireFrameRate";
@@ -175,6 +174,3 @@ BOOL PacingDisplayShouldTakeFrame(int refreshesSinceShown, int refreshesPerFrame
     return refreshesSinceShown >= refreshesPerFrame;
 }
 
-BOOL StreamUsesVirtualDisplay(NSUserDefaults *defaults) {
-    return [defaults boolForKey:StreamVirtualDisplayKey];
-}

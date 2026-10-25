@@ -93,14 +93,12 @@ static const double kMs = 1000.0;
     XCTAssertEqual(settings.dropPolicy, FrameDropPolicyAlternate);
     XCTAssertEqual(settings.framesToBufferOverride, 0);
     XCTAssertEqual([settings framesToBufferWithAppSetting:2], 2);
-    XCTAssertFalse(StreamUsesVirtualDisplay(_defaults));
 }
 
 - (void)testSettingsFromDefaults {
     [_defaults setObject:@"frame" forKey:PacingPresentTimingKey];
     [_defaults setObject:@"newest" forKey:PacingDropPolicyKey];
     [_defaults setInteger:3 forKey:PacingFramesToBufferKey];
-    [_defaults setBool:YES forKey:StreamVirtualDisplayKey];
 
     PacingSettings *settings = [[PacingSettings alloc] initWithDefaults:_defaults];
     XCTAssertEqual(settings.presentTiming, PresentTimingFrameInterval);
@@ -108,7 +106,6 @@ static const double kMs = 1000.0;
     XCTAssertEqual([settings framesToBufferWithAppSetting:2], 3);
     XCTAssertEqualObjects(settings.presentTimingName, @"frame");
     XCTAssertEqualObjects(settings.dropPolicyName, @"newest");
-    XCTAssertTrue(StreamUsesVirtualDisplay(_defaults));
 }
 
 - (void)testOutOfRangeBufferOverrideIsIgnored {

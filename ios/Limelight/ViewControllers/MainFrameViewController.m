@@ -8,6 +8,7 @@
 @import ImageIO;
 
 #import "MainFrameViewController.h"
+#import "Moonlight-Swift.h"
 #import "CryptoManager.h"
 #import "HttpManager.h"
 #import "Connection.h"
@@ -495,6 +496,11 @@ static NSMutableSet* hostList;
             self->_showHiddenApps = YES;
             [self hostClicked:host view:view];
         }]];
+        if (host.canSleep) {
+            [longClickAlert addAction:[UIAlertAction actionWithTitle:@"Sleep PC" style:UIAlertActionStyleDefault handler:^(UIAlertAction* action){
+                [self confirmSleepForHost:host];
+            }]];
+        }
 
 #if !TARGET_OS_TV
         if (host.isNvidiaServerSoftware) {
@@ -631,6 +637,10 @@ static NSMutableSet* hostList;
     _streamConfig.serverCert = app.host.serverCert;
 
     DataManager* dataMan = [[DataManager alloc] init];
+    // The settings store follows the settings screen and iOS Settings until phase 3 replaces
+    // them. Copied before the launch arguments below, which must never be saved.
+    [StarwireSettings syncLegacySettings:[dataMan getSettings]];
+    [StarwireSettings reload];
     TemporarySettings* streamSettings = [dataMan getSettings];
     // Launch arguments from the device runs (StreamTestOverrides.h); none in normal use
     NSString* overrides = StreamApplyTestOverrides(streamSettings, [NSUserDefaults standardUserDefaults]);
@@ -667,8 +677,6 @@ static NSMutableSet* hostList;
 
     // multiController must be set before calling getConnectedGamepadMask
     _streamConfig.multiController = streamSettings.multiController;
-    // Set in iOS Settings for now; the app's own settings get it in phase 2
-    _streamConfig.virtualDisplay = StreamUsesVirtualDisplay([NSUserDefaults standardUserDefaults]);
     _streamConfig.fullRange = StreamUsesFullRange([NSUserDefaults standardUserDefaults]);
     _streamConfig.gamepadMask = [ControllerSupport getConnectedGamepadMask:_streamConfig];
 
@@ -871,6 +879,30 @@ static NSMutableSet* hostList;
     [[self activeViewController] presentViewController:alertController animated:YES completion:nil];
 }
 
+// Vibeshine: puts the PC to sleep after asking. It only works with no game running.
+- (void) confirmSleepForHost:(TemporaryHost*)host {
+    UIAlertController* confirm = [UIAlertController alertControllerWithTitle:[NSString stringWithFormat:@"Put %@ to sleep?", host.name]
+                                                                     message:@"Wake it with its power button, its keyboard or Wake-on-LAN."
+                                                              preferredStyle:UIAlertControllerStyleAlert];
+    [confirm addAction:[UIAlertAction actionWithTitle:@"Cancel" style:UIAlertActionStyleCancel handler:nil]];
+    [confirm addAction:[UIAlertAction actionWithTitle:@"Sleep" style:UIAlertActionStyleDestructive handler:^(UIAlertAction* action) {
+        StarwireHostActions* actions = [[StarwireHostActions alloc] initWithAddress:host.activeAddress
+                                                                         httpsPort:host.httpsPort
+                                                                        serverCert:host.serverCert];
+        if (actions == nil) {
+            return;
+        }
+        [actions sleepPC:^(NSString* error) {
+            UIAlertController* result = [UIAlertController alertControllerWithTitle:host.name
+                                                                            message:error ?: @"The PC is going to sleep."
+                                                                     preferredStyle:UIAlertControllerStyleAlert];
+            [result addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleDefault handler:nil]];
+            [[self activeViewController] presentViewController:result animated:YES completion:nil];
+        }];
+    }]];
+    [[self activeViewController] presentViewController:confirm animated:YES completion:nil];
+}
+
 - (void) appClicked:(TemporaryApp *)app view:(UIView *)view {
     Log(LOG_D, @"Clicked app: %@", app.name);
 
@@ -885,7 +917,9 @@ static NSMutableSet* hostList;
     }
 #endif
 
-    if ([self findRunningApp:app.host]) {
+    // Vibeshine's control tiles (Remote Input, Terminate, ...) start at once: they work next to
+    // the running game, and the PC asks itself when something needs confirming
+    if ([self findRunningApp:app.host] && ![StarwireLaunchFlow isControlTile:app.id]) {
         // If there's a running app, display a menu
         [self appLongClicked:app view:view];
     } else {

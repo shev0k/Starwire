@@ -31,7 +31,16 @@ ios/scripts/mac.sh log 20                # start the app with its console log fo
 
 `test` takes `stream`, `resume`, `streams` or a test method name such as `testPictureInPicture`;
 each `VAR=value` becomes `TEST_RUNNER_STARWIRE_VAR`. The `[device-run]` lines come back to
-`build/mac/` on the PC.
+`build/mac/` on the PC. Batch 2 added `testBitrateChange`, `testRemoteInput`, `testRemoteMonitor`
+and `testDemoMode`, and the variables `DISPLAY_MODE`, `SCALE`, `EXACT_FPS`, `VRR` and `BITRATES`
+(listed at the top of `ios/Tests/DeviceRun/StreamDeviceRunTests.swift`).
+
+`unit` signs the simulator build ad hoc (`CODE_SIGN_IDENTITY=-`, no certificate needed): an
+unsigned app gets no Keychain on the simulator (error -34018), and the identity tests need it.
+
+`mac.sh sync` pushes the branch to GitHub, which is public. Check what it would publish first:
+no addresses, MACs, host IDs, keys or values that look like keys, even made-up ones in tests (a
+secret scanner flagged a made-up token in a fixture on 25 Oct 2026).
 
 What it needs on the Mac:
 - The SSH key `~/.ssh/id_ed25519_starwire_mac` on the PC, the Mac's `user@host` in `~/.config/starwire/mac-host`

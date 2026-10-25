@@ -7,6 +7,7 @@
 //
 
 #import "StreamManager.h"
+#import "Moonlight-Swift.h"
 #import "CryptoManager.h"
 #import "HttpManager.h"
 #import "Plot.h"
@@ -95,7 +96,9 @@
 
     // resumeApp and launchApp handle calling launchFailed
     NSString* sessionUrl;
-    if ([serverState hasSuffix:@"_SERVER_BUSY"]) {
+    // Starwire: Vibeshine's control tiles are always launched; /resume would join the game
+    BOOL controlTile = [StarwireLaunchFlow isControlTile:_config.appID];
+    if ([serverState hasSuffix:@"_SERVER_BUSY"] && !controlTile) {
         // App already running, resume it
         if (![self resumeApp:hMan receiveSessionUrl:&sessionUrl]) {
             return;
@@ -136,8 +139,31 @@
 }
 
 - (BOOL) launchApp:(HttpManager*)hMan receiveSessionUrl:(NSString**)sessionUrl {
-    HttpResponse* launchResp = [[HttpResponse alloc] init];
-    [hMan executeRequestSynchronously:[HttpRequest requestForResponse:launchResp withUrlRequest:[hMan newLaunchOrResumeRequest:@"launch" config:_config]]];
+    HttpResponse* launchResp;
+    // Starwire: Vibeshine may answer 410 to ask for confirmation; the same request again within
+    // 60 seconds confirms (StarwireLaunchFlow, at most one question per launch)
+    StarwireLaunchFlow* flow = [[StarwireLaunchFlow alloc] init];
+    for (;;) {
+        launchResp = [[HttpResponse alloc] init];
+        [hMan executeRequestSynchronously:[HttpRequest requestForResponse:launchResp withUrlRequest:[hMan newLaunchOrResumeRequest:@"launch" config:_config]]];
+        StarwireLaunchStep step = [flow nextWithStatusCode:launchResp.statusCode message:launchResp.statusMessage];
+        if (step == StarwireLaunchStepAsk) {
+            Log(LOG_I, @"The PC asks to confirm: %@", launchResp.statusMessage);
+            if ([_callbacks respondsToSelector:@selector(launchNeedsConfirmation:)] &&
+                [_callbacks launchNeedsConfirmation:launchResp.statusMessage] && !_stopped) {
+                continue;
+            }
+            Log(LOG_I, @"Not confirmed");
+            [self finishLaunch:@""];
+            return FALSE;
+        }
+        if (step == StarwireLaunchStepFinished) {
+            Log(LOG_I, @"The PC says: %@", launchResp.statusMessage);
+            [self finishLaunch:launchResp.statusMessage];
+            return FALSE;
+        }
+        break;
+    }
     NSString *gameSession = [launchResp getStringTag:@"gamesession"];
     if (![launchResp isStatusOk]) {
         [_callbacks launchFailed:launchResp.statusMessage];
@@ -151,6 +177,15 @@
 
     *sessionUrl = [launchResp getStringTag:@"sessionUrl0"];
     return TRUE;
+}
+
+// A launch that ended without a stream on purpose: say so (an empty message says nothing)
+- (void) finishLaunch:(NSString*)message {
+    if ([_callbacks respondsToSelector:@selector(launchFinished:)]) {
+        [_callbacks launchFinished:message];
+    } else if (message.length > 0) {
+        [_callbacks launchFailed:message];
+    }
 }
 
 - (BOOL) resumeApp:(HttpManager*)hMan receiveSessionUrl:(NSString**)sessionUrl {

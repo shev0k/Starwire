@@ -24,4 +24,12 @@
 - (void) setControllerLed:(uint16_t)controllerNumber r:(uint8_t)r g:(uint8_t)g b:(uint8_t)b;
 - (void) videoContentShown;
 
+@optional
+// Starwire: Vibeshine asked to confirm the launch (HTTP 410), for Terminate or a game that would
+// close another. Called on the launch thread, which waits for the answer: YES sends it again.
+- (BOOL) launchNeedsConfirmation:(NSString*)message;
+// Starwire: the launch did what it was for and there is no stream (Terminate confirmed,
+// Disconnect Monitor). Show the message and go back.
+- (void) launchFinished:(NSString*)message;
+
 @end

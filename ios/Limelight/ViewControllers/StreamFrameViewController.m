@@ -24,6 +24,7 @@
 #import "StreamTestOverrides.h"
 #import "PacingPolicy.h"
 #import "FrameQueue.h"
+#import "Moonlight-Swift.h"
 
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -70,6 +71,14 @@
     StreamPictureInPicture *_pictureInPicture;
     // The system presenter (PacingPresenterSystem), or nil with Metal
     SystemVideoPresenter *_systemPresenter;
+    // Vibeshine's own requests (bitrate, hardware metrics), nil for a PC with no pinned certificate
+    StarwireHostActions *_hostActions;
+    BOOL _hostSendsMetrics;
+    int _bitrateKbps;
+#if !TARGET_OS_TV
+    // Phase 2's stopgap for the stream menu (phase 5): one button that changes the bitrate
+    UIButton *_streamMenuButton;
+#endif
 
 #if TARGET_OS_TV
     UITapGestureRecognizer *_menuTapGestureRecognizer;
@@ -217,6 +226,14 @@
     _tipLabel.textAlignment = NSTextAlignmentCenter;
     _tipLabel.center = CGPointMake(self.view.frame.size.width / 2, self.view.frame.size.height * 0.9);
     
+    _bitrateKbps = self.streamConfig.bitRate;
+    _hostActions = [[StarwireHostActions alloc] initWithAddress:self.streamConfig.host
+                                                      httpsPort:self.streamConfig.httpsPort
+                                                     serverCert:self.streamConfig.serverCert];
+    [_hostActions capabilities:^(BOOL sleep, BOOL metrics) {
+        self->_hostSendsMetrics = metrics;
+    }];
+
     _streamMan = [[StreamManager alloc] initWithConfig:self.streamConfig
                                             renderView:_streamView
                                    connectionCallbacks:self];
@@ -451,6 +468,14 @@
 
 - (void)updateStatsOverlay {
     NSString* overlayText = [self->_streamMan getStatsOverlayText];
+    // Vibeshine: the PC's CPU and GPU, when the PC sends them (its hardware_metrics setting)
+    if (_hostSendsMetrics) {
+        [_hostActions refreshHardwareMetrics];
+        NSString* hostLine = _hostActions.hardwareMetricsLine;
+        if (overlayText.length > 0 && hostLine.length > 0) {
+            overlayText = [NSString stringWithFormat:@"%@\n%@", overlayText, hostLine];
+        }
+    }
     
     dispatch_async(dispatch_get_main_queue(), ^{
         [self updateOverlayText:overlayText];
@@ -672,6 +697,9 @@
         self->_tipLabel.hidden = YES;
         
         [self->_streamView showOnScreenControls];
+#if !TARGET_OS_TV
+        [self addStreamMenuButton];
+#endif
         
         [self->_controllerSupport connectionEstablished];
         
@@ -775,6 +803,123 @@
 // Every stream error alert goes through here. One failure can report itself twice (a stage
 // failing, then the connection terminating), which showed two alerts at once: the second one is
 // only logged.
+#pragma mark - Vibeshine: confirmation and the bitrate
+
+// Called on the launch thread, which waits here for the answer
+- (BOOL) launchNeedsConfirmation:(NSString*)message {
+    dispatch_semaphore_t answered = dispatch_semaphore_create(0);
+    __block BOOL confirmed = NO;
+    dispatch_async(dispatch_get_main_queue(), ^{
+        UIAlertController* alert = [UIAlertController alertControllerWithTitle:self.streamConfig.appName
+                                                                       message:message
+                                                                preferredStyle:UIAlertControllerStyleAlert];
+        [alert addAction:[UIAlertAction actionWithTitle:@"Cancel" style:UIAlertActionStyleCancel handler:^(UIAlertAction* action) {
+            dispatch_semaphore_signal(answered);
+        }]];
+        [alert addAction:[UIAlertAction actionWithTitle:@"Continue" style:UIAlertActionStyleDestructive handler:^(UIAlertAction* action) {
+            confirmed = YES;
+            dispatch_semaphore_signal(answered);
+        }]];
+        [[self topPresenter] presentViewController:alert animated:YES completion:nil];
+    });
+    dispatch_semaphore_wait(answered, DISPATCH_TIME_FOREVER);
+    return confirmed;
+}
+
+- (void) launchFinished:(NSString*)message {
+    Log(LOG_I, @"Launch finished without a stream: %@", message);
+    dispatch_async(dispatch_get_main_queue(), ^{
+        [UIApplication sharedApplication].idleTimerDisabled = NO;
+        if (message.length == 0) {
+            [self returnToMainFrame];
+            return;
+        }
+        UIAlertController* alert = [UIAlertController alertControllerWithTitle:self.streamConfig.appName
+                                                                       message:message
+                                                                preferredStyle:UIAlertControllerStyleAlert];
+        [alert addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleDefault handler:^(UIAlertAction* action){
+            [self returnToMainFrame];
+        }]];
+        [self presentStreamAlert:alert];
+    });
+}
+
+#if !TARGET_OS_TV
+- (void)addStreamMenuButton {
+    if (_hostActions == nil || _streamMenuButton != nil) {
+        return;
+    }
+    UIButton* button = [UIButton buttonWithType:UIButtonTypeSystem];
+    [button setImage:[UIImage systemImageNamed:@"speedometer"] forState:UIControlStateNormal];
+    button.tintColor = [UIColor whiteColor];
+    button.backgroundColor = [UIColor colorWithWhite:0 alpha:0.4];
+    button.layer.cornerRadius = 20;
+    button.alpha = 0.5;
+    button.accessibilityIdentifier = @"StreamMenuButton";
+    button.accessibilityLabel = @"Change bitrate";
+    button.translatesAutoresizingMaskIntoConstraints = NO;
+    [button addTarget:self action:@selector(showBitrateMenu:) forControlEvents:UIControlEventTouchUpInside];
+    [self.view addSubview:button];
+    [NSLayoutConstraint activateConstraints:@[
+        [button.widthAnchor constraintEqualToConstant:40],
+        [button.heightAnchor constraintEqualToConstant:40],
+        [button.trailingAnchor constraintEqualToAnchor:self.view.safeAreaLayoutGuide.trailingAnchor constant:-12],
+        [button.bottomAnchor constraintEqualToAnchor:self.view.safeAreaLayoutGuide.bottomAnchor constant:-12],
+    ]];
+    _streamMenuButton = button;
+}
+
+- (void)showBitrateMenu:(UIButton*)sender {
+    UIAlertController* menu = [UIAlertController alertControllerWithTitle:@"Bitrate"
+                                                                  message:[NSString stringWithFormat:@"Now %d Mbps. The PC may lower it.", _bitrateKbps / 1000]
+                                                           preferredStyle:UIAlertControllerStyleActionSheet];
+    for (NSNumber* mbps in @[ @10, @20, @30, @50, @70, @100, @150 ]) {
+        int kbps = mbps.intValue * 1000;
+        NSString* title = [NSString stringWithFormat:@"%@ Mbps%@", mbps, kbps == _bitrateKbps ? @" (now)" : @""];
+        [menu addAction:[UIAlertAction actionWithTitle:title style:UIAlertActionStyleDefault handler:^(UIAlertAction* action) {
+            [self changeBitrate:kbps];
+        }]];
+    }
+    [menu addAction:[UIAlertAction actionWithTitle:@"Cancel" style:UIAlertActionStyleCancel handler:nil]];
+    menu.popoverPresentationController.sourceView = sender;
+    menu.popoverPresentationController.sourceRect = sender.bounds;
+    [[self topPresenter] presentViewController:menu animated:YES completion:nil];
+}
+
+- (void)changeBitrate:(int)kbps {
+    [_hostActions setBitrate:kbps completion:^(NSInteger applied, NSString* error) {
+        if (applied > 0) {
+            Log(LOG_I, @"Bitrate changed during the stream: %d kbps asked, %ld applied", kbps, (long)applied);
+            self->_bitrateKbps = (int)applied;
+            [self showToast:[NSString stringWithFormat:@"Bitrate %ld Mbps", (long)applied / 1000]];
+        } else {
+            Log(LOG_W, @"Bitrate change refused: %@", error);
+            [self showToast:[NSString stringWithFormat:@"Bitrate not changed: %@", error ?: @""]];
+        }
+    }];
+}
+
+// A short message above the stream that fades by itself
+- (void)showToast:(NSString*)text {
+    PaddedLabel* toast = [[PaddedLabel alloc] initWithFrame:CGRectZero];
+    [toast setTextInsets:UIEdgeInsetsMake(8, 14, 8, 14)];
+    toast.text = text;
+    toast.accessibilityIdentifier = @"StreamToast";
+    toast.textColor = [UIColor whiteColor];
+    toast.backgroundColor = [UIColor colorWithWhite:0 alpha:0.7];
+    toast.layer.cornerRadius = 10;
+    toast.layer.masksToBounds = YES;
+    [toast sizeToFit];
+    toast.center = CGPointMake(self.view.bounds.size.width / 2, self.view.bounds.size.height - 60);
+    [self.view addSubview:toast];
+    [UIView animateWithDuration:0.4 delay:2.5 options:0 animations:^{
+        toast.alpha = 0;
+    } completion:^(BOOL finished) {
+        [toast removeFromSuperview];
+    }];
+}
+#endif
+
 - (void)presentStreamAlert:(UIAlertController *)alert {
     if (![_alertGate shouldPresentAlertWithTitle:alert.title ?: @""]) {
         Log(LOG_W, @"Not showing a second stream alert: %@: %@", alert.title, alert.message);

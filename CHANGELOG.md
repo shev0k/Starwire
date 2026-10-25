@@ -79,11 +79,32 @@ steps and the checksums for each version.
   1080p at 60 FPS worked, with about 14.5 ms per made-up frame, and 2420x1668 is too large.
 - **iOS: unit tests on the simulator in CI,** including Andy Grundman's frame queue tests, and a
   UI test the Mac runs on the iPad.
+- **iOS: Vibeshine's launch options** in iOS Settings: "Display on the PC" (the PC decides, a
+  virtual display, or the PC's own monitor), the virtual display's scale, an exact frame rate
+  such as 119.88 Hz, a variable refresh rate virtual display, and the name this device gives
+  the PC.
+- **iOS: change the bitrate during a stream** from the button in the stream's corner, through
+  Vibeshine's `/bitrate`. The PC may lower what you ask for; the app shows what it applied.
+- **iOS: Vibeshine's Remote Input and Remote Monitor tiles** start at once, even with a game
+  running, and Terminate and Disconnect Monitor show the PC's question or answer. The PC asks
+  to confirm Terminate, and the app asks you.
+- **iOS: "Sleep PC"** in a PC's menu, when the PC's owner allows this device to sleep it
+  (Vibeshine's power actions). Vibeshine 2.0.1 doesn't have them yet, so it hasn't been tried.
+- **iOS: the PC's CPU and GPU in the statistics overlay,** when the PC sends hardware metrics
+  (off by default in Vibeshine, and not in 2.0.1).
+- **iOS: a demo mode** in iOS Settings: a made-up PC and a moving test picture, to try the app
+  with no PC.
+- **iOS: settings in one store with Android's keys,** with per-game settings and a JSON file
+  format for moving settings between Starwire for Android and iOS. There's no screen for the
+  file yet (phase 3).
 
 ### Changed
 
 - **iOS: moonlight-common-c now comes from the owner's fork** (`starwire-ios`), which is Nonary's
   pinned commit plus five official fixes, including the RFI and partial IDR frame loss fixes.
+- **iOS: the client certificate and key are in the Keychain,** for this device only, instead
+  of plain files. They move over unchanged on the first launch, so the PC still knows the
+  device.
 
 ### Fixed
 
@@ -108,6 +129,11 @@ steps and the checksums for each version.
   showing box art.
 - **iOS: a normal launch no longer logs "Loading frame already shown!" as an error.** It is
   expected when one PC is saved.
+- **iOS: one odd answer no longer unpairs a PC.** A PC that answers only over plain HTTP keeps
+  its pairing for 30 seconds, and a paired PC that says it isn't is asked once more.
+- **iOS: a poll no longer forgets the PC's MAC address,** which Wake-on-LAN needs.
+- **iOS: a PC found again on the network is checked over HTTPS** with its pinned certificate,
+  not plain HTTP, which timed out on the iPad.
 
 ## [0.2.1] - 2026-10-23
 
