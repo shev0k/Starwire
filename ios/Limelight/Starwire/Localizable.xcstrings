@@ -16549,6 +16549,39 @@
         }
       }
     },
+    "ios_recommended" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Recommended"
+          }
+        }
+      }
+    },
+    "ios_resolution_full_screen" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This device, full screen (%1$@)"
+          }
+        }
+      }
+    },
+    "ios_resolution_safe_area" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This device, safe area (%1$@)"
+          }
+        }
+      }
+    },
     "ios_resume_running" : {
       "extractionState" : "manual",
       "localizations" : {

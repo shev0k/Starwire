@@ -625,12 +625,40 @@ struct SettingRow: View {
         }
     }
 
+    /// The resolution lists start with this device's own sizes, worked out from its screen
+    private var deviceSizes: [(title: String, value: String)] {
+        guard item.id == "list_resolution" || item.id == "list_app_resolution",
+              let window = AppState.topViewController()?.view.window else { return [] }
+        let insets = window.safeAreaInsets
+        let choices = DeviceResolutions.choices(screen: window.bounds.size,
+                                                insets: (insets.top, insets.left, insets.bottom, insets.right),
+                                                scale: window.screen.scale)
+        var sizes = [(L("ios_resolution_full_screen", choices.fullScreen), choices.fullScreen)]
+        if choices.safeArea != choices.fullScreen {
+            sizes.append((L("ios_resolution_safe_area", choices.safeArea), choices.safeArea))
+        }
+        return sizes
+    }
+
     private func listMenu(entries: [String], values: [String], allowsCustom: Bool) -> some View {
         let current = model.string(item.id)
         let index = values.firstIndex(of: current)
+        let device = deviceSizes
+        let deviceTitle = device.first { $0.value == current }?.title
         // Vibeshine has no in-stream microphone (the Apollo route)
         let shown = values.indices.filter { !(item.id == "list_microphone_target" && values[$0] == "host") }
         return Menu {
+            ForEach(device, id: \.value) { size in
+                Button {
+                    model.set(.string(size.value), for: item.id)
+                } label: {
+                    if size.value == current {
+                        Label(size.title, systemImage: "checkmark")
+                    } else {
+                        Text(size.title)
+                    }
+                }
+            }
             ForEach(shown, id: \.self) { i in
                 Button {
                     model.set(.string(values[i]), for: item.id)
@@ -647,7 +675,7 @@ struct SettingRow: View {
             }
         } label: {
             HStack(spacing: 6) {
-                Text(index.map { L(entries[$0]) } ?? current)
+                Text(deviceTitle ?? index.map { L(entries[$0]) } ?? current)
                     .lineLimit(1)
                 Image(systemName: "chevron.up.chevron.down")
                     .font(.caption)
@@ -744,14 +772,60 @@ struct SettingSlider: View {
                 .accessibilityLabel(title)
                 .accessibilityValue(text(value))
                 .accessibilityIdentifier("setting-\(key)")
-            Button(text(value)) {
-                if allowsCustom { askValue(value) }
+            if allowsCustom {
+                // A number can be typed straight in (the bitrate in Mbps, past the slider's end too)
+                HStack(spacing: 4) {
+                    TextField(title, text: $typed)
+                        .keyboardType(.decimalPad)
+                        .multilineTextAlignment(.trailing)
+                        .font(.body.monospacedDigit())
+                        .frame(width: 64)
+                        .focused($editing)
+                        .onSubmit(commit)
+                        .onAppear { typed = number(value) }
+                        .onChange(of: value) { _, new in if !editing { typed = number(new) } }
+                        .onChange(of: editing) { _, now in if !now { commit() } }
+                        .accessibilityIdentifier("setting-\(key)-value")
+                    if let unit {
+                        Text(unit).foregroundStyle(.white.opacity(0.8))
+                    }
+                }
+                .padding(.horizontal, 10)
+                .frame(minHeight: 36)
+                .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(Color.white.opacity(0.12)))
+                if model.store.savedValue(key) != nil && model.store.defaultValue(key) != model.store.savedValue(key)
+                    && SettingsCatalog.definition(key)?.defaultValue == nil {
+                    // A computed default (the bitrate follows the resolution and frame rate)
+                    Button(L("ios_recommended")) { model.reset(key) }
+                        .buttonStyle(.bordered)
+                        .accessibilityIdentifier("setting-\(key)-recommended")
+                }
+            } else {
+                Text(text(value))
+                    .font(.body.monospacedDigit())
+                    .frame(minWidth: 80, alignment: .trailing)
+                    .accessibilityHidden(true)
             }
-            .buttonStyle(.plain)
-            .font(.body.monospacedDigit())
-            .frame(minWidth: 80, alignment: .trailing)
-            .accessibilityHidden(!allowsCustom)
         }
+    }
+
+    @FocusState private var editing: Bool
+
+    private func number(_ value: Int) -> String {
+        divisor > 1
+            ? (value % divisor == 0 ? String(value / divisor) : String(format: "%.1f", Double(value) / Double(divisor)))
+            : String(value)
+    }
+
+    private func commit() {
+        if let number = Double(typed.replacingOccurrences(of: ",", with: ".")), number > 0 {
+            let saved = Int((number * Double(divisor)).rounded())
+            if (try? model.store.set(.int(saved), for: key)) == nil {
+                state.message(title, L("ios_custom_value_bad"))
+            }
+            model.set(model.value(key) ?? .int(saved), for: key)
+        }
+        typed = number(model.int(key))
     }
 
     private func text(_ value: Int) -> String {

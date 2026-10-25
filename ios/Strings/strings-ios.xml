@@ -278,4 +278,7 @@
     <string name="ios_group_controller_keyboard">Controller keyboard</string>
     <string name="ios_title_controller_keyboard">Use it after a controller</string>
     <string name="ios_summary_controller_keyboard">When you ask for a keyboard and a controller was the last thing you used, a keyboard you work with the controller opens.</string>
+    <string name="ios_resolution_full_screen">This device, full screen (%1$s)</string>
+    <string name="ios_resolution_safe_area">This device, safe area (%1$s)</string>
+    <string name="ios_recommended">Recommended</string>
 </resources>
