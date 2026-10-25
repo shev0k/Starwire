@@ -64,6 +64,9 @@ void PacingWindowAccumulate(PacingWindow *total, const PacingWindow *w) {
     AccumulateIntervals(&total->shown, &w->shown);
     total->presentSkipped += w->presentSkipped;
     total->presentLate += w->presentLate;
+    total->latencySamples += w->latencySamples;
+    total->latencySeconds += w->latencySeconds;
+    total->maxLatencyMs = MAX(total->maxLatencyMs, w->maxLatencyMs);
     AccumulateIntervals(&total->refresh, &w->refresh);
     total->refreshesWithFrame += w->refreshesWithFrame;
     total->refreshesWithoutFrame += w->refreshesWithoutFrame;
@@ -159,10 +162,10 @@ void PacingWindowAccumulate(PacingWindow *total, const PacingWindow *w) {
 }
 
 - (void)notePresentedAt:(CFTimeInterval)presentedTime {
-    [self notePresentedAt:presentedTime target:0];
+    [self notePresentedAt:presentedTime target:0 decodedAt:0];
 }
 
-- (void)notePresentedAt:(CFTimeInterval)presentedTime target:(CFTimeInterval)target {
+- (void)notePresentedAt:(CFTimeInterval)presentedTime target:(CFTimeInterval)target decodedAt:(CFTimeInterval)decodedAt {
     os_unfair_lock_lock(&_lock);
     if (presentedTime <= 0) {
         _current.presentSkipped++;
@@ -173,6 +176,14 @@ void PacingWindowAccumulate(PacingWindow *total, const PacingWindow *w) {
         }
         if (target > 0 && presentedTime - target > _step / 2.0) {
             _current.presentLate++;
+        }
+        if (decodedAt > 0 && presentedTime >= decodedAt) {
+            double latency = presentedTime - decodedAt;
+            _current.latencySamples++;
+            _current.latencySeconds += latency;
+            if (latency * 1000.0 > _current.maxLatencyMs) {
+                _current.maxLatencyMs = latency * 1000.0;
+            }
         }
         _lastPresented = presentedTime;
     }
@@ -286,13 +297,18 @@ static double MeanMs(PacingIntervals intervals) {
     return intervals.total > 0 ? intervals.sumSeconds * 1000.0 / intervals.total : 0.0;
 }
 
+static double MeanLatencyMs(PacingWindow w) {
+    return w.latencySamples > 0 ? w.latencySeconds * 1000.0 / w.latencySamples : 0.0;
+}
+
 - (NSString *)logLineForWindow:(PacingWindow)w {
     int drops = TotalDrops(w);
     return [NSString stringWithFormat:
             @"pacing window %.1f s: in %d, drops %d (%.2f%%: incoming %d, oldest %d, replaced %d, after burst %d), max queue %d; "
             "arrival gaps burst/on time/late/gap %d/%d/%d/%d, max %.1f ms; "
             "shown %d, shown for %@, mean %.2f ms, max %.1f ms, off grid %d, late %d, skipped by compositor %d; "
-            "refresh %@, mean %.2f ms; refreshes with/without a new frame %d/%d; drawable wait mean %.2f ms, max %.1f ms",
+            "refresh %@, mean %.2f ms; refreshes with/without a new frame %d/%d; drawable wait mean %.2f ms, max %.1f ms; "
+            "decode to screen mean %.1f ms, max %.1f ms",
             w.windowSeconds, w.arrivals, drops, Percent(drops, w.arrivals),
             w.drops[PacingDropIncoming], w.drops[PacingDropOldest], w.drops[PacingDropReplaced], w.dropsAfterBurst, w.maxQueueDepth,
             w.arrivalBursts, w.arrivalOnTime, w.arrivalLate, w.arrivalGaps, w.maxArrivalGapMs,
@@ -300,17 +316,18 @@ static double MeanMs(PacingIntervals intervals) {
             w.presentLate, w.presentSkipped,
             [self histogramOf:w.refresh], MeanMs(w.refresh),
             w.refreshesWithFrame, w.refreshesWithoutFrame,
-            w.drawableWaits > 0 ? w.drawableWaitSeconds * 1000.0 / w.drawableWaits : 0.0, w.maxDrawableWaitMs];
+            w.drawableWaits > 0 ? w.drawableWaitSeconds * 1000.0 / w.drawableWaits : 0.0, w.maxDrawableWaitMs,
+            MeanLatencyMs(w), w.maxLatencyMs];
 }
 
 - (NSString *)overlayLineForWindow:(PacingWindow)w {
     return [NSString stringWithFormat:@"Pacing: bursts %.1f%%, drops after burst %d, skipped %d, late %d\n"
-            "Shown for %@, mean %.2f ms, refresh %.2f ms",
+            "Shown for %@, mean %.2f ms, refresh %.2f ms, decode to screen %.1f ms",
             Percent(w.arrivalBursts, w.arrivals > 1 ? w.arrivals - 1 : 0),
             w.dropsAfterBurst,
             w.presentSkipped,
             w.presentLate,
-            [self histogramOf:w.shown], MeanMs(w.shown), MeanMs(w.refresh)];
+            [self histogramOf:w.shown], MeanMs(w.shown), MeanMs(w.refresh), MeanLatencyMs(w)];
 }
 
 - (NSString *)summaryLineForWindow:(PacingWindow)w {
@@ -319,13 +336,15 @@ static double MeanMs(PacingIntervals intervals) {
     return [NSString stringWithFormat:
             @"Pacing summary (%@): %.0f s, in %d, drops %.2f%% (incoming %d, oldest %d, replaced %d), shown %d, "
             "shown for %@, mean %.2f ms, off grid %.1f%%, late %d, skipped %d; "
-            "refresh mean %.2f ms, off grid %.1f%%; refreshes without a new frame %.1f%%; drawable wait mean %.2f ms",
+            "refresh mean %.2f ms, off grid %.1f%%; refreshes without a new frame %.1f%%; drawable wait mean %.2f ms; "
+            "decode to screen mean %.1f ms, max %.1f ms",
             self.presenterName, w.windowSeconds, w.arrivals, Percent(drops, w.arrivals),
             w.drops[PacingDropIncoming], w.drops[PacingDropOldest], w.drops[PacingDropReplaced], w.presented,
             [self histogramOf:w.shown], MeanMs(w.shown), Percent(w.shown.offGrid, w.shown.total), w.presentLate, w.presentSkipped,
             MeanMs(w.refresh), Percent(w.refresh.offGrid, w.refresh.total),
             Percent(w.refreshesWithoutFrame, refreshes),
-            w.drawableWaits > 0 ? w.drawableWaitSeconds * 1000.0 / w.drawableWaits : 0.0];
+            w.drawableWaits > 0 ? w.drawableWaitSeconds * 1000.0 / w.drawableWaits : 0.0,
+            MeanLatencyMs(w), w.maxLatencyMs];
 }
 
 @end

@@ -2,7 +2,8 @@
 //  PacingTests.m
 //  Starwire
 //
-//  The present-timing rule, the pacing settings, the drop policies and the pacing statistics.
+//  The present-timing rule, the pacing settings, the drop policies, the pacing statistics and the
+//  display presenter's choice of frame.
 //  Every time here is made up and passed in; nothing reads a clock.
 //
 
@@ -293,14 +294,29 @@ static const double kMs = 1000.0;
 
 - (void)testPresentLaterThanItsTargetIsLate {
     PacingStats *stats = [self stats120];
-    [stats notePresentedAt:10.0 target:10.0];
+    [stats notePresentedAt:10.0 target:10.0 decodedAt:0];
     // 1 ms late is the same refresh as far as the panel is concerned
-    [stats notePresentedAt:10.0093 target:10.0083];
+    [stats notePresentedAt:10.0093 target:10.0083 decodedAt:0];
     // a whole refresh late
-    [stats notePresentedAt:10.025 target:10.0167];
+    [stats notePresentedAt:10.025 target:10.0167 decodedAt:0];
     // no target known (the render loop)
     [stats notePresentedAt:10.05];
     XCTAssertEqual([stats currentWindow].presentLate, 1);
+}
+
+- (void)testDecodeToScreenLatency {
+    PacingStats *stats = [self stats120];
+    [stats notePresentedAt:20.010 target:0 decodedAt:20.000];
+    [stats notePresentedAt:20.0283 target:0 decodedAt:20.0083];
+    // Unknown decode time, a skipped drawable, and a clock that went backwards: not counted
+    [stats notePresentedAt:20.04 target:0 decodedAt:0];
+    [stats notePresentedAt:0 target:0 decodedAt:20.03];
+    [stats notePresentedAt:20.05 target:0 decodedAt:20.06];
+    PacingWindow w = [stats currentWindow];
+    XCTAssertEqual(w.latencySamples, 2);
+    XCTAssertEqualWithAccuracy(w.latencySeconds * 1000.0 / w.latencySamples, 15.0, 0.001);
+    XCTAssertEqualWithAccuracy(w.maxLatencyMs, 20.0, 0.001);
+    XCTAssertTrue([[stats overlayLineForWindow:w] containsString:@"decode to screen 15.0 ms"]);
 }
 
 - (void)testRefreshesWithAndWithoutAFrame {

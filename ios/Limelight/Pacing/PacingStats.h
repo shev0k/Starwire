@@ -72,6 +72,11 @@ typedef struct {
     // Shown more than half a step after the refresh they were rendered for. Only the display
     // presenter knows that refresh.
     int presentLate;
+    // From the end of decoding to the moment the frame appeared: the time a frame spends in the
+    // queue, the render and the compositor. Shown frames only.
+    int latencySamples;
+    double latencySeconds;
+    double maxLatencyMs;
 
     // The time between display refreshes, as the display link reports them
     PacingIntervals refresh;
@@ -109,8 +114,9 @@ void PacingWindowAccumulate(PacingWindow *total, const PacingWindow *window);
 // Called with the queue depth after each enqueue
 - (void)noteQueueDepth:(NSUInteger)depth;
 // Called from the drawable's presented handler. presentedTime 0 means the compositor skipped it.
-// target is the time the frame was rendered for, or 0 if not known.
-- (void)notePresentedAt:(CFTimeInterval)presentedTime target:(CFTimeInterval)target;
+// target is the time the frame was rendered for, and decodedAt the time its decoding ended; 0
+// for either means not known.
+- (void)notePresentedAt:(CFTimeInterval)presentedTime target:(CFTimeInterval)target decodedAt:(CFTimeInterval)decodedAt;
 - (void)notePresentedAt:(CFTimeInterval)presentedTime;
 // The time from one display refresh to the next, from a display link
 - (void)noteRefreshInterval:(double)interval;

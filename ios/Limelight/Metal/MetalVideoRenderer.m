@@ -687,11 +687,12 @@ static void ReleaseTextures(CVMetalTextureRef *textures, size_t count) {
         // Why can't the simulator support this?
         __weak MetalVideoRenderer *weakSelf = self;
         int frameNumber = frame.frameNumber;
+        CFTimeInterval decodedAt = frame.decodedAt;
         [drawable addPresentedHandler:^(id<MTLDrawable> d) {
             CFTimeInterval presentedTime = d.presentedTime;
             os_signpost_interval_end(pacingLog, presentId, "present", "frame %d shown %d", frameNumber, presentedTime > 0);
             // presentedTime is 0 when the compositor skipped this drawable
-            [pacingStats notePresentedAt:presentedTime target:targetTime];
+            [pacingStats notePresentedAt:presentedTime target:targetTime decodedAt:decodedAt];
             MetalVideoRenderer *strongSelf = weakSelf;
             if (!strongSelf || presentedTime <= 0) {
                 return;
