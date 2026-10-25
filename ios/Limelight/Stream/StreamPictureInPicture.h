@@ -23,6 +23,9 @@ NS_ASSUME_NONNULL_BEGIN
 
 // The user default and launch argument
 extern NSString *const StreamPictureInPictureKey;
+// Launch argument only: show the sample buffer layer full screen instead of the Metal view, so
+// the device runs can compare the two renderers' colours
+extern NSString *const StreamShowSampleBufferLayerKey;
 BOOL StreamUsesPictureInPicture(NSUserDefaults *defaults);
 
 // Whether to pass a decoded frame to the layer: every frame while picture in picture is up,
@@ -40,6 +43,8 @@ BOOL StreamEndsOnBackground(BOOL pictureInPictureActive);
 - (nullable instancetype)initWithView:(UIView *)view;
 - (instancetype)init NS_UNAVAILABLE;
 
+// Feed every frame, not two a second: for showing the layer full screen in a colour comparison
+@property (atomic) BOOL feedsEveryFrame;
 // Showing or about to show (from willStart to didStop)
 @property (atomic, readonly) BOOL active;
 // Times it started this stream

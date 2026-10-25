@@ -306,8 +306,15 @@
                                                object:nil];
     [self placeVideoView];
 
-    if (StreamUsesPictureInPicture([NSUserDefaults standardUserDefaults])) {
+    BOOL showSampleBufferLayer = [[NSUserDefaults standardUserDefaults] boolForKey:StreamShowSampleBufferLayerKey];
+    if (StreamUsesPictureInPicture([NSUserDefaults standardUserDefaults]) || showSampleBufferLayer) {
         _pictureInPicture = [[StreamPictureInPicture alloc] initWithView:self.view];
+        if (showSampleBufferLayer) {
+            // A colour comparison: the system's video layer full screen, Metal hidden
+            Log(LOG_I, @"Showing the sample buffer layer instead of Metal");
+            _pictureInPicture.feedsEveryFrame = YES;
+            self.metalViewController.view.hidden = YES;
+        }
         [FrameQueue sharedInstance].decodedFrameObserver = _pictureInPicture;
         __weak StreamFrameViewController *weakSelf = self;
         _pictureInPicture.onStop = ^(BOOL restored) {

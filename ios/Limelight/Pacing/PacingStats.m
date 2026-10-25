@@ -223,6 +223,7 @@ void PacingWindowAccumulate(PacingWindow *total, const PacingWindow *w) {
         _jitterBufferName = @"off";
         _interpolationNote = @"off";
         _pictureInPictureNote = @"off";
+        _colourNote = @"-";
         _gapTimes = calloc(PACING_MAX_GAP_TIMES, sizeof(double));
         _shownIntervals = calloc(PACING_MAX_SHOWN, sizeof(double));
     }
@@ -586,7 +587,7 @@ static double MeanJitterTarget(PacingWindow w) {
             "decode to screen mean %.1f ms, max %.1f ms; "
             "network %@; network to screen mean %.1f ms, max %.1f ms; "
             "jitter buffer %@, held mean %.2f, max %d, catch up %d; 1%% low (worst 5 s) %.1f FPS; "
-            "interpolation %@, made %d, failed %d, mean %.2f ms; picture in picture %@",
+            "interpolation %@, made %d, failed %d, mean %.2f ms; picture in picture %@; colour %@",
             self.presenterName, w.windowSeconds, w.arrivals, Percent(drops, w.arrivals),
             w.drops[PacingDropIncoming], w.drops[PacingDropOldest], w.drops[PacingDropReplaced],
             w.arrivalLate, w.arrivalGaps, w.maxArrivalGapMs, w.presented,
@@ -601,7 +602,7 @@ static double MeanJitterTarget(PacingWindow w) {
             w.onePercentLowFps,
             self.interpolationNote, w.interpolated, w.interpolationFailures,
             w.interpolated > 0 ? w.interpolationSeconds * 1000.0 / w.interpolated : 0.0,
-            self.pictureInPictureNote];
+            self.pictureInPictureNote, self.colourNote];
 }
 
 @end

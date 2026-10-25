@@ -7,9 +7,14 @@
 #include <Limelight.h>
 
 NSString *const StreamFullRangeKey = @"StarwireFullRange";
+NSString *const StreamColorSpaceKey = @"StarwireColorSpace";
 
 BOOL StreamUsesFullRange(NSUserDefaults *defaults) {
     return [defaults boolForKey:StreamFullRangeKey];
+}
+
+int StreamColorSpaceFromDefaults(NSUserDefaults *defaults) {
+    return [[defaults stringForKey:StreamColorSpaceKey] isEqualToString:@"709"] ? COLORSPACE_REC_709 : COLORSPACE_REC_601;
 }
 
 OSType StreamDecoderPixelFormat(int videoFormat, BOOL fullRange) {

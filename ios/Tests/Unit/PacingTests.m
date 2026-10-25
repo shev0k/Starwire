@@ -722,9 +722,9 @@ static const double kMs = 1000.0;
 
 - (void)testSummaryShowsPictureInPicture {
     PacingStats *stats = [self stats120];
-    XCTAssertTrue([[stats summaryLineForWindow:[stats totalWindow]] hasSuffix:@"; picture in picture off"]);
+    XCTAssertTrue([[stats summaryLineForWindow:[stats totalWindow]] containsString:@"; picture in picture off; colour -"]);
     stats.pictureInPictureNote = @"closed, started 1";
-    XCTAssertTrue([[stats summaryLineForWindow:[stats totalWindow]] hasSuffix:@"; picture in picture closed, started 1"]);
+    XCTAssertTrue([[stats summaryLineForWindow:[stats totalWindow]] containsString:@"; picture in picture closed, started 1;"]);
 }
 
 - (void)testRefreshesPerFrame {

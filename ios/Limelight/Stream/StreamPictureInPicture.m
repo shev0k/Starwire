@@ -10,6 +10,7 @@
 #define LOG_FILE_CATEGORY LOGCAT_VIDEO
 
 NSString *const StreamPictureInPictureKey = @"StarwirePictureInPicture";
+NSString *const StreamShowSampleBufferLayerKey = @"StarwireShowSampleBufferLayer";
 
 // While the app is in front: two frames a second keep the layer ready
 static const CFTimeInterval kIdleEnqueueInterval = 0.5;
@@ -101,7 +102,7 @@ BOOL StreamEndsOnBackground(BOOL pictureInPictureActive) {
         // The first frame of a stream: its statistics exist now
         [FrameQueue sharedInstance].pacingStats.pictureInPictureNote = [self note];
     }
-    if (!pixelBuffer || !PictureInPictureShouldEnqueue(self.active, now, _lastEnqueue, kIdleEnqueueInterval)) {
+    if (!pixelBuffer || !PictureInPictureShouldEnqueue(self.active || self.feedsEveryFrame, now, _lastEnqueue, kIdleEnqueueInterval)) {
         return;
     }
     _lastEnqueue = now;

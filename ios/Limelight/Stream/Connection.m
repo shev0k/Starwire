@@ -12,6 +12,7 @@
 #import "SessionOwnership.h"
 #import "FrameQueue.h"
 #import "PacingStats.h"
+#import "VideoFormatPolicy.h"
 #import "CoreAudioHelpers.h"
 
 #import <VideoToolbox/VideoToolbox.h>
@@ -513,6 +514,7 @@ void ClSetControllerLED(uint16_t controllerNumber, uint8_t r, uint8_t g, uint8_t
     _streamConfig.supportedVideoFormats = config.supportedVideoFormats;
     _streamConfig.audioConfiguration = config.audioConfiguration;
     _streamConfig.colorRange = config.fullRange ? COLOR_RANGE_FULL : COLOR_RANGE_LIMITED;
+    _streamConfig.colorSpace = StreamColorSpaceFromDefaults([NSUserDefaults standardUserDefaults]);
 
     // Since we require iOS 12 or above, we're guaranteed to be running
     // on a 64-bit device with ARMv8 crypto instructions, so we don't

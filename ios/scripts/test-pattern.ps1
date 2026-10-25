@@ -14,6 +14,11 @@ Install: copy this file to %LOCALAPPDATA%\StarwireTestPattern\ and point the app
     powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "%LOCALAPPDATA%\StarwireTestPattern\test-pattern.ps1"
 #>
 
+param(
+    # What to show: testufo.com by default, or a page such as colour-bars.html next to this script
+    [string]$Url = 'https://www.testufo.com'
+)
+
 $ErrorActionPreference = 'Stop'
 $root = Join-Path $env:LOCALAPPDATA 'StarwireTestPattern'
 $log = Join-Path $root 'test-pattern.log'
@@ -44,7 +49,7 @@ $arguments = @(
     '--kiosk', '--no-first-run', '--no-default-browser-check', '--disable-session-crashed-bubble',
     "--user-data-dir=`"$(Join-Path $root 'chrome')`"",
     "--window-position=$($b.X + 50),$($b.Y + 50)", "--window-size=800,600",
-    'https://www.testufo.com'
+    $Url
 )
 $process = Start-Process -FilePath $chrome -ArgumentList $arguments -PassThru
 $process.WaitForExit()

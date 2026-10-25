@@ -187,6 +187,9 @@ CFTimeInterval PacingMediaTimeFromMicroseconds(uint64_t timeUs, uint64_t nowUs, 
 @property (atomic, copy) NSString *interpolationNote;
 // What picture in picture has done this stream, for the summary ("off" by default)
 @property (atomic, copy) NSString *pictureInPictureNote;
+// How frames are drawn: the frames' pixel format and colour tags, and the layer's colour space
+// and pixel format, for the summary ("-" until the first frame)
+@property (atomic, copy) NSString *colourNote;
 // Render loop: how long nextDrawable took
 - (void)noteDrawableWait:(double)seconds;
 

@@ -26,6 +26,8 @@
 //    TEST_RUNNER_STARWIRE_INTERPOLATION   "1" for frame interpolation (iOS 26 or later)
 //    TEST_RUNNER_STARWIRE_FPS             a frame rate instead of the app's setting, like 60
 //    TEST_RUNNER_STARWIRE_CODEC           av1, hevc, h264 or auto instead of the app's setting
+//    TEST_RUNNER_STARWIRE_COLORSPACE      "601" or "709": the colour space asked of the host
+//    TEST_RUNNER_STARWIRE_AVSB            "1" shows the system's video layer instead of Metal
 //    TEST_RUNNER_STARWIRE_RESOLUTION      WIDTHxHEIGHT instead of the app's setting
 //    TEST_RUNNER_STARWIRE_HDR             "1" or "0" for the app's HDR setting
 //    TEST_RUNNER_STARWIRE_YUV444          "1" or "0" for the app's 4:4:4 setting
@@ -46,7 +48,7 @@ final class StreamDeviceRunTests: XCTestCase {
 
     private var appName: String { env["STARWIRE_APP"] ?? "Starwire test pattern" }
     // Apps the tests may quit on the PC to start theirs: never someone's game
-    private let quittableApps = ["Starwire test pattern", "Desktop"]
+    private let quittableApps = ["Starwire test pattern", "Starwire colour bars", "Desktop"]
 
     override func setUpWithError() throws {
         continueAfterFailure = false
@@ -64,6 +66,8 @@ final class StreamDeviceRunTests: XCTestCase {
         if let v = env["STARWIRE_INTERPOLATION"] { args += ["-StarwireFrameInterpolation", v == "1" ? "YES" : "NO"] }
         if let v = env["STARWIRE_FPS"] { args += ["-StarwireFrameRate", v] }
         if let v = env["STARWIRE_CODEC"] { args += ["-StarwireCodec", v] }
+        if let v = env["STARWIRE_COLORSPACE"] { args += ["-StarwireColorSpace", v] }
+        if let v = env["STARWIRE_AVSB"] { args += ["-StarwireShowSampleBufferLayer", v == "1" ? "YES" : "NO"] }
         if let v = env["STARWIRE_RESOLUTION"] { args += ["-StarwireResolution", v] }
         if let v = env["STARWIRE_HDR"] { args += ["-StarwireHDR", v == "1" ? "YES" : "NO"] }
         if let v = env["STARWIRE_YUV444"] { args += ["-StarwireYUV444", v == "1" ? "YES" : "NO"] }
