@@ -103,8 +103,9 @@ final class InputMenuTests: XCTestCase {
 
     func testShortcutAndMonitorPages() {
         let shortcuts = StreamMenu.items(on: .shortcuts, state: StreamMenuState())
-        XCTAssertEqual(shortcuts.count, 15)
+        XCTAssertEqual(shortcuts.count, 16)
         XCTAssertEqual(shortcuts.first?.title, "Esc")
+        XCTAssertEqual(shortcuts[14].action, .manageShortcuts)
         XCTAssertEqual(shortcuts.last?.action, .back)
         let monitors = StreamMenu.items(on: .monitors, state: StreamMenuState())
         XCTAssertEqual(monitors.map(\.title), ["Monitor 1", "Monitor 2", "Monitor 3", "Monitor 4", "Monitor 5", "Monitor 6", "Back"])

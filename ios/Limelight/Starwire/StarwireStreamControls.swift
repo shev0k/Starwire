@@ -152,6 +152,10 @@ final class StarwireStreamControls: NSObject {
         case .toggleFloatingButton: setFloatingButton(shown: !floatingButtonShown)
         case .customCommand(let command):
             input.run(command) { [weak self] after in self?.after(after) }
+        case .manageShortcuts:
+            if let presenter = topViewController() {
+                presentShortcutsManager(from: presenter) { [weak self] in self?.menu?.reload() }
+            }
         case .quit: onQuit?()
         case .disconnect: onDisconnect?()
         case .openPage, .back, .close: break
@@ -191,6 +195,15 @@ final class StarwireStreamControls: NSObject {
             popover.sourceRect = CGRect(x: view.bounds.maxX - 240, y: view.bounds.midY, width: 1, height: 1)
         }
         present?(sheet)
+    }
+
+    /// The view controller on top, to present a sheet from
+    private func topViewController() -> UIViewController? {
+        var top = view?.window?.rootViewController
+        while let presented = top?.presentedViewController {
+            top = presented
+        }
+        return top
     }
 
     // MARK: Overlays

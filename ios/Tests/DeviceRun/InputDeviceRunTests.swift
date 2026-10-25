@@ -160,7 +160,11 @@ final class InputDeviceRunTests: XCTestCase {
 
         // Dragging the button moves it and doesn't open the menu
         let start = button.frame
-        button.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).press(forDuration: 0.1, thenDragTo: app.windows.firstMatch.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.15)))
+        // To the other side from where an earlier run left it
+        let screen = app.windows.firstMatch.frame
+        let target = CGVector(dx: start.midX > screen.midX ? 0.1 : 0.9, dy: start.midY > screen.midY ? 0.2 : 0.7)
+        button.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+            .press(forDuration: 0.1, thenDragTo: app.windows.firstMatch.coordinate(withNormalizedOffset: target))
         sleep(1)
         XCTAssertFalse(app.otherElements["StreamMenu"].exists, "dragging the button opened the menu")
         XCTAssertNotEqual(button.frame.origin, start.origin, "the button didn't move")
@@ -176,6 +180,16 @@ final class InputDeviceRunTests: XCTestCase {
         esc.tap()
         XCTAssertTrue(waitForCount(.keys, atLeast: before.keys + 2), "Esc didn't reach the PC")
         XCTAssertTrue(waitFor("last key 0x1B up"))
+
+        // Manage on the Shortcuts page: the custom commands editor and the shortcut file import
+        openMenuWithThreeFingers()
+        tapMenu("menu_shortcuts")
+        tapMenu("menu_manage_shortcuts")
+        XCTAssertTrue(app.buttons["AddCommand"].waitForExistence(timeout: 5), "no Add command in Manage")
+        XCTAssertTrue(app.buttons["ImportShortcuts"].exists, "no Import from Files in Manage")
+        screenshot("shortcuts and commands")
+        app.buttons["ShortcutsManagerDone"].tap()
+        XCTAssertTrue(waitForGone(app.buttons["AddCommand"]), "Done didn't close Manage")
 
         // The Monitors page lists six (not pressed: it would switch the PC's display)
         openMenuWithThreeFingers()

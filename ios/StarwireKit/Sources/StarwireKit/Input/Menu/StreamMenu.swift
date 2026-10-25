@@ -32,6 +32,8 @@ public enum StreamMenuAction: Equatable, Sendable {
     case editOnScreenControls
     case toggleFloatingButton
     case customCommand(CustomCommand)
+    /// The custom commands editor and shortcut file import (Android has them in its settings)
+    case manageShortcuts
     case back
     case close
     case quit
@@ -130,7 +132,8 @@ public enum StreamMenu {
             return all.enumerated().map { index, shortcut in
                 StreamMenuItem(id: "shortcut_\(index)", title: shortcut.name, symbol: "", action: .keys(shortcut), isOn: nil,
                                closesMenu: true)
-            } + [backItem]
+            } + [StreamMenuItem(id: "manage_shortcuts", title: "Manage", symbol: "", action: .manageShortcuts, isOn: nil,
+                                closesMenu: true), backItem]
         case .monitors:
             return (1...6).map { n in
                 StreamMenuItem(id: "monitor_\(n)", title: "Monitor \(n)", symbol: "display", action: .keys(MonitorSwitch.shortcut(monitor: n)!),
