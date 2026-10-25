@@ -8,6 +8,9 @@ from pathlib import Path, PureWindowsPath
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "covers"))
 import install_covers  # noqa: E402
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+import install_latency_app  # noqa: E402
 import make_covers  # noqa: E402
 
 
@@ -41,6 +44,24 @@ class CoversTest(unittest.TestCase):
         self.assertEqual(install_covers.changed_fields(apps, {"apps": [{"name": "Desktop", "cmd": "y"}]}),
                          [("Desktop", "cmd")])
         self.assertEqual(install_covers.changed_fields(apps, {"apps": []}), [("*", "structure")])
+
+
+class LatencyAppTest(unittest.TestCase):
+    def test_the_app_is_a_copy_of_the_colour_bars_with_the_latency_page(self):
+        apps = {"apps": [
+            {"name": "Desktop"},
+            {"name": "Starwire colour bars", "cmd": "x -Url colour", "virtual-display-layout": "extended_isolated",
+             "uuid": "abc"},
+        ]}
+        folder = Path("C:/StarwireTestPattern")
+        after = install_latency_app.with_latency_app(apps, folder)
+        self.assertEqual(after["apps"][:2], apps["apps"], "the other apps stay as they were")
+        app = after["apps"][2]
+        self.assertEqual(app["name"], "Starwire input latency")
+        self.assertEqual(app["virtual-display-layout"], "extended_isolated")
+        self.assertIn("input-latency.html", app["cmd"])
+        self.assertNotIn("uuid", app)
+        self.assertEqual(install_latency_app.with_latency_app(after, folder), after, "added once only")
 
 
 if __name__ == "__main__":

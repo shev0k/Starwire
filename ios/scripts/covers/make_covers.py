@@ -23,6 +23,7 @@ COVERS = {
     "starwire-test-pattern": "Starwire test pattern",
     "starwire-colour-bars": "Starwire colour bars",
     "starwire-gamepad-tester": "Starwire gamepad tester",
+    "starwire-input-latency": "Starwire input latency",
 }
 
 
@@ -137,10 +138,26 @@ def gamepad() -> str:
   </g>"""
 
 
+def latency() -> str:
+    """The input latency page: the two squares that flip, over a list being scrolled."""
+    rows = "".join(f'<rect x="-150" y="{-60 + i * 44}" width="300" height="34" rx="8" fill="#1E1B3A" opacity="{0.9 - i * 0.12:.2f}"/>'
+                   for i in range(6))
+    return f"""
+  <g transform="translate(300 320)">
+    <rect x="-166" y="-166" width="332" height="332" rx="22" fill="#0B0A1F" stroke="url(#rainbow)" stroke-width="6"/>
+    <rect x="-150" y="-150" width="70" height="70" rx="8" fill="#FFFFFF"/>
+    <rect x="-70" y="-150" width="70" height="70" rx="8" fill="#05040D" stroke="#E9D5FF" stroke-width="3"/>
+    <path d="M40 -140 L40 -90 M25 -105 L40 -88 L55 -105" stroke="#FDE68A" stroke-width="6" fill="none" stroke-linecap="round"/>
+    {rows}
+    <path d="M110 -60 L110 150" stroke="#A78BFA" stroke-width="6" stroke-linecap="round" opacity="0.6"/>
+  </g>"""
+
+
 ART = {
     "starwire-test-pattern": ufo,
     "starwire-colour-bars": colour_bars,
     "starwire-gamepad-tester": gamepad,
+    "starwire-input-latency": latency,
 }
 
 
