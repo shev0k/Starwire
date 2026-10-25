@@ -61,7 +61,7 @@ final class KeychainIdentityTests: XCTestCase {
         XCTAssertEqual(try keychain.read(.certificate), Data("two".utf8))
     }
 
-    func testTheOldFilesMoveIntoTheKeychainAndStay() throws {
+    func testTheOldFilesMoveIntoTheKeychainAndGo() throws {
         let files = FileIdentityStore(folder: folder)
         for (item, data) in identity {
             try files.write(data, for: item)
@@ -69,10 +69,26 @@ final class KeychainIdentityTests: XCTestCase {
         StarwireIdentity.reset(keychain: keychain, files: files)
 
         XCTAssertEqual(StarwireIdentity.data(forItem: "client.key"), identity[.privateKey])
-        XCTAssertTrue(StarwireIdentity.migrationOutcome.hasPrefix("migrated"), StarwireIdentity.migrationOutcome)
+        XCTAssertEqual(StarwireIdentity.migrationOutcome, "migrated(filesRemoved: true)")
         for (item, data) in identity {
             XCTAssertEqual(try keychain.read(item), data)
-            XCTAssertEqual(try files.read(item), data, "batch 2 keeps the files until the device run proves the copy")
+            XCTAssertNil(try files.read(item), "the files go once the Keychain holds the same bytes")
+        }
+    }
+
+    func testFilesLeftFromTheFirstBatch2BuildGoOnTheNextLaunch() throws {
+        // The first batch 2 build copied the identity and kept the files
+        let files = FileIdentityStore(folder: folder)
+        for (item, data) in identity {
+            try files.write(data, for: item)
+            try keychain.write(data, for: item)
+        }
+        StarwireIdentity.reset(keychain: keychain, files: files)
+
+        XCTAssertEqual(StarwireIdentity.data(forItem: "client.p12"), identity[.pkcs12])
+        XCTAssertEqual(StarwireIdentity.migrationOutcome, "alreadyInKeychain(filesRemoved: true)")
+        for item in IdentityItem.allCases {
+            XCTAssertNil(try files.read(item))
         }
     }
 

@@ -107,7 +107,7 @@ final class FileIdentityStore: IdentityStore {
 final class StarwireIdentity: NSObject {
     /// The old files go once the Keychain holds the same bytes. Batch 2 shipped first with this
     /// off and proved on the iPad that the Keychain copy kept it paired, then turned it on.
-    static let removeFilesAfterMigration = false
+    static let removeFilesAfterMigration = true
 
     private static let lock = NSLock()
     private static var migrated = false
