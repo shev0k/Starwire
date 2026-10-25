@@ -632,7 +632,7 @@ static NSMutableSet* hostList;
     DataManager* dataMan = [[DataManager alloc] init];
     TemporarySettings* streamSettings = [dataMan getSettings];
 
-    _streamConfig.frameRate = [streamSettings.framerate intValue];
+    _streamConfig.frameRate = StreamFrameRateWithOverride([NSUserDefaults standardUserDefaults], [streamSettings.framerate intValue]);
     if (@available(iOS 10.3, *)) {
         // Don't stream more FPS than the display can show
         if (_streamConfig.frameRate > [UIScreen mainScreen].maximumFramesPerSecond) {

@@ -12,6 +12,7 @@ NSString *const PacingFramesToBufferKey = @"StarwireFramesToBuffer";
 NSString *const StreamVirtualDisplayKey = @"StarwireVirtualDisplay";
 NSString *const PacingReduceRefreshRateKey = @"StarwireReduceRefreshRate";
 NSString *const StatsOverlayLevelKey = @"StarwireOverlay";
+NSString *const StreamFrameRateKey = @"StarwireFrameRate";
 
 @implementation PacingSettings
 
@@ -118,6 +119,11 @@ PacingRefreshRange PacingDisplayRefreshRange(double streamFps, double displayHz,
         return (PacingRefreshRange){fps, fps, fps};
     }
     return (PacingRefreshRange){fps, display, display};
+}
+
+int StreamFrameRateWithOverride(NSUserDefaults *defaults, int appSetting) {
+    NSInteger rate = [defaults integerForKey:StreamFrameRateKey];
+    return rate > 0 ? (int)rate : appSetting;
 }
 
 BOOL StreamUsesVirtualDisplay(NSUserDefaults *defaults) {

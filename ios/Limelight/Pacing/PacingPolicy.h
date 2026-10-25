@@ -52,6 +52,7 @@ extern NSString *const PacingFramesToBufferKey;    // 0 = the app's "Frames to b
 extern NSString *const StreamVirtualDisplayKey;    // YES = ask Vibeshine for a virtual display
 extern NSString *const PacingReduceRefreshRateKey; // YES = let the display drop to the stream's rate
 extern NSString *const StatsOverlayLevelKey;       // "full" or "lite"
+extern NSString *const StreamFrameRateKey;         // a frame rate that replaces the app's setting, for tests
 
 typedef NS_ENUM(NSInteger, StatsOverlayLevel) {
     // Every line: video, network, pacing and the whole-stream summary
@@ -120,6 +121,10 @@ CFTimeInterval PacingDisplayFrameWait(CFTimeInterval now, CFTimeInterval targetT
 // for the stream's rate; otherwise for the display's top rate, never below the stream's.
 // Anything not positive falls back to 60.
 PacingRefreshRange PacingDisplayRefreshRange(double streamFps, double displayHz, BOOL reduceRefreshRate);
+
+// The app's frame rate setting, or StreamFrameRateKey when that is set above 0. Launch argument
+// only (`-StarwireFrameRate 60`), so a device run can try a rate without touching the settings.
+int StreamFrameRateWithOverride(NSUserDefaults *defaults, int appSetting);
 
 // Whether to ask the host for a virtual display (Vibeshine's virtualDisplay=1 launch parameter)
 BOOL StreamUsesVirtualDisplay(NSUserDefaults *defaults);

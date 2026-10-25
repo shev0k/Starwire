@@ -31,7 +31,7 @@
 			<key>Title</key>
 			<string>Display</string>
 			<key>FooterText</key>
-			<string>Lower display refresh rates can save power at the expense of some additional video latency. Full range video loses detail in light and dark areas if the PC doesn't send it properly. Picture in picture lets you watch the stream, but not control it, while another app is open. External display: video on the display keeps the touch controls on this screen; plug the display in again after changing it. The statistics overlay itself is turned on in the app's settings.</string>
+			<string>Lower display refresh rates can save power at the expense of some additional video latency. Full range video loses detail in light and dark areas if the PC doesn't send it properly. Picture in picture lets you watch the stream, but not control it, while another app is open. External display: video on the display keeps the touch controls on this screen; plug the display in again after changing it. Frame interpolation (iPadOS 26 or later) adds a made-up frame between each pair, so a 60 FPS stream shows at 120 Hz, for about half a frame of extra latency. It only runs at sizes the iPad allows. The statistics overlay itself is turned on in the app's settings.</string>
 		</dict>
 		<dict>
 			<key>Type</key>
@@ -62,6 +62,16 @@
 				<string>mirror</string>
 				<string>video</string>
 			</array>
+		</dict>
+		<dict>
+			<key>Type</key>
+			<string>PSToggleSwitchSpecifier</string>
+			<key>Title</key>
+			<string>Frame interpolation</string>
+			<key>Key</key>
+			<string>StarwireFrameInterpolation</string>
+			<key>DefaultValue</key>
+			<false/>
 		</dict>
 		<dict>
 			<key>Type</key>

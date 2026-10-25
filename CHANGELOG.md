@@ -62,6 +62,9 @@ steps and the checksums for each version.
 - **iOS: video on an external display.** "External display" in iOS Settings can put the stream's
   video on a plugged-in or AirPlay display while the touch controls stay on the iPad or iPhone.
   Mirroring stays the default. Not yet tried with a display.
+- **iOS: frame interpolation on iPadOS and iOS 26 or later,** off by default. VideoToolbox makes
+  a frame between each pair, so a 60 FPS stream shows at 120 Hz, for about half a frame of extra
+  latency plus the processing time. It runs only at sizes the device allows.
 - **iOS: unit tests on the simulator in CI,** including Andy Grundman's frame queue tests, and a
   UI test the Mac runs on the iPad.
 

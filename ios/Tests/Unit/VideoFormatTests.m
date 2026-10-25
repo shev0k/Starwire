@@ -12,6 +12,8 @@
 #import "MetalVideoRenderer.h"
 #import "StreamPictureInPicture.h"
 #import "ExternalDisplay.h"
+#import "FrameInterpolator.h"
+#import "PacingPolicy.h"
 #include "Limelight.h"
 
 @interface VideoFormatTests : XCTestCase
@@ -106,6 +108,30 @@
     XCTAssertEqual(ExternalDisplayModeFromDefaults(defaults), ExternalDisplayModeMirror);
     [defaults setObject:@"video" forKey:ExternalDisplayKey];
     XCTAssertEqual(ExternalDisplayModeFromDefaults(defaults), ExternalDisplayModeVideo);
+    [defaults removePersistentDomainForName:suite];
+}
+
+
+// Interpolation needs room on the display for twice the stream's rate
+- (void)testFrameInterpolationApplies {
+    XCTAssertTrue(FrameInterpolationApplies(YES, YES, 60, 120));
+    XCTAssertTrue(FrameInterpolationApplies(YES, YES, 59.94, 120));
+    XCTAssertFalse(FrameInterpolationApplies(YES, YES, 120, 120));
+    XCTAssertFalse(FrameInterpolationApplies(NO, YES, 60, 120));
+    XCTAssertFalse(FrameInterpolationApplies(YES, NO, 60, 120));
+    XCTAssertFalse(FrameInterpolationApplies(YES, YES, 0, 120));
+    // The simulator has no frame interpolation
+    XCTAssertFalse([FrameInterpolator isAvailable]);
+    XCTAssertNil([[FrameInterpolator alloc] initWithWidth:1920 height:1080]);
+}
+
+- (void)testFrameRateOverrideIsOnlyUsedWhenSet {
+    NSString *suite = @"VideoFormatTests.fps";
+    NSUserDefaults *defaults = [[NSUserDefaults alloc] initWithSuiteName:suite];
+    [defaults removePersistentDomainForName:suite];
+    XCTAssertEqual(StreamFrameRateWithOverride(defaults, 120), 120);
+    [defaults setInteger:60 forKey:StreamFrameRateKey];
+    XCTAssertEqual(StreamFrameRateWithOverride(defaults, 120), 60);
     [defaults removePersistentDomainForName:suite];
 }
 

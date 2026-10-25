@@ -19,6 +19,8 @@
 #import "StreamAlertGate.h"
 #import "StreamPictureInPicture.h"
 #import "ExternalDisplay.h"
+#import "FrameInterpolator.h"
+#import "PacingPolicy.h"
 #import "FrameQueue.h"
 
 #include <sys/socket.h>
@@ -116,6 +118,7 @@
     [UIApplication sharedApplication].idleTimerDisabled = YES;
     
     _settings = [[[DataManager alloc] init] getSettings];
+    _settings.framerate = @(StreamFrameRateWithOverride([NSUserDefaults standardUserDefaults], [_settings.framerate intValue]));
     _alertGate = [[StreamAlertGate alloc] init];
 
     _stageLabel = [[UILabel alloc] init];
@@ -270,8 +273,15 @@
 
     // Metal view for video
     Log(LOG_I, @"StreamFrameViewController creating MetalViewController");
+    // With frame interpolation the screen shows twice the stream's frames (FrameInterpolator.h)
+    float presentRate = [self->_settings.framerate floatValue];
+    if ([FrameInterpolator appliesWithDefaults:[NSUserDefaults standardUserDefaults]
+                                         width:self.streamConfig.width height:self.streamConfig.height
+                                           fps:presentRate displayHz:UIScreen.mainScreen.maximumFramesPerSecond]) {
+        presentRate *= 2;
+    }
     self.metalViewController = [[MetalViewController alloc] initWithFrame:self.view.bounds
-                                                                framerate:[self->_settings.framerate floatValue]
+                                                                framerate:presentRate
                                                                 enableHdr:self->_settings.enableHdr
                                                            metricsHandler:self.imguiView.metricsHandler];
     self.metalViewController.view.userInteractionEnabled = NO;

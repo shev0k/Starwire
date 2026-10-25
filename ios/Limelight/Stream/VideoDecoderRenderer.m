@@ -21,6 +21,7 @@
 #import "PacingPolicy.h"
 #import "PacingStats.h"
 #import "VideoFormatPolicy.h"
+#import "FrameInterpolator.h"
 #import <os/signpost.h>
 
 #include <libavcodec/avcodec.h>
@@ -48,6 +49,11 @@ extern int ff_isom_write_av1c(AVIOContext *pb, const uint8_t *buf, int size,
     int _videoFormat;
     // Full range video was asked of the host (StarwireFullRange)
     BOOL _fullRange;
+    // Frame interpolation (FrameInterpolator.h): the interpolator and the last decoded frame,
+    // used on the output queue only
+    FrameInterpolator *_interpolator;
+    CVPixelBufferRef _previousPixelBuffer;
+    CMTime _previousPts;
     int _frameRate;
 
     NSMutableArray *_parameterSetBuffers;
@@ -116,15 +122,24 @@ extern int ff_isom_write_av1c(AVIOContext *pb, const uint8_t *buf, int size,
     // reset plot data in case we've already used it for a previous renderer
     [[ImGuiPlots sharedInstance] clearData];
 
+    // Frame interpolation doubles the frames that reach the queue and the screen
+    [_interpolator invalidate];
+    _interpolator = nil;
+    if ([FrameInterpolator appliesWithDefaults:[NSUserDefaults standardUserDefaults] width:videoWidth height:videoHeight
+                                           fps:frameRate displayHz:_displayHz]) {
+        _interpolator = [[FrameInterpolator alloc] initWithWidth:videoWidth height:videoHeight];
+    }
+    double queueRate = (frameRate > 0 ? frameRate : 60) * (_interpolator ? 2 : 1);
+
     // A new pacing record for this stream, logged every 5 seconds
-    _frameQueue.pacingStats = [[PacingStats alloc] initWithFrameInterval:1.0 / (frameRate > 0 ? frameRate : 60)
+    _frameQueue.pacingStats = [[PacingStats alloc] initWithFrameInterval:1.0 / queueRate
                                                          refreshInterval:1.0 / (_displayHz > 0 ? _displayHz : 60)
                                                             windowLength:5.0];
     _frameQueue.pacingStats.presenterName = _pacingSettings.presenterName;
     _frameQueue.pacingStats.jitterBufferName = _pacingSettings.jitterBufferName;
 
     // The display presenter's jitter buffer, and room in the queue for what it holds
-    _frameQueue.jitterBuffer = [_pacingSettings makeJitterBufferForFrameInterval:1.0 / (frameRate > 0 ? frameRate : 60)];
+    _frameQueue.jitterBuffer = [_pacingSettings makeJitterBufferForFrameInterval:1.0 / queueRate];
     int queueLimit = [_pacingSettings queueLimitWithFramesToBuffer:_frameQueue.highWaterMark];
     [_frameQueue setHighWaterMark:queueLimit];
     Log(LOG_I, @"Pacing: jitter buffer %@, queue limit %d", _pacingSettings.jitterBufferName, queueLimit);
@@ -155,22 +170,72 @@ extern int ff_isom_write_av1c(AVIOContext *pb, const uint8_t *buf, int size,
     NSNumber *pixelFormat = @(kCVPixelFormatType_32BGRA);
 #else
     // 4:4:4 at its own bit depth, and the range asked of the host (VideoFormatPolicy)
-    NSNumber *pixelFormat = @(StreamDecoderPixelFormat(self->_videoFormat, self->_fullRange));
+    OSType format = StreamDecoderPixelFormat(self->_videoFormat, self->_fullRange);
+    // Frame interpolation takes only some formats, and buffers it can use
+    NSDictionary *interpolatorAttributes = @{};
+    if (self->_interpolator) {
+        format = [self->_interpolator pixelFormatClosestTo:format];
+        interpolatorAttributes = [self->_interpolator sourcePixelBufferAttributes];
+    }
+    NSNumber *pixelFormat = @(format);
 #endif
 
-    NSDictionary *destinationPixelBufferAttributes = @{
+    NSMutableDictionary *destinationPixelBufferAttributes = [NSMutableDictionary dictionary];
+#if !TARGET_OS_SIMULATOR
+    [destinationPixelBufferAttributes addEntriesFromDictionary:interpolatorAttributes];
+#endif
+    [destinationPixelBufferAttributes addEntriesFromDictionary:@{
         (id)kCVPixelBufferPixelFormatTypeKey : pixelFormat,
         (id)kVTDecompressionPropertyKey_GeneratePerFrameHDRDisplayMetadata : @YES,
         (id)kVTVideoDecoderSpecification_RequireHardwareAcceleratedVideoDecoder : @YES
-    };
+    }];
 
     return [self setupDecompressionSessionWithAttributes:destinationPixelBufferAttributes];
 }
 
 int DrSubmitDecodeUnit(PDECODE_UNIT decodeUnit);
 
+// On the output queue. Makes the frame between the last decoded frame and this one and queues
+// it, then remembers this one. A new IDR frame starts over.
+- (void)queueInterpolatedFrameBefore:(CVPixelBufferRef)pixelBuffer pts:(CMTime)pts frameNumber:(int)frameNumber
+                           frameType:(int)frameType receivedAt:(CFTimeInterval)receivedAt {
+    FrameInterpolator *interpolator = _interpolator;
+    if (!interpolator) {
+        return;
+    }
+    if (_previousPixelBuffer && frameType != FRAME_TYPE_IDR) {
+        CVPixelBufferRef between = [interpolator copyFrameBetween:_previousPixelBuffer atTime:_previousPts and:pixelBuffer atTime:pts];
+        if (between) {
+            CMTime middle = CMTimeMultiplyByRatio(CMTimeAdd(_previousPts, pts), 1, 2);
+            // The Frame takes the buffer's retain
+            Frame *frame = [[Frame alloc] initWithPixelBufffer:between frameNumber:frameNumber frameType:FRAME_TYPE_PFRAME pts:middle];
+            [frame setFormatDesc:_formatDesc];
+            frame.receivedAt = receivedAt;
+            [_frameQueue.pacingStats noteArrivalAt:frame.decodedAt];
+            [_frameQueue enqueue:frame withSlackSize:3];
+        }
+    }
+    if (_previousPixelBuffer) {
+        CVPixelBufferRelease(_previousPixelBuffer);
+    }
+    _previousPixelBuffer = CVPixelBufferRetain(pixelBuffer);
+    _previousPts = pts;
+}
+
 - (void)cleanup
 {
+    if (_interpolator) {
+        Log(LOG_I, @"Frame interpolation: %d frames made, %d failed, %.2f ms each", _interpolator.made, _interpolator.failed, _interpolator.meanProcessMs);
+    }
+    // The output queue may still be using them
+    dispatch_sync(_vtq, ^{
+        [self->_interpolator invalidate];
+        self->_interpolator = nil;
+        if (self->_previousPixelBuffer) {
+            CVPixelBufferRelease(self->_previousPixelBuffer);
+            self->_previousPixelBuffer = NULL;
+        }
+    });
     PacingStats *pacingStats = _frameQueue.pacingStats;
     if (pacingStats) {
         Log(LOG_I, @"Last pacing at stop: %@", [pacingStats logLineForWindow:[pacingStats currentWindow]]);
@@ -689,6 +754,9 @@ int DrSubmitDecodeUnit(PDECODE_UNIT decodeUnit);
 
           // Dispatch onto our higher priority queue
           dispatch_async(self->_vtq, ^{
+              // Frame interpolation: the frame halfway from the last one goes first
+              [self queueInterpolatedFrameBefore:pixelBuffer pts:presentationTimestamp frameNumber:frameNumber
+                                       frameType:frameType receivedAt:receivedAt];
               Frame *frame = [[Frame alloc] initWithPixelBufffer:pixelBuffer frameNumber:frameNumber frameType:frameType pts:presentationTimestamp];
               [frame setFormatDesc:self->_formatDesc];
               frame.receivedAt = receivedAt;
