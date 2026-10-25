@@ -36,6 +36,10 @@ final class StarwireStreamInput: NSObject {
     @objc var onOpenMenu: (() -> Void)?
     /// A gesture shortcut (four or five-finger tap)
     var onGesture: ((GestureAction) -> Void)?
+    /// A hardware keyboard shortcut for the stream (Ctrl+Alt+Shift+M, S or D)
+    var onStreamShortcut: ((StreamShortcut) -> Void)?
+    /// Keys taken by a stream shortcut: their release isn't sent either
+    private var shortcutKeys: Set<Int> = []
     /// The picture's zoom and pan changed: apply this transform to the video
     @objc var onVideoTransform: ((CGAffineTransform) -> Void)?
     /// A short message for a toast
@@ -312,6 +316,26 @@ final class StarwireStreamInput: NSObject {
     }
 
     // MARK: Keys
+
+    /// A hardware key, before it goes to the PC. True when it was a stream shortcut, so the PC
+    /// gets neither its press nor its release.
+    @objc func streamShortcut(for press: UIPress, down: Bool) -> Bool {
+        guard let key = press.key else { return false }
+        let usage = key.keyCode.rawValue
+        if !down {
+            return shortcutKeys.remove(usage) != nil
+        }
+        var modifiers = 0
+        if key.modifierFlags.contains(.control) { modifiers |= KeyModifier.ctrl }
+        if key.modifierFlags.contains(.alternate) { modifiers |= KeyModifier.alt }
+        if key.modifierFlags.contains(.shift) { modifiers |= KeyModifier.shift }
+        if key.modifierFlags.contains(.command) { modifiers |= KeyModifier.meta }
+        guard let shortcut = StreamShortcuts.shortcut(hidUsage: usage, modifiers: modifiers) else { return false }
+        shortcutKeys.insert(usage)
+        StarwireLog.info("Input: keyboard shortcut \(shortcut.rawValue)")
+        onStreamShortcut?(shortcut)
+        return true
+    }
 
     /// Sends a shortcut's keys with its pauses.
     func send(_ shortcut: Shortcut) {

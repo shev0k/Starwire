@@ -584,6 +584,11 @@ static const double X1_MOUSE_SPEED_DIVISOR = 2.5;
     
     if (@available(iOS 13.4, tvOS 13.4, *)) {
         for (UIPress* press in presses) {
+            // Ctrl+Alt+Shift+M, S or D are the stream's own, not the PC's
+            if (_input && [_input streamShortcutFor:press down:YES]) {
+                handled = YES;
+                continue;
+            }
             // For now, we'll treated it as handled if we handle at least one of the
             // UIPress events inside the set.
             if ([KeyboardSupport sendKeyEventForPress:press down:YES]) {
@@ -603,6 +608,10 @@ static const double X1_MOUSE_SPEED_DIVISOR = 2.5;
     
     if (@available(iOS 13.4, tvOS 13.4, *)) {
         for (UIPress* press in presses) {
+            if (_input && [_input streamShortcutFor:press down:NO]) {
+                handled = YES;
+                continue;
+            }
             // For now, we'll treated it as handled if we handle at least one of the
             // UIPress events inside the set.
             if ([KeyboardSupport sendKeyEventForPress:press down:NO]) {
