@@ -35,6 +35,22 @@ each `VAR=value` becomes `TEST_RUNNER_STARWIRE_VAR`. The `[device-run]` lines co
 and `testDemoMode`, and the variables `DISPLAY_MODE`, `SCALE`, `EXACT_FPS`, `VRR` and `BITRATES`
 (listed at the top of `ios/Tests/DeviceRun/StreamDeviceRunTests.swift`).
 
+Batch 3 added `InputDeviceRunTests` for input; name its tests with the class:
+`test InputDeviceRunTests/testTouchModes FPS=60 CODEC=hevc` (also `testStreamMenu`,
+`testOnScreenControls`, `testKeyboards`). They read the statistics overlay's `Input:` line,
+which counts the packets sent to the PC by kind and shows the last one. They never press keys
+that change the PC (the Windows key, Task Manager, monitor switching).
+
+`log` takes launch arguments after the seconds, for example
+`log 900 -StarwireVerboseLogging YES` for a hands-on session: with verbose logging every change
+of a controller's buttons is logged with its triggers and sticks. Vibeshine's app list has
+"Starwire gamepad tester" (added 25 Oct 2026 with the owner's OK, `apps.json` backed up first):
+a gamepad test page in the same kiosk window as the test pattern, for controller checks.
+
+The free signing limit is 3 apps per device. On the iPad 10th gen, SideStore and Starwire plus
+the test runner fill it (Aidoku was removed with the owner's OK). A newly used iPad also needs
+`build` with that iPad named, so the test runner's profile includes it.
+
 `unit` signs the simulator build ad hoc (`CODE_SIGN_IDENTITY=-`, no certificate needed): an
 unsigned app gets no Keychain on the simulator (error -34018), and the identity tests need it.
 
