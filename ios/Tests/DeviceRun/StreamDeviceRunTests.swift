@@ -267,10 +267,8 @@ final class StreamDeviceRunTests: XCTestCase {
         app.terminate()
         app.launchArguments += ["-StarwireDemoMode", "YES"]
         app.launch()
-        let host = app.descendants(matching: .any).matching(identifier: "DemoHost").firstMatch
-        XCTAssertTrue(host.waitForExistence(timeout: 10), "no demo PC")
-        host.tap()
-        let desktop = app.descendants(matching: .any).matching(identifier: "DemoApp-Desktop").firstMatch
+        // The only PC, so its games open by themselves
+        let desktop = app.descendants(matching: .any).matching(identifier: "tile-Desktop").firstMatch
         XCTAssertTrue(desktop.waitForExistence(timeout: 10), "no demo apps")
         desktop.tap()
         let streaming = app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", "Streaming the demo picture")).firstMatch
@@ -286,6 +284,8 @@ final class StreamDeviceRunTests: XCTestCase {
         let numbers = counts.split(whereSeparator: { !$0.isNumber }).compactMap { Int($0) }
         XCTAssertGreaterThan(numbers.first ?? 0, 60, "too few frames: \(counts)")
         XCTAssertGreaterThanOrEqual(numbers.last ?? 0, 6, "the taps weren't recorded: \(counts)")
+        app.buttons["DemoClose"].tap()
+        XCTAssertTrue(desktop.waitForExistence(timeout: 10), "the game screen didn't come back")
     }
 
     // MARK: - Helpers
@@ -295,7 +295,7 @@ final class StreamDeviceRunTests: XCTestCase {
         let tile = appTile
         XCTAssertTrue(tile.waitForExistence(timeout: 30), "no \"\(appName)\" tile")
         tile.tap()
-        let quit = app.buttons["Quit App"]
+        let quit = app.buttons["Quit Session"]
         if quit.waitForExistence(timeout: 3) {
             record("quitting \(appName) on the PC first")
             quit.tap()
@@ -345,7 +345,7 @@ final class StreamDeviceRunTests: XCTestCase {
         return false
     }
 
-    // App tiles are buttons labelled with the app's name (UIAppView)
+    // App tiles are buttons labelled with the app's name (GameTile)
     private var appTile: XCUIElement {
         app.buttons.matching(NSPredicate(format: "label == %@", appName)).firstMatch
     }
@@ -363,19 +363,19 @@ final class StreamDeviceRunTests: XCTestCase {
         XCTAssertTrue(tile.waitForExistence(timeout: 30), "no \"\(appName)\" tile: is the PC paired, awake and showing its app list?")
         tile.tap()
 
-        // When an app is already running on the PC, a menu comes up first (MainFrameViewController)
-        let resume = app.buttons["Resume App"]
-        let quitOther = app.buttons["Quit Running App and Start"]
+        // When an app is already running on the PC, the app's panel asks first (GameScreenView)
+        let resume = app.buttons["Resume Session"]
+        let quitOther = app.buttons["Quit Current Game and Start"]
         if quitOther.waitForExistence(timeout: 3) {
-            let running = app.staticTexts.matching(NSPredicate(format: "label ENDSWITH %@", " is currently running")).firstMatch.label
-            let name = running.replacingOccurrences(of: " is currently running", with: "")
+            let running = app.staticTexts.matching(NSPredicate(format: "label ENDSWITH %@", " is running on the PC.")).firstMatch.label
+            let name = running.replacingOccurrences(of: " is running on the PC.", with: "")
             XCTAssertTrue(quittableApps.contains(name), "\(running) on the PC; the test won't quit it")
             record("quitting \(name) on the PC to start \(appName)")
             quitOther.tap()
         } else if resume.exists {
             if env["STARWIRE_FRESH"] == "1" {
                 record("quitting \(appName) on the PC for a fresh start")
-                app.buttons["Quit App"].tap()
+                app.buttons["Quit Session"].tap()
                 XCTAssertTrue(tile.waitForExistence(timeout: 30), "the app list didn't come back after quitting")
                 sleep(3)
                 tile.tap()

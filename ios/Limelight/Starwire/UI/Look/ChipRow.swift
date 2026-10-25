@@ -54,7 +54,7 @@ struct ChipLabel: View {
 
 /// Lays its children out left to right (right to left when asked), starting a new line when the
 /// next one doesn't fit. Each line is as tall as its tallest child, with the others centred.
-private struct WrappingLayout: Layout {
+struct WrappingLayout: Layout {
     var spacing: CGFloat
     var rightToLeft: Bool
 

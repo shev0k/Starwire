@@ -175,9 +175,11 @@ struct SettingsScreen: View {
         }
     }
 
+    @Environment(\.layoutDirection) private var layoutDirection
+
     private var pills: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 10) {
+        // They wrap rather than scroll, so every section is in reach at once
+        WrappingLayout(spacing: 10, rightToLeft: layoutDirection == .rightToLeft) {
                 ForEach(SettingsLayout.sections) { item in
                     Button { section = item.id } label: {
                         Text(L(item.titleKey))
@@ -192,10 +194,9 @@ struct SettingsScreen: View {
                     .accessibilityIdentifier("pill-\(item.id)")
                     .controllerFocusable("pill-\(item.id)", cornerRadius: 22) { section = item.id }
                 }
-            }
-            .padding(.horizontal, 20)
-            .padding(.vertical, 6)
         }
+        .padding(.horizontal, 20)
+        .padding(.vertical, 6)
     }
 
     @ViewBuilder
@@ -234,7 +235,7 @@ struct SettingsScreen: View {
             }
             Text(L("ios_settings_transfer_help"))
                 .font(.footnote)
-                .foregroundStyle(.white.opacity(0.7))
+                .foregroundStyle(.white.opacity(0.88))
         }
     }
 
@@ -353,9 +354,9 @@ struct SettingRow: View {
             if let summary = summary {
                 Text(summary)
                     .font(.subheadline)
-                    .foregroundStyle(.white.opacity(0.8))
+                    .foregroundStyle(.white.opacity(0.92))
             }
-            if let impact = SettingsImpact.impactKey(for: item.impactKey ?? item.id) {
+            if let impact = item.impactKey {
                 (Text(L(SettingsImpact.labelKey) + " ").bold().foregroundColor(Color(red: 0.75, green: 0.6, blue: 1))
                     + Text(L(impact)))
                     .font(.footnote)
@@ -363,7 +364,7 @@ struct SettingRow: View {
             if let credit = item.credit {
                 Text(credit.text)
                     .font(.caption)
-                    .foregroundStyle(.white.opacity(0.55))
+                    .foregroundStyle(.white.opacity(0.82))
             }
         }
         .fixedSize(horizontal: false, vertical: true)
@@ -403,6 +404,7 @@ struct SettingRow: View {
             Button { perform(url) } label: {
                 Image(systemName: "arrow.up.right.square")
                     .font(.title3)
+                    .frame(minWidth: 44, minHeight: 44)
             }
             .buttonStyle(.plain)
             .accessibilityLabel(L(item.titleKey))
@@ -633,7 +635,7 @@ struct PredictedImpactPanel: View {
                 Text(L(SettingsFeel.smoothestKey))
             }
             .font(.footnote)
-            .foregroundStyle(.white.opacity(0.8))
+            .foregroundStyle(.white.opacity(0.92))
             GeometryReader { geometry in
                 ZStack(alignment: .leading) {
                     Capsule()
@@ -653,7 +655,7 @@ struct PredictedImpactPanel: View {
             .accessibilityValue("\(Int((feel.position * 100).rounded()))%")
             Text(L(SettingsFeel.movingItKey))
                 .font(.footnote)
-                .foregroundStyle(.white.opacity(0.7))
+                .foregroundStyle(.white.opacity(0.88))
             ForEach(Array(feel.factors.enumerated()), id: \.offset) { _, factor in
                 HStack {
                     Text(L(SettingsFeel.factorRowKey, L(factor.titleKey), valueText(factor.value)))

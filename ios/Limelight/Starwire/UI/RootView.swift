@@ -134,7 +134,7 @@ struct PanelView: View {
                 if let message = panel.message, !message.isEmpty {
                     Text(message)
                         .font(.body)
-                        .foregroundStyle(.white.opacity(0.85))
+                        .foregroundStyle(.white.opacity(0.92))
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 if let field = panel.textField {
@@ -172,8 +172,12 @@ struct PanelView: View {
         } label: {
             Text(button.title)
                 .font(.body.weight(button.role == .cancel ? .regular : .semibold))
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(.vertical, 8)
+                .padding(.horizontal, 12)
                 .frame(maxWidth: .infinity, minHeight: 44)
-                .foregroundStyle(button.role == .destructive ? Color(red: 1, green: 0.45, blue: 0.45) : .white)
+                .foregroundStyle(button.role == .destructive ? Color(red: 1, green: 0.6, blue: 0.6) : .white)
                 .background(Color.white.opacity(button.role == .cancel ? 0.06 : 0.14), in: RoundedRectangle(cornerRadius: 12))
         }
         .buttonStyle(.plain)

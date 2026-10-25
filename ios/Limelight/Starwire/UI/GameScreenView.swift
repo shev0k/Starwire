@@ -88,7 +88,7 @@ struct GameScreenView: View {
                             if games.isEmpty && remoteTiles.isEmpty {
                                 Text(L("ios_no_apps"))
                                     .font(.body)
-                                    .foregroundStyle(.white.opacity(0.75))
+                                    .foregroundStyle(.white.opacity(0.9))
                             }
                         } else {
                             Text(L("ios_pc_gone"))
@@ -286,7 +286,7 @@ struct HeroView: View {
             VStack(alignment: .leading, spacing: 12) {
                 Text(host.runningAppID == game.id ? L("ios_running_now") : L("ios_last_played"))
                     .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(.white.opacity(0.8))
+                    .foregroundStyle(.white.opacity(0.92))
                 Text(game.name)
                     .font(.largeTitle.weight(.heavy))
                     .lineLimit(3)

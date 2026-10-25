@@ -81,7 +81,7 @@ struct PCListView: View {
                 .multilineTextAlignment(.center)
             Text(L("ios_searching_help"))
                 .font(.body)
-                .foregroundStyle(.white.opacity(0.75))
+                .foregroundStyle(.white.opacity(0.9))
                 .multilineTextAlignment(.center)
             HStack(spacing: 12) {
                 pillButton(L("title_add_pc"), id: "pcs-add-empty") { askForAddress() }
@@ -306,7 +306,7 @@ struct PCCard: View {
                     .lineLimit(2)
                 Text(status)
                     .font(.subheadline)
-                    .foregroundStyle(.white.opacity(0.75))
+                    .foregroundStyle(.white.opacity(0.9))
                 if let running = host.runningGame {
                     Label(L("ios_pc_running", running.name), systemImage: "play.fill")
                         .font(.subheadline)

@@ -39,7 +39,7 @@ struct AboutScreen: View {
                                 RainbowWordmark(paused: state.isStreaming)
                                 Text(Self.versionDetails)
                                     .font(.footnote)
-                                    .foregroundStyle(.white.opacity(0.75))
+                                    .foregroundStyle(.white.opacity(0.9))
                                     .textSelection(.enabled)
                             }
                         }
@@ -90,10 +90,10 @@ struct AboutScreen: View {
                     .font(.body.weight(.semibold))
                 Text(project.author)
                     .font(.subheadline)
-                    .foregroundStyle(.white.opacity(0.8))
+                    .foregroundStyle(.white.opacity(0.92))
                 Text(L(project.usedForKey))
                     .font(.footnote)
-                    .foregroundStyle(.white.opacity(0.65))
+                    .foregroundStyle(.white.opacity(0.88))
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(14)

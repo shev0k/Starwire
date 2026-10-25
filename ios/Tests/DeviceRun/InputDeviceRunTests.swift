@@ -430,11 +430,11 @@ final class InputDeviceRunTests: XCTestCase {
         let tile = app.buttons.matching(NSPredicate(format: "label == %@", appName)).firstMatch
         XCTAssertTrue(tile.waitForExistence(timeout: 30), "no \"\(appName)\" tile: is the PC paired, awake and showing its app list?")
         tile.tap()
-        let resume = app.buttons["Resume App"]
-        let quitOther = app.buttons["Quit Running App and Start"]
+        let resume = app.buttons["Resume Session"]
+        let quitOther = app.buttons["Quit Current Game and Start"]
         if quitOther.waitForExistence(timeout: 3) {
-            let running = app.staticTexts.matching(NSPredicate(format: "label ENDSWITH %@", " is currently running")).firstMatch.label
-            let name = running.replacingOccurrences(of: " is currently running", with: "")
+            let running = app.staticTexts.matching(NSPredicate(format: "label ENDSWITH %@", " is running on the PC.")).firstMatch.label
+            let name = running.replacingOccurrences(of: " is running on the PC.", with: "")
             XCTAssertTrue(quittableApps.contains(name), "\(running) on the PC; the test won't quit it")
             quitOther.tap()
         } else if resume.exists {

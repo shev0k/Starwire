@@ -128,11 +128,11 @@ struct MicPairingScreen: View {
                         }
                         if library.hosts.isEmpty {
                             Text(L("ios_mic_pair_no_pcs"))
-                                .foregroundStyle(.white.opacity(0.75))
+                                .foregroundStyle(.white.opacity(0.9))
                         }
                         Text(L("ios_mic_pair_security"))
                             .font(.footnote)
-                            .foregroundStyle(.white.opacity(0.7))
+                            .foregroundStyle(.white.opacity(0.88))
                             .fixedSize(horizontal: false, vertical: true)
                     }
                     .padding(.horizontal, 20)
@@ -154,7 +154,7 @@ struct MicPairingScreen: View {
                 Text(pairing.map { L("ios_mic_paired_with", $0.receiverName.isEmpty ? host.name : $0.receiverName) }
                      ?? L("ios_mic_not_paired"))
                     .font(.subheadline)
-                    .foregroundStyle(.white.opacity(0.8))
+                    .foregroundStyle(.white.opacity(0.92))
             }
             Spacer()
             Button(pairing == nil ? L("ios_mic_pair") : L("ios_mic_pair_again")) { askCode(host) }

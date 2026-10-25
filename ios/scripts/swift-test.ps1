@@ -19,12 +19,17 @@ Exits with swift's exit code: 0 when every test passes.
 .PARAMETER Filter
 Runs only the tests whose names match, as `swift test --filter` does.
 
+.PARAMETER Product
+Builds this executable (`swift build --product`) instead of running the tests, and prints its
+path on the last line. ios/scripts/mic-loopback.ps1 uses it for SwmcLoopback.
+
 .PARAMETER ScratchPath
 Builds in this folder instead of ios/StarwireKit/.build, so two runs at once don't wait on each
 other's lock.
 #>
 param(
     [string]$Filter = '',
+    [string]$Product = '',
     [string]$ScratchPath = ''
 )
 
@@ -60,6 +65,16 @@ if (-not (Get-Command swift -ErrorAction SilentlyContinue)) {
     Write-Error 'swift is not on PATH. Install it with: winget install Swift.Toolchain'
 }
 
+if ($Product) {
+    $swiftArgs = @('build', '--package-path', $package, '--product', $Product)
+    if ($ScratchPath) { $swiftArgs += @('--scratch-path', $ScratchPath) }
+    Write-Host "swift $($swiftArgs -join ' ')"
+    & swift @swiftArgs
+    if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+    $bin = & swift build --package-path $package @(if ($ScratchPath) { '--scratch-path', $ScratchPath }) --show-bin-path
+    Write-Output (Join-Path $bin "$Product.exe")
+    exit 0
+}
 $swiftArgs = @('test', '--package-path', $package)
 if ($Filter) { $swiftArgs += @('--filter', $Filter) }
 if ($ScratchPath) { $swiftArgs += @('--scratch-path', $ScratchPath) }

@@ -20,6 +20,9 @@ let package = Package(
     ],
     targets: [
         .target(name: "StarwireKit", dependencies: [.product(name: "Crypto", package: "swift-crypto")]),
+        // The microphone code against the real Windows receiver on this PC's loopback
+        // (ios/scripts/mic-loopback.ps1). Not part of the app.
+        .executableTarget(name: "SwmcLoopback", dependencies: ["StarwireKit"]),
         // Fixtures are read from disk by path (FixtureFile), so they work the same on every platform
         .testTarget(name: "StarwireKitTests", dependencies: ["StarwireKit"], exclude: ["Fixtures"]),
     ]

@@ -49,7 +49,7 @@ struct GameSettingsScreen: View {
                 ScreenHeader(title: title)
                 Text(L("ios_game_settings_title"))
                     .font(.headline)
-                    .foregroundStyle(.white.opacity(0.75))
+                    .foregroundStyle(.white.opacity(0.9))
                     .padding(.horizontal, 20)
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 0) {
@@ -99,7 +99,7 @@ struct GameSettingsScreen: View {
                         ? GameSettingsLayout.quickLaunchUseGlobalSummaryKey : item.summaryKey {
                         Text(L(summary))
                             .font(.subheadline)
-                            .foregroundStyle(.white.opacity(0.8))
+                            .foregroundStyle(.white.opacity(0.92))
                     }
                 }
                 .fixedSize(horizontal: false, vertical: true)
