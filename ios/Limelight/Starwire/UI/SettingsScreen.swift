@@ -470,7 +470,10 @@ struct SettingsScreen: View {
 
     private func exportSettings() {
         do {
-            let data = try SettingsJSON.export(StarwireSettings.savedStore)
+            // With every game's own settings, which the import already reads back
+            let games = StarwireSettings.gameSettings
+            let keys = games.keys(in: Array(StarwireSettings.saved.dictionaryRepresentation().keys))
+            let data = try SettingsJSON.export(StarwireSettings.savedStore, games: games, gameKeys: keys)
             exporting = SettingsDocument(data: data)
         } catch {
             state.message(L("ios_settings_export"), error.localizedDescription)
