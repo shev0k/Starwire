@@ -40,7 +40,11 @@
         }];
     }
     else if (completion) {
-        Log(LOG_E, @"Loading frame already shown!");
+        // Not an error. With one saved PC, MainFrameViewController opens it in viewDidLoad and
+        // again when the view appears (hostClicked twice), so the second request comes while the
+        // first loading screen is still up and runs under it. Both fetch the app list, which is
+        // harmless. This was logged as an error at every launch.
+        Log(LOG_I, @"Loading frame already shown, running the next step under it");
         completion();
     }
 }
