@@ -104,8 +104,25 @@ static const double kFrame = 1.0 / 120;
     [jb chooseWithQueued:0 at:1.0 + kFrame];
     XCTAssertEqual(jb.underflows, 0);
     [jb chooseWithQueued:1 at:1.0 + 2 * kFrame];
-    [jb chooseWithQueued:0 at:1.0 + 3 * kFrame];
+    // Half a frame later is not late yet; two frames later is
+    [jb chooseWithQueued:0 at:1.0 + 2.5 * kFrame];
+    XCTAssertEqual(jb.underflows, 0);
+    [jb chooseWithQueued:0 at:1.0 + 4 * kFrame];
     XCTAssertEqual(jb.underflows, 1);
+}
+
+// 60 FPS on a 120 Hz display: every other refresh has nothing new, which isn't an underflow
+- (void)testAFasterDisplayIsNotAnUnderflow {
+    JitterBuffer *jb = [[JitterBuffer alloc] initWithMode:JitterBufferModeBalanced frameInterval:1.0 / 60];
+    for (int k = 0; k < 120; k++) {
+        double t = 1.0 + k * kFrame;
+        if (k % 2 == 0) {
+            [jb noteArrivalAt:t - 0.001];
+        }
+        [jb chooseWithQueued:(k % 2 == 0) ? 1 : 0 at:t];
+    }
+    XCTAssertEqual(jb.underflows, 0);
+    XCTAssertEqual(jb.target, 0);
 }
 
 - (void)testTargetFollowsTheLongestRecentHoleUpToTheModesCap {

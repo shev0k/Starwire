@@ -50,6 +50,22 @@ extern NSString *const PacingPresentTimingKey;     // "nearest" or "frame"
 extern NSString *const PacingDropPolicyKey;        // "alternate" or "newest"
 extern NSString *const PacingFramesToBufferKey;    // 0 = the app's "Frames to buffer" setting, else 1 to 5
 extern NSString *const StreamVirtualDisplayKey;    // YES = ask Vibeshine for a virtual display
+extern NSString *const PacingReduceRefreshRateKey; // YES = let the display drop to the stream's rate
+extern NSString *const StatsOverlayLevelKey;       // "full" or "lite"
+
+typedef NS_ENUM(NSInteger, StatsOverlayLevel) {
+    // Every line: video, network, pacing and the whole-stream summary
+    StatsOverlayLevelFull = 0,
+    // One line: frame rate, 1% low, drops, latency and the display's rate
+    StatsOverlayLevelLite = 1,
+};
+
+// The display link's frame rate range, in frames per second
+typedef struct {
+    float minimum;
+    float maximum;
+    float preferred;
+} PacingRefreshRange;
 
 @interface PacingSettings : NSObject
 
@@ -58,6 +74,10 @@ extern NSString *const StreamVirtualDisplayKey;    // YES = ask Vibeshine for a 
 @property (nonatomic, readonly) FrameDropPolicy dropPolicy;
 // 0 when there is no override
 @property (nonatomic, readonly) int framesToBufferOverride;
+// Android's "Allow refresh rate reduction", off by default: the display stays at its top rate,
+// so a new frame can show at the next of its refreshes
+@property (nonatomic, readonly) BOOL reduceRefreshRate;
+@property (nonatomic, readonly) StatsOverlayLevel overlayLevel;
 // Display presenter only (JitterBufferKey)
 @property (nonatomic, readonly) JitterBufferMode jitterBuffer;
 
@@ -95,6 +115,11 @@ CFTimeInterval PacingMinimumPresentDuration(PresentTiming timing, double streamF
 // moonlight-qt vt_metal.mm, so a frame that is a little late still makes this refresh and the
 // other half is left to draw it. 0 when that time has passed.
 CFTimeInterval PacingDisplayFrameWait(CFTimeInterval now, CFTimeInterval targetTimestamp);
+
+// The display link's range. With reduction allowed (or a stream as fast as the display) it asks
+// for the stream's rate; otherwise for the display's top rate, never below the stream's.
+// Anything not positive falls back to 60.
+PacingRefreshRange PacingDisplayRefreshRange(double streamFps, double displayHz, BOOL reduceRefreshRate);
 
 // Whether to ask the host for a virtual display (Vibeshine's virtualDisplay=1 launch parameter)
 BOOL StreamUsesVirtualDisplay(NSUserDefaults *defaults);

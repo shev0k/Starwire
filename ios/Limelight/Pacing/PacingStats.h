@@ -86,6 +86,9 @@ typedef struct {
     // drawables' presentedTime)
     int presented;
     PacingIntervals shown;
+    // The frame rate of the slowest 1% of on-screen intervals, set when a window ends. Over a
+    // whole stream, the worst window's.
+    double onePercentLowFps;
     // Drawables the compositor never showed (presentedTime 0)
     int presentSkipped;
     // Shown more than half a step after the refresh they were rendered for. Only the display
@@ -129,6 +132,12 @@ void PacingWindowAccumulate(PacingWindow *total, const PacingWindow *window);
 // points at something on a timer, such as the Wi-Fi radio leaving the channel for AWDL. 0 with
 // fewer than 3 gaps.
 double PacingGapPeriod(const double *times, int count, double *_Nullable regularShare);
+// 1% low: 1 / the mean of the longest 1% of `count` intervals (at least one). 0 for none.
+double PacingOnePercentLowFps(const double *intervals, int count);
+// The Lite statistics overlay: one line. onePercentLow, displayHz or rttMs below 0 (or 0 for the
+// rates) show as "-" while not known yet.
+NSString *PacingLiteOverlayLine(double fps, double onePercentLow, double networkDropPercent, double pacingDropPercent,
+                                int rttMs, double decodeMs, double displayHz);
 // A common-c time (LiGetMicroseconds) as a CACurrentMediaTime, given both clocks read now
 CFTimeInterval PacingMediaTimeFromMicroseconds(uint64_t timeUs, uint64_t nowUs, CFTimeInterval nowMediaTime);
 

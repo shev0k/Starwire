@@ -135,19 +135,25 @@
 // display link" sample: the link lives on this thread's run loop, so a callback that waits a
 // little for a frame never holds up the main thread. The settings follow Nonary's moonlight-qt
 // (vt_metal.mm, by Cameron Gutman): the stream's rate as minimum, maximum and preferred, and a
-// frame latency of 1, so the drawable is handed over one refresh before it is shown.
+// frame latency of 1, so the drawable is handed over one refresh before it is shown. The range is
+// the display's top rate unless refresh rate reduction is allowed (PacingDisplayRefreshRange).
 - (void)runDisplayLink API_AVAILABLE(ios(17.0), tvos(17.0)) {
     CAMetalDisplayLink *link = [[CAMetalDisplayLink alloc] initWithMetalLayer:self.metalLayer];
     link.delegate = self;
     float fps = self.framerate > 0 ? self.framerate : 60;
-    link.preferredFrameRateRange = CAFrameRateRangeMake(fps, fps, fps);
+    PacingRefreshRange range = self.refreshRange;
+    if (range.preferred <= 0) {
+        range = (PacingRefreshRange){fps, fps, fps};
+    }
+    link.preferredFrameRateRange = CAFrameRateRangeMake(range.minimum, range.maximum, range.preferred);
     link.preferredFrameLatency = 1;
 
     NSRunLoop *runLoop = [NSRunLoop currentRunLoop];
     // A port keeps runMode from returning at once if the link has nothing scheduled
     [runLoop addPort:[NSMachPort port] forMode:NSDefaultRunLoopMode];
     [link addToRunLoop:runLoop forMode:NSDefaultRunLoopMode];
-    Log(LOG_I, @"[MetalView] CAMetalDisplayLink started at %.0f FPS", fps);
+    Log(LOG_I, @"[MetalView] CAMetalDisplayLink started for %.0f FPS, range %.0f to %.0f, preferred %.0f",
+        fps, range.minimum, range.maximum, range.preferred);
 
     while (![NSThread currentThread].isCancelled && self.delegate) {
         @autoreleasepool {

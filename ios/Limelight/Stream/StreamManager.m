@@ -19,6 +19,7 @@
 #import "IdManager.h"
 #import "FrameQueue.h"
 #import "PacingStats.h"
+#import "PacingPolicy.h"
 
 #include <Limelight.h>
 
@@ -34,6 +35,8 @@
     // Set by stopStream: a stream left while it was still launching doesn't connect afterwards.
     // From daniel-zn's Artemis iOS (commit 696ffae).
     volatile BOOL _stopped;
+    // Full or Lite (StarwireOverlay), read once per stream
+    StatsOverlayLevel _overlayLevel;
 }
 
 - (id) initWithConfig:(StreamConfiguration*)config renderView:(UIView*)view connectionCallbacks:(id<ConnectionCallbacks>)callbacks {
@@ -43,6 +46,7 @@
     _callbacks = callbacks;
     _config.riKey = [Utils randomBytes:16];
     _config.riKeyId = arc4random();
+    _overlayLevel = [PacingSettings current].overlayLevel;
     return self;
 }
 
@@ -239,6 +243,16 @@ static NSString *interleaveStrings(NSString *str1, NSString *str2) {
     float interval = stats.endTime - stats.startTime;
     float scalePlotMetrics = stats.frameDropMetrics.nsamples > 0 ? ((float)stats.frameDropMetrics.nsamples / stats.totalFrames) : 1.0f;
     float fps = (stats.totalFrames - stats.networkDroppedFrames - (stats.frameDropMetrics.total / scalePlotMetrics)) / interval;
+    double networkDropPercent = (stats.networkDroppedFrames / stats.totalFrames) * 100.0;
+    double pacingDropPercent = stats.frameDropMetrics.nsamples > 0 ? (stats.frameDropMetrics.total / stats.frameDropMetrics.nsamples) * 100.0 : 0.0;
+
+    if (_overlayLevel == StatsOverlayLevelLite) {
+        PacingWindow window = [[FrameQueue sharedInstance].pacingStats lastWindow];
+        double refreshMs = window.refresh.total > 0 ? window.refresh.sumSeconds * 1000.0 / window.refresh.total : 0;
+        return PacingLiteOverlayLine(fps, window.onePercentLowFps, networkDropPercent, pacingDropPercent,
+                                     LiGetEstimatedRttInfo(&rtt, &variance) ? (int)rtt : -1,
+                                     stats.decodeMetrics.avg, refreshMs > 0 ? 1000.0 / refreshMs : 0);
+    }
 
     BandwidthTracker *bwTracker = [_connection getBwTracker];
     double avgVideoMbps = bwTracker.averageMbps;
@@ -256,8 +270,8 @@ static NSString *interleaveStrings(NSString *str1, NSString *str2) {
             [_connection getActiveCodecName],
             avgVideoMbps, peakVideoMbps, stats.frameQueueMetrics.avg,
             hostProcessingString,
-            (stats.networkDroppedFrames / stats.totalFrames) * 100.0,
-            stats.frameDropMetrics.nsamples > 0 ? (stats.frameDropMetrics.total / stats.frameDropMetrics.nsamples) * 100.0 : 0.0f,
+            networkDropPercent,
+            pacingDropPercent,
             latencyString,
             stats.decodeMetrics.min, stats.decodeMetrics.max, stats.decodeMetrics.avg,
             [self pacingOverlayLine]];

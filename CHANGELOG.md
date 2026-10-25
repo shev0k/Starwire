@@ -42,6 +42,13 @@ steps and the checksums for each version.
   choices in iOS Settings: lowest latency (always the newest frame), low latency (up to 1 frame
   held back), balanced (up to 2) and smooth (up to 4). It holds back only as many frames as the
   recent gaps need, repeats the last frame when it runs dry, and catches up one frame at a time.
+- **iOS: Full and Lite statistics overlays, with 1% low.** "Statistics overlay" in iOS Settings
+  picks every line (Full) or one line (Lite): frame rate, 1% low, drops, latency, decode time and
+  the display's measured refresh rate. 1% low is the frame rate of the slowest 1% of on-screen
+  frame times over the last 5 seconds.
+- **iOS: "Allow refresh rate reduction",** off by default as on Android: the display stays at its
+  top rate, so a 60 FPS stream can show each new frame at the next 120 Hz refresh. On, the display
+  drops to the stream's rate to save power.
 - **iOS: unit tests on the simulator in CI,** including Andy Grundman's frame queue tests, and a
   UI test the Mac runs on the iPad.
 

@@ -10,6 +10,8 @@ NSString *const PacingPresentTimingKey =@"StarwirePresentTiming";
 NSString *const PacingDropPolicyKey = @"StarwireDropPolicy";
 NSString *const PacingFramesToBufferKey = @"StarwireFramesToBuffer";
 NSString *const StreamVirtualDisplayKey = @"StarwireVirtualDisplay";
+NSString *const PacingReduceRefreshRateKey = @"StarwireReduceRefreshRate";
+NSString *const StatsOverlayLevelKey = @"StarwireOverlay";
 
 @implementation PacingSettings
 
@@ -33,6 +35,9 @@ NSString *const StreamVirtualDisplayKey = @"StarwireVirtualDisplay";
         _framesToBufferOverride = (buffer >= 1 && buffer <= 5) ? (int)buffer : 0;
 
         _jitterBuffer = JitterBufferModeFromString([defaults stringForKey:JitterBufferKey]);
+        _reduceRefreshRate = [defaults boolForKey:PacingReduceRefreshRateKey];
+        _overlayLevel = [[defaults stringForKey:StatsOverlayLevelKey] isEqualToString:@"lite"]
+            ? StatsOverlayLevelLite : StatsOverlayLevelFull;
     }
     return self;
 }
@@ -103,6 +108,16 @@ CFTimeInterval PacingMinimumPresentDuration(PresentTiming timing, double streamF
 CFTimeInterval PacingDisplayFrameWait(CFTimeInterval now, CFTimeInterval targetTimestamp) {
     CFTimeInterval left = targetTimestamp - now;
     return left > 0 ? left / 2.0 : 0;
+}
+
+PacingRefreshRange PacingDisplayRefreshRange(double streamFps, double displayHz, BOOL reduceRefreshRate) {
+    float fps = streamFps > 0 ? (float)streamFps : 60;
+    float display = displayHz > 0 ? (float)displayHz : 60;
+    fps = MIN(fps, display);
+    if (reduceRefreshRate || fps >= display) {
+        return (PacingRefreshRange){fps, fps, fps};
+    }
+    return (PacingRefreshRange){fps, display, display};
 }
 
 BOOL StreamUsesVirtualDisplay(NSUserDefaults *defaults) {

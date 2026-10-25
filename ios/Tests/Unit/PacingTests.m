@@ -627,4 +627,81 @@ static const double kMs = 1000.0;
     XCTAssertTrue([overlay hasPrefix:@"Network: gaps 3,"], @"%@", overlay);
 }
 
+
+#pragma mark - 1% low, refresh range and the Lite overlay
+
+- (void)testOnePercentLowIsTheSlowestOnePercent {
+    double intervals[200];
+    for (int i = 0; i < 200; i++) {
+        intervals[i] = 1.0 / 120;
+    }
+    // 2 of 200 frames held for 25 ms: the slowest 1% runs at 40 FPS
+    intervals[17] = 0.025;
+    intervals[150] = 0.025;
+    XCTAssertEqualWithAccuracy(PacingOnePercentLowFps(intervals, 200), 40.0, 1e-6);
+    // Fewer than 100 intervals still use the single slowest one
+    intervals[3] = 0.050;
+    XCTAssertEqualWithAccuracy(PacingOnePercentLowFps(intervals, 50), 20.0, 1e-6);
+    XCTAssertEqual(PacingOnePercentLowFps(intervals, 0), 0);
+}
+
+- (void)testWindowsKeepTheirOnePercentLowAndTheStreamKeepsTheWorst {
+    PacingStats *stats = [self stats120];
+    [stats noteArrivalAt:1.0];
+    double t = 1.0;
+    for (int i = 0; i < 99; i++) {
+        [stats notePresentedAt:(t += 1.0 / 120)];
+    }
+    [stats notePresentedAt:(t += 0.025)];
+    XCTAssertTrue([stats rollWindowIfDueAt:6.1]);
+    XCTAssertEqualWithAccuracy([stats lastWindow].onePercentLowFps, 40.0, 1e-6);
+
+    for (int i = 0; i < 100; i++) {
+        [stats notePresentedAt:(t += 1.0 / 120)];
+    }
+    XCTAssertTrue([stats rollWindowIfDueAt:11.2]);
+    XCTAssertEqualWithAccuracy([stats lastWindow].onePercentLowFps, 120.0, 1e-6);
+    XCTAssertEqualWithAccuracy([stats totalWindow].onePercentLowFps, 40.0, 1e-6);
+    XCTAssertTrue([[stats overlayLineForWindow:[stats lastWindow]] containsString:@"1% low 120.0 FPS"]);
+    XCTAssertTrue([[stats summaryLineForWindow:[stats totalWindow]] containsString:@"1% low (worst 5 s) 40.0 FPS"]);
+}
+
+- (void)testDisplayRefreshRangeKeepsTheTopRateUnlessReductionIsAllowed {
+    PacingRefreshRange r = PacingDisplayRefreshRange(60, 120, NO);
+    XCTAssertEqual(r.minimum, 60);
+    XCTAssertEqual(r.maximum, 120);
+    XCTAssertEqual(r.preferred, 120);
+    r = PacingDisplayRefreshRange(60, 120, YES);
+    XCTAssertEqual(r.minimum, 60);
+    XCTAssertEqual(r.maximum, 60);
+    XCTAssertEqual(r.preferred, 60);
+    // A stream as fast as the display, or faster, runs at the display's rate
+    r = PacingDisplayRefreshRange(120, 120, NO);
+    XCTAssertEqual(r.preferred, 120);
+    XCTAssertEqual(r.minimum, 120);
+    r = PacingDisplayRefreshRange(240, 120, NO);
+    XCTAssertEqual(r.maximum, 120);
+    XCTAssertEqual(r.minimum, 120);
+    r = PacingDisplayRefreshRange(0, 0, NO);
+    XCTAssertEqual(r.preferred, 60);
+}
+
+- (void)testDisplaySettings {
+    PacingSettings *settings = [[PacingSettings alloc] initWithDefaults:_defaults];
+    XCTAssertFalse(settings.reduceRefreshRate);
+    XCTAssertEqual(settings.overlayLevel, StatsOverlayLevelFull);
+    [_defaults setBool:YES forKey:PacingReduceRefreshRateKey];
+    [_defaults setObject:@"lite" forKey:StatsOverlayLevelKey];
+    settings = [[PacingSettings alloc] initWithDefaults:_defaults];
+    XCTAssertTrue(settings.reduceRefreshRate);
+    XCTAssertEqual(settings.overlayLevel, StatsOverlayLevelLite);
+}
+
+- (void)testLiteOverlayIsOneLine {
+    NSString *line = PacingLiteOverlayLine(119.84, 101.6, 0.0, 0.42, 14, 5.71, 120.0);
+    XCTAssertEqualObjects(line, @"Video stream: 119.8 FPS, 1% low 102, drops 0.0% / 0.4%, latency 14 ms, decode 5.7 ms, display 120 Hz");
+    line = PacingLiteOverlayLine(30, 0, 0, 0, -1, 0, 0);
+    XCTAssertEqualObjects(line, @"Video stream: 30.0 FPS, 1% low -, drops 0.0% / 0.0%, latency - ms, decode 0.0 ms, display - Hz");
+}
+
 @end

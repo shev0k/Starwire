@@ -74,6 +74,7 @@ int JitterBufferMaxTarget(JitterBufferMode mode) {
     int _needNext;
 
     BOOL _started;
+    CFTimeInterval _lastShown;
     CFTimeInterval _aboveSince;
     CFTimeInterval _lastCatchUp;
 }
@@ -118,13 +119,16 @@ int JitterBufferMaxTarget(JitterBufferMode mode) {
 - (JitterBufferChoice)chooseWithQueued:(int)queued at:(CFTimeInterval)now {
     JitterBufferChoice choice = {0, NO};
     if (queued <= 0) {
-        if (_started) {
+        // A display faster than the stream (60 FPS on 120 Hz) has refreshes with nothing new by
+        // design; only a frame that is late for its own time counts
+        if (_started && now - _lastShown >= 0.75 * _frameInterval) {
             _underflows++;
         }
         _aboveSince = 0;
         return choice;
     }
     _started = YES;
+    _lastShown = now;
     choice.show = YES;
 
     if (_maxTarget == 0) {

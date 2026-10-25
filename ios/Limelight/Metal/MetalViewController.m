@@ -92,6 +92,12 @@ The implementation of the cross-platform game view controller.
     view.metalLayer.pixelFormat = renderer.colorPixelFormat;
     view.metalLayer.maximumDrawableCount = 3;
 
+    // The display's rate: its top rate, or the stream's with refresh rate reduction allowed
+    PacingRefreshRange range = PacingDisplayRefreshRange(_framerate, displayHz, pacing.reduceRefreshRate);
+    view.refreshRange = range;
+    Log(LOG_I, @"[MetalViewController] display refresh range %.0f to %.0f, preferred %.0f (reduction %@)",
+        range.minimum, range.maximum, range.preferred, pacing.reduceRefreshRate ? @"allowed" : @"off");
+
     // Which presenter draws (PacingPresenter). The display presenter's CAMetalDisplayLink holds
     // the frame rate itself.
     view.usesDisplayLink = pacing.presenter == PacingPresenterDisplay;
@@ -104,9 +110,9 @@ The implementation of the cross-platform game view controller.
     // The overhead from this should be minimal. It also measures the refresh interval.
     _displayLink = [CADisplayLink displayLinkWithTarget:self selector:@selector(displayLinkHandler:)];
     if (@available(iOS 15.0, tvOS 15.0, *)) {
-        _displayLink.preferredFrameRateRange = CAFrameRateRangeMake(_framerate, _framerate, _framerate);
+        _displayLink.preferredFrameRateRange = CAFrameRateRangeMake(range.minimum, range.maximum, range.preferred);
     } else {
-        _displayLink.preferredFramesPerSecond = _framerate;
+        _displayLink.preferredFramesPerSecond = (NSInteger)range.preferred;
     }
     [_displayLink addToRunLoop:[NSRunLoop currentRunLoop] forMode:NSRunLoopCommonModes];
 }

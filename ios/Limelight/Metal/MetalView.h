@@ -3,6 +3,7 @@
 #import <QuartzCore/CAMetalLayer.h>
 #import <UIKit/UIKit.h>
 #import "MetalConfig.h"
+#import "PacingPolicy.h"
 
 // The protocol to provide resize and redraw callbacks to a delegate.
 @protocol MetalViewDelegate <NSObject>
@@ -27,6 +28,8 @@
 // Weak: the view controller owns this view (it was a retain cycle; VoidLink made it weak)
 @property (nonatomic, weak, nullable) id<MetalViewDelegate> delegate;
 @property (nonatomic) float framerate;
+// The display link's range (PacingDisplayRefreshRange). All zero uses the frame rate.
+@property (nonatomic) PacingRefreshRange refreshRange;
 
 - (void)initCommon;
 - (void)shutdown;
