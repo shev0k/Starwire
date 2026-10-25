@@ -6,7 +6,9 @@
 #import "JitterBuffer.h"
 
 NSString *const JitterBufferKey = @"StarwireJitterBuffer";
-const JitterBufferMode JitterBufferDefaultMode = JitterBufferModeBalanced;
+// Picked from the batch 1 device runs (device-runs/2026-10-25-feature-ios-batch-1.md). Android's
+// default is balanced, which paces differently (host timestamps).
+const JitterBufferMode JitterBufferDefaultMode = JitterBufferModeLowLatency;
 
 // How long a hole keeps the target up, per mode. The same windows as Android's presets
 // (frame_pacer.cpp): 2 s for low latency, 3 s for balanced, 30 s for smooth.

@@ -129,7 +129,7 @@
 			<key>Key</key>
 			<string>StarwirePresenter</string>
 			<key>DefaultValue</key>
-			<string>loop</string>
+			<string>display</string>
 			<key>Titles</key>
 			<array>
 				<string>Render loop (old)</string>
@@ -149,7 +149,7 @@
 			<key>Key</key>
 			<string>StarwireJitterBuffer</string>
 			<key>DefaultValue</key>
-			<string>balanced</string>
+			<string>low-latency</string>
 			<key>Titles</key>
 			<array>
 				<string>Lowest latency</string>

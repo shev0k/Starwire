@@ -53,6 +53,8 @@ static const double kFrame = 1.0 / 120;
     XCTAssertEqual(JitterBufferModeFromString(@"smooth"), JitterBufferModeSmooth);
     XCTAssertEqual(JitterBufferModeFromString(@"garbage"), JitterBufferDefaultMode);
     XCTAssertEqual(JitterBufferModeFromString(nil), JitterBufferDefaultMode);
+    // Chosen from the batch 1 device runs
+    XCTAssertEqual(JitterBufferDefaultMode, JitterBufferModeLowLatency);
     for (JitterBufferMode mode = JitterBufferModeLowestLatency; mode <= JitterBufferModeSmooth; mode++) {
         XCTAssertEqual(JitterBufferModeFromString(JitterBufferModeName(mode)), mode);
     }
@@ -67,6 +69,7 @@ static const double kFrame = 1.0 / 120;
 
 - (void)testSettingsMakeAJitterBufferOnlyForTheDisplayPresenter {
     [_defaults setObject:@"smooth" forKey:JitterBufferKey];
+    [_defaults setObject:@"loop" forKey:PacingPresenterKey];
     PacingSettings *loop = [[PacingSettings alloc] initWithDefaults:_defaults];
     XCTAssertEqual(loop.jitterBuffer, JitterBufferModeSmooth);
     XCTAssertNil([loop makeJitterBufferForFrameInterval:kFrame]);

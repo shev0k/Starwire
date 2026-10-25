@@ -25,7 +25,9 @@ NSString *const StreamPlayAudioOnPCKey = @"StarwirePlayAudioOnPC";
     self = [super init];
     if (self) {
         NSString *presenter = [defaults stringForKey:PacingPresenterKey];
-        _presenter = [presenter isEqualToString:@"display"] ? PacingPresenterDisplay : PacingPresenterLoop;
+        // The display presenter is the default since batch 1 (device-runs/2026-10-25-feature-ios-batch-1.md):
+        // as smooth as the render loop with about 12 ms less from decode to screen
+        _presenter = [presenter isEqualToString:@"loop"] ? PacingPresenterLoop : PacingPresenterDisplay;
 
         NSString *timing = [defaults stringForKey:PacingPresentTimingKey];
         _presentTiming = [timing isEqualToString:@"frame"] ? PresentTimingFrameInterval : PresentTimingNearestRefresh;

@@ -38,10 +38,11 @@ typedef NS_ENUM(NSInteger, PresentTiming) {
 // What decides when a frame is drawn
 typedef NS_ENUM(NSInteger, PacingPresenter) {
     // Andy Grundman's render loop: a thread that waits for a drawable and a frame, draws the
-    // oldest queued frame and presents it with a minimum duration (PresentTiming)
+    // oldest queued frame and presents it with a minimum duration (PresentTiming). A test choice
+    // ("loop") since batch 1.
     PacingPresenterLoop = 0,
-    // The display drives it: a CAMetalDisplayLink asks for a frame at every refresh, and the
-    // newest decoded frame is drawn into the drawable it hands over and presented as it is
+    // The default: the display drives it. A CAMetalDisplayLink asks for a frame at every
+    // refresh, the jitter buffer picks one, and it is drawn into the drawable the link hands over
     PacingPresenterDisplay = 1,
 };
 
