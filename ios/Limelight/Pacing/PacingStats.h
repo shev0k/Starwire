@@ -23,7 +23,9 @@ typedef NS_ENUM(NSInteger, PacingDropReason) {
     PacingDropOldest = 1,
     // The display presenter found a newer frame waiting at a refresh and skipped this one
     PacingDropReplaced = 2,
-    PacingDropReasonCount = 3,
+    // The jitter buffer held more frames than its target and dropped one to catch up
+    PacingDropCatchUp = 3,
+    PacingDropReasonCount = 4,
 };
 
 // Intervals are sorted into steps of half a display refresh: 4.17 ms at 120 Hz. Index n counts
@@ -57,6 +59,23 @@ typedef struct {
     int arrivalGaps;
     double maxArrivalGapMs;
 
+    // Frames as the network delivered them, before decoding (DECODE_UNIT receiveTimeUs and
+    // enqueueTimeUs): frames whose last packet came more than 2.5 frame intervals after the last
+    // packet of the frame before (gaps), and frames that came within half an interval of the one
+    // before (clumped), with the largest run of those
+    int netFrames;
+    int netGaps;
+    double netMaxGapMs;
+    int netClumped;
+    int netMaxClump;
+    // From a frame's first packet to its last
+    double netReceiveSeconds;
+    double netMaxReceiveMs;
+    // Gaps of more than 2.5 frame intervals in the host's own frame times: frames the host
+    // didn't send, rather than frames the network held up
+    int hostGaps;
+    double hostMaxGapMs;
+
     int drops[PacingDropReasonCount];
     // Drops where the frame that overflowed the queue came within half a frame interval of the
     // previous one
@@ -77,12 +96,22 @@ typedef struct {
     int latencySamples;
     double latencySeconds;
     double maxLatencyMs;
+    // From the frame's last packet to the moment it appeared: what the jitter buffer adds shows
+    // here
+    int netLatencySamples;
+    double netLatencySeconds;
+    double maxNetLatencyMs;
 
     // The time between display refreshes, as the display link reports them
     PacingIntervals refresh;
     // Display presenter: refreshes that had a new frame to show, and ones that didn't
     int refreshesWithFrame;
     int refreshesWithoutFrame;
+
+    // Display presenter with a jitter buffer: frames held back, sampled at every refresh
+    int jitterSamples;
+    int jitterTargetSum;
+    int maxJitterTarget;
 
     // Render loop: time spent waiting in nextDrawable
     int drawableWaits;
@@ -95,6 +124,13 @@ int PacingIntervalBucket(double interval, double step);
 void PacingIntervalsAdd(PacingIntervals *intervals, double interval, double step);
 // Adds a finished window to a running total
 void PacingWindowAccumulate(PacingWindow *total, const PacingWindow *window);
+// The usual time between network gaps: the median spacing of `count` gap times, in seconds, and
+// in regularShare the share of spacings within 15% of 1 to 4 times that median. A steady period
+// points at something on a timer, such as the Wi-Fi radio leaving the channel for AWDL. 0 with
+// fewer than 3 gaps.
+double PacingGapPeriod(const double *times, int count, double *_Nullable regularShare);
+// A common-c time (LiGetMicroseconds) as a CACurrentMediaTime, given both clocks read now
+CFTimeInterval PacingMediaTimeFromMicroseconds(uint64_t timeUs, uint64_t nowUs, CFTimeInterval nowMediaTime);
 
 @interface PacingStats : NSObject
 
@@ -109,6 +145,9 @@ void PacingWindowAccumulate(PacingWindow *total, const PacingWindow *window);
 
 // Called on the decoder's queue for every decoded frame, before it is queued
 - (void)noteArrivalAt:(CFTimeInterval)time;
+// Called for every frame the network delivers, before decoding: when its first and last packets
+// came, and the host's time for it in microseconds (DECODE_UNIT presentationTimeUs)
+- (void)noteNetworkFrameReceivedAt:(CFTimeInterval)received assembledAt:(CFTimeInterval)assembled hostTimeUs:(uint64_t)hostTimeUs;
 // Called by the frame queue for every drop
 - (void)noteDrop:(PacingDropReason)reason queueDepth:(NSUInteger)depth;
 // Called with the queue depth after each enqueue
@@ -117,11 +156,17 @@ void PacingWindowAccumulate(PacingWindow *total, const PacingWindow *window);
 // target is the time the frame was rendered for, and decodedAt the time its decoding ended; 0
 // for either means not known.
 - (void)notePresentedAt:(CFTimeInterval)presentedTime target:(CFTimeInterval)target decodedAt:(CFTimeInterval)decodedAt;
+// The same, with the time the frame's last packet came (0 if not known)
+- (void)notePresentedAt:(CFTimeInterval)presentedTime target:(CFTimeInterval)target decodedAt:(CFTimeInterval)decodedAt receivedAt:(CFTimeInterval)receivedAt;
 - (void)notePresentedAt:(CFTimeInterval)presentedTime;
 // The time from one display refresh to the next, from a display link
 - (void)noteRefreshInterval:(double)interval;
 // Display presenter: whether a refresh had a new frame to show
 - (void)noteRefreshWithNewFrame:(BOOL)hadFrame;
+// Display presenter with a jitter buffer: frames it holds back at this refresh
+- (void)noteJitterTarget:(int)target;
+// The jitter buffer's name, for the summary line ("off" when there is none)
+@property (atomic, copy) NSString *jitterBufferName;
 // Render loop: how long nextDrawable took
 - (void)noteDrawableWait:(double)seconds;
 

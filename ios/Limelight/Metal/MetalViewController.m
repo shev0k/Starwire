@@ -117,8 +117,9 @@ The implementation of the cross-platform game view controller.
     [_frameQueue.pacingStats noteRefreshInterval:link.targetTimestamp - link.timestamp];
 }
 
-// Display presenter: one call per refresh, on the render thread. Takes the newest frame (waiting
-// a little if none has come yet), drops older ones, and draws it into this refresh's drawable.
+// Display presenter: one call per refresh, on the render thread. Takes the frame the jitter
+// buffer picks, or the newest one with no jitter buffer (waiting a little if none has come yet),
+// drops older ones, and draws it into this refresh's drawable.
 // A refresh with no new frame draws nothing, so the last frame stays up.
 - (void)renderUpdate:(CAMetalDisplayLinkUpdate *)update toLayer:(CAMetalLayer *)layer {
     MetalVideoRenderer *renderer = self.renderer;
@@ -133,8 +134,9 @@ The implementation of the cross-platform game view controller.
     }
     _lastTargetPresentation = target;
 
-    CFTimeInterval wait = PacingDisplayFrameWait(CACurrentMediaTime(), update.targetTimestamp);
-    Frame *frame = [_frameQueue dequeueNewestWithTimeout:wait];
+    CFTimeInterval now = CACurrentMediaTime();
+    CFTimeInterval wait = PacingDisplayFrameWait(now, update.targetTimestamp);
+    Frame *frame = [_frameQueue dequeueForRefreshAt:now waitingUpTo:wait];
     [stats noteRefreshWithNewFrame:frame != nil];
     if (frame) {
         [renderer renderFrame:frame intoDrawable:update.drawable ofLayer:layer targetTime:target];

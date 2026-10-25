@@ -31,7 +31,7 @@
 			<key>Title</key>
 			<string>Frame pacing tests</string>
 			<key>FooterText</key>
-			<string>Changes apply to the next stream. Frames to buffer "App setting" uses the value in the app's settings.</string>
+			<string>Changes apply to the next stream. The jitter buffer only works with the display driven presenter: it holds back up to 1 (low latency), 2 (balanced) or 4 (smooth) frames to ride out patchy Wi-Fi. Frames to buffer "App setting" uses the value in the app's settings.</string>
 		</dict>
 		<dict>
 			<key>Type</key>
@@ -51,6 +51,30 @@
 			<array>
 				<string>loop</string>
 				<string>display</string>
+			</array>
+		</dict>
+		<dict>
+			<key>Type</key>
+			<string>PSMultiValueSpecifier</string>
+			<key>Title</key>
+			<string>Jitter buffer</string>
+			<key>Key</key>
+			<string>StarwireJitterBuffer</string>
+			<key>DefaultValue</key>
+			<string>balanced</string>
+			<key>Titles</key>
+			<array>
+				<string>Lowest latency</string>
+				<string>Low latency</string>
+				<string>Balanced</string>
+				<string>Smooth</string>
+			</array>
+			<key>Values</key>
+			<array>
+				<string>lowest-latency</string>
+				<string>low-latency</string>
+				<string>balanced</string>
+				<string>smooth</string>
 			</array>
 		</dict>
 		<dict>

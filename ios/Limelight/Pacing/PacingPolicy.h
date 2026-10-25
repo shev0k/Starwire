@@ -11,6 +11,7 @@
 //
 
 #import <Foundation/Foundation.h>
+#import "JitterBuffer.h"
 
 NS_ASSUME_NONNULL_BEGIN
 
@@ -57,6 +58,8 @@ extern NSString *const StreamVirtualDisplayKey;    // YES = ask Vibeshine for a 
 @property (nonatomic, readonly) FrameDropPolicy dropPolicy;
 // 0 when there is no override
 @property (nonatomic, readonly) int framesToBufferOverride;
+// Display presenter only (JitterBufferKey)
+@property (nonatomic, readonly) JitterBufferMode jitterBuffer;
 
 // Reads the user defaults once. Call when a stream starts.
 + (instancetype)current;
@@ -64,6 +67,14 @@ extern NSString *const StreamVirtualDisplayKey;    // YES = ask Vibeshine for a 
 
 // The frames to buffer to use, given the app's own setting
 - (int)framesToBufferWithAppSetting:(int)appSetting;
+
+// The display presenter's jitter buffer for a stream at frameInterval seconds a frame, or nil to
+// show the newest frame at every refresh (lowest latency, or the render loop)
+- (nullable JitterBuffer *)makeJitterBufferForFrameInterval:(double)frameInterval;
+// The frames the queue may hold: enough for the jitter buffer's target plus the frames it lets
+// pile up before catching up. The render loop uses frames to buffer.
+- (int)queueLimitWithFramesToBuffer:(int)framesToBuffer;
+- (NSString *)jitterBufferName;
 
 // The drop policy the frame queue should use. The display presenter always keeps the newest
 // frame: it shows whatever is newest at each refresh, so an old frame is never worth keeping.

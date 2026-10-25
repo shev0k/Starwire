@@ -117,6 +117,13 @@ extern int ff_isom_write_av1c(AVIOContext *pb, const uint8_t *buf, int size,
                                                          refreshInterval:1.0 / (_displayHz > 0 ? _displayHz : 60)
                                                             windowLength:5.0];
     _frameQueue.pacingStats.presenterName = _pacingSettings.presenterName;
+    _frameQueue.pacingStats.jitterBufferName = _pacingSettings.jitterBufferName;
+
+    // The display presenter's jitter buffer, and room in the queue for what it holds
+    _frameQueue.jitterBuffer = [_pacingSettings makeJitterBufferForFrameInterval:1.0 / (frameRate > 0 ? frameRate : 60)];
+    int queueLimit = [_pacingSettings queueLimitWithFramesToBuffer:_frameQueue.highWaterMark];
+    [_frameQueue setHighWaterMark:queueLimit];
+    Log(LOG_I, @"Pacing: jitter buffer %@, queue limit %d", _pacingSettings.jitterBufferName, queueLimit);
 
     // RENDER_METAL begins in StreamFrameViewController
 }
@@ -635,10 +642,13 @@ int DrSubmitDecodeUnit(PDECODE_UNIT decodeUnit);
         return DR_NEED_IDR;
     }
 
+    // When the frame's last packet came, on the media clock, for the network to screen latency
+    CFTimeInterval receivedAt = PacingMediaTimeFromMicroseconds(du->enqueueTimeUs, LiGetMicroseconds(), CACurrentMediaTime());
     OSStatus decodeStatus = [self decodeFrameWithSampleBuffer:sampleBuffer
                                                   frameNumber:du->frameNumber
                                                     frameType:du->frameType
-                                              decodeStartTime:decodeStartTime];
+                                              decodeStartTime:decodeStartTime
+                                                   receivedAt:receivedAt];
     // Dereference the buffers
     CFRelease(dataBlockBuffer);
     CFRelease(frameBlockBuffer);
@@ -650,7 +660,8 @@ int DrSubmitDecodeUnit(PDECODE_UNIT decodeUnit);
 - (OSStatus)decodeFrameWithSampleBuffer:(CMSampleBufferRef)sampleBuffer
                             frameNumber:(int)frameNumber
                               frameType:(int)frameType
-                        decodeStartTime:(CFTimeInterval)decodeStartTime {
+                        decodeStartTime:(CFTimeInterval)decodeStartTime
+                             receivedAt:(CFTimeInterval)receivedAt {
   if (frameType == FRAME_TYPE_IDR || _decompressionSession == nil) {
     [self setupDecompressionSession];
   }
@@ -681,6 +692,7 @@ int DrSubmitDecodeUnit(PDECODE_UNIT decodeUnit);
           dispatch_async(self->_vtq, ^{
               Frame *frame = [[Frame alloc] initWithPixelBufffer:pixelBuffer frameNumber:frameNumber frameType:frameType pts:presentationTimestamp];
               [frame setFormatDesc:self->_formatDesc];
+              frame.receivedAt = receivedAt;
 
               [self->_frameQueue.pacingStats noteArrivalAt:frame.decodedAt];
               os_signpost_event_emit(pacingLog, OS_SIGNPOST_ID_EXCLUSIVE, "enqueue", "frame %d", frameNumber);

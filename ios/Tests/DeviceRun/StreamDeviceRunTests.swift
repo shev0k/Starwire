@@ -13,6 +13,8 @@
 //    TEST_RUNNER_STARWIRE_PRESENT_TIMING  "nearest" or "frame"
 //    TEST_RUNNER_STARWIRE_DROP_POLICY     "alternate" or "newest"
 //    TEST_RUNNER_STARWIRE_BUFFER          frames to buffer, 1 to 3
+//    TEST_RUNNER_STARWIRE_JITTER_BUFFER   "lowest-latency", "low-latency", "balanced" or "smooth"
+//                                         (display presenter only)
 //    TEST_RUNNER_STARWIRE_VIRTUAL_DISPLAY "1" to stream a Vibeshine virtual display
 //  They become the app's launch arguments, which the app reads as user defaults. The app has no
 //  code for tests.
@@ -36,6 +38,7 @@ final class StreamDeviceRunTests: XCTestCase {
         if let v = env["STARWIRE_PRESENT_TIMING"] { args += ["-StarwirePresentTiming", v] }
         if let v = env["STARWIRE_DROP_POLICY"] { args += ["-StarwireDropPolicy", v] }
         if let v = env["STARWIRE_BUFFER"] { args += ["-StarwireFramesToBuffer", v] }
+        if let v = env["STARWIRE_JITTER_BUFFER"] { args += ["-StarwireJitterBuffer", v] }
         if let v = env["STARWIRE_VIRTUAL_DISPLAY"] { args += ["-StarwireVirtualDisplay", v == "1" ? "YES" : "NO"] }
         app.launchArguments = args
         app.launch()

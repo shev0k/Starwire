@@ -36,6 +36,7 @@
 - (OSStatus)decodeFrameWithSampleBuffer:(CMSampleBufferRef)sampleBuffer
                             frameNumber:(int)frameNumber
                               frameType:(int)frameType
-                        decodeStartTime:(CFTimeInterval)decodeStartTime;
+                        decodeStartTime:(CFTimeInterval)decodeStartTime
+                             receivedAt:(CFTimeInterval)receivedAt;
 
 @end

@@ -688,11 +688,12 @@ static void ReleaseTextures(CVMetalTextureRef *textures, size_t count) {
         __weak MetalVideoRenderer *weakSelf = self;
         int frameNumber = frame.frameNumber;
         CFTimeInterval decodedAt = frame.decodedAt;
+        CFTimeInterval receivedAt = frame.receivedAt;
         [drawable addPresentedHandler:^(id<MTLDrawable> d) {
             CFTimeInterval presentedTime = d.presentedTime;
             os_signpost_interval_end(pacingLog, presentId, "present", "frame %d shown %d", frameNumber, presentedTime > 0);
             // presentedTime is 0 when the compositor skipped this drawable
-            [pacingStats notePresentedAt:presentedTime target:targetTime decodedAt:decodedAt];
+            [pacingStats notePresentedAt:presentedTime target:targetTime decodedAt:decodedAt receivedAt:receivedAt];
             MetalVideoRenderer *strongSelf = weakSelf;
             if (!strongSelf || presentedTime <= 0) {
                 return;

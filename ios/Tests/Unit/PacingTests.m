@@ -395,7 +395,10 @@ static const double kMs = 1000.0;
     XCTAssertTrue([log containsString:@"in 2"], @"%@", log);
     XCTAssertTrue([log containsString:@"drops 1"], @"%@", log);
     NSString *overlay = [stats overlayLineForWindow:w];
-    XCTAssertTrue([overlay hasPrefix:@"Pacing: "], @"%@", overlay);
+    // The network line first, then pacing
+    XCTAssertTrue([overlay hasPrefix:@"Network: "], @"%@", overlay);
+    XCTAssertTrue([overlay containsString:@"
+Pacing: "], @"%@", overlay);
     XCTAssertTrue([overlay containsString:@"bursts 100.0%"], @"%@", overlay);
     XCTAssertTrue([overlay containsString:@"\nShown for "], @"%@", overlay);
 }
@@ -535,6 +538,94 @@ static const double kMs = 1000.0;
     [queue enqueue:[self makeFrameAt:1.0168]];
     XCTAssertEqual([queue dequeueNewestWithTimeout:0].frameNumber, 3);
     XCTAssertEqual([stats currentWindow].drops[PacingDropReplaced], 1);
+}
+
+
+#pragma mark - Network arrival
+
+- (void)testMediaTimeFromMicroseconds {
+    XCTAssertEqualWithAccuracy(PacingMediaTimeFromMicroseconds(1000000, 1250000, 10.0), 9.75, 1e-9);
+    // A time read just after "now" still converts
+    XCTAssertEqualWithAccuracy(PacingMediaTimeFromMicroseconds(1250100, 1250000, 10.0), 10.0001, 1e-9);
+    XCTAssertEqual(PacingMediaTimeFromMicroseconds(0, 1250000, 10.0), 0);
+}
+
+// Frames on time, then a 50 ms hole and the 6 held frames at once: one gap and a clump of 6.
+// The host's own times stay even, so the hole is the network's, not the host's.
+- (void)testNetworkGapsAndClumpsAreMeasuredBeforeDecoding {
+    PacingStats *stats = [self stats120];
+    const double r = 1.0 / 120;
+    double t = 1.0;
+    uint64_t host = 1000000;
+    for (int i = 0; i < 10; i++) {
+        [stats noteNetworkFrameReceivedAt:t - 0.001 assembledAt:t hostTimeUs:host];
+        t += r;
+        host += 8333;
+    }
+    t += 0.050;
+    for (int i = 0; i < 6; i++) {
+        [stats noteNetworkFrameReceivedAt:t - 0.0005 assembledAt:t + i * 0.0002 hostTimeUs:host];
+        host += 8333;
+    }
+    PacingWindow w = [stats currentWindow];
+    XCTAssertEqual(w.netFrames, 16);
+    XCTAssertEqual(w.netGaps, 1);
+    XCTAssertEqualWithAccuracy(w.netMaxGapMs, 58.3, 0.1);
+    XCTAssertEqual(w.netClumped, 5);
+    XCTAssertEqual(w.netMaxClump, 6);
+    XCTAssertEqual(w.hostGaps, 0);
+    XCTAssertEqualWithAccuracy(w.netMaxReceiveMs, 1.5, 0.01);
+}
+
+- (void)testHostGapsAreCountedApart {
+    PacingStats *stats = [self stats120];
+    [stats noteNetworkFrameReceivedAt:1.0 assembledAt:1.001 hostTimeUs:1000000];
+    // The host skipped 3 frames: its time jumps by 33 ms, and so does the arrival
+    [stats noteNetworkFrameReceivedAt:1.034 assembledAt:1.035 hostTimeUs:1033333];
+    PacingWindow w = [stats currentWindow];
+    XCTAssertEqual(w.hostGaps, 1);
+    XCTAssertEqual(w.netGaps, 1);
+    XCTAssertEqualWithAccuracy(w.hostMaxGapMs, 33.3, 0.1);
+}
+
+- (void)testGapPeriodFindsARegularTimer {
+    // Every 512 ms, with one missed (1024 ms) and a little wobble
+    double times[] = {1.000, 1.512, 2.030, 2.536, 3.560, 4.072, 4.584};
+    double regular = 0;
+    double period = PacingGapPeriod(times, 7, &regular);
+    XCTAssertEqualWithAccuracy(period, 0.512, 0.006);
+    XCTAssertEqualWithAccuracy(regular, 1.0, 1e-9);
+
+    // No timer: spacings all over the place
+    double random[] = {1.0, 1.1, 1.9, 2.05, 3.4, 3.47, 4.9};
+    PacingGapPeriod(random, 7, &regular);
+    XCTAssertLessThan(regular, 0.5);
+
+    XCTAssertEqual(PacingGapPeriod(times, 2, &regular), 0);
+    XCTAssertEqual(regular, 0);
+}
+
+- (void)testSummaryShowsTheNetworkAndTheJitterBuffer {
+    PacingStats *stats = [self stats120];
+    stats.jitterBufferName = @"smooth";
+    const double r = 1.0 / 120;
+    double t = 1.0;
+    for (int g = 0; g < 4; g++) {
+        for (int i = 0; i < 60; i++) {
+            [stats noteNetworkFrameReceivedAt:t assembledAt:t hostTimeUs:0];
+            t += r;
+        }
+        t += 0.0333;
+    }
+    [stats noteJitterTarget:4];
+    [stats noteJitterTarget:2];
+    [stats notePresentedAt:2.0 target:0 decodedAt:1.99 receivedAt:1.98];
+    NSString *summary = [stats summaryLineForWindow:[stats totalWindow]];
+    XCTAssertTrue([summary containsString:@"network gaps 3, max 41.7 ms, every 533 ms (100% regular)"], @"%@", summary);
+    XCTAssertTrue([summary containsString:@"network to screen mean 20.0 ms"], @"%@", summary);
+    XCTAssertTrue([summary containsString:@"jitter buffer smooth, held mean 3.00, max 4, catch up 0"], @"%@", summary);
+    NSString *overlay = [stats overlayLineForWindow:[stats currentWindow]];
+    XCTAssertTrue([overlay hasPrefix:@"Network: gaps 3,"], @"%@", overlay);
 }
 
 @end

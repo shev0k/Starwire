@@ -1,0 +1,209 @@
+#!/usr/bin/env bash
+#
+# Builds, installs and tests the iOS app on the owner's Mac and iPad over SSH, from the Windows
+# PC (Git Bash) or any shell with ssh. One agent runs the whole loop with it; nobody has to carry
+# prompts to the Mac. The steps are the ones in docs/ios/mac-runbook.md.
+#
+#   ios/scripts/mac.sh sync                 push this branch, then fetch, check out and pull it on
+#                                           the Mac, with the iOS submodules
+#   ios/scripts/mac.sh build                xcodegen, then a Release build of the app and of the
+#                                           device-run tests for the iPad
+#   ios/scripts/mac.sh install              install the app over the old copy (never uninstalls)
+#   ios/scripts/mac.sh test <name> [VAR=value ...]
+#                                           run one StarwireDeviceRun test, for example
+#                                           `test stream PRESENTER=display SECONDS=120`. VAR becomes
+#                                           TEST_RUNNER_STARWIRE_VAR. The [device-run] lines and the
+#                                           summary come back to build/mac/<label>.txt
+#   ios/scripts/mac.sh unit                 the app's unit tests on a simulator
+#   ios/scripts/mac.sh log [seconds]        start the app with its console log for N seconds (20)
+#   ios/scripts/mac.sh run '<command>'      any command in the Mac's repo, with the same setup
+#
+# Test names: stream (testStreamAndSample), resume (testBackgroundAndResume), streams
+# (testStreamsInARow), or a full test method name.
+#
+# The Mac keeps the team ID and the iPad's UDID out of git, in ~/.config/starwire/env:
+#   STARWIRE_TEAM=XXXXXXXXXX   the free personal team (runbook section 3)
+#   IPAD=<UDID>                optional; otherwise the first physical iPad devicectl lists
+# Connection settings can be overridden with STARWIRE_MAC, STARWIRE_MAC_KEY and STARWIRE_MAC_REPO.
+#
+# Rules this script keeps: it never uninstalls io.github.shev0k.starwire (pairing would be lost),
+# never discards changes in the Mac's checkout (sync stops instead), and runs builds and tests
+# under caffeinate so the Mac stays awake.
+
+set -euo pipefail
+
+MAC=${STARWIRE_MAC:-shevok@192.168.1.122}
+KEY=${STARWIRE_MAC_KEY:-$HOME/.ssh/id_ed25519_starwire_mac}
+REPO=${STARWIRE_MAC_REPO:-/Users/shevok/Documents/GitHub/Starwire}
+HERE=$(cd "$(dirname "$0")/../.." && pwd)
+OUT="$HERE/build/mac"
+
+ssh_mac() {
+    ssh -i "$KEY" -o BatchMode=yes -o ConnectTimeout=15 -o ServerAliveInterval=30 "$MAC" "$@"
+}
+
+# Runs a bash script on the Mac with the shared setup: PATH for xcodegen, the env file, the repo,
+# and helper functions. Arguments after the script become $1, $2 ... there.
+remote() {
+    local script=$1
+    shift
+    local quoted=""
+    for a in "$@"; do
+        quoted+=" $(printf '%q' "$a")"
+    done
+    ssh_mac "bash -s --$quoted" <<EOF
+set -euo pipefail
+export PATH="\$HOME/.local/bin:\$PATH"
+if [ -f "\$HOME/.config/starwire/env" ]; then . "\$HOME/.config/starwire/env"; fi
+cd "$REPO"
+mkdir -p build/runs
+
+need_team() {
+    if [ -z "\${STARWIRE_TEAM:-}" ]; then
+        echo "STARWIRE_TEAM isn't set: put it in ~/.config/starwire/env on the Mac (runbook section 3)" >&2
+        exit 2
+    fi
+}
+
+need_ipad() {
+    if [ -z "\${IPAD:-}" ]; then
+        IPAD=\$(xcrun devicectl list devices 2>/dev/null | awk '/iPad/ && /physical/ && !/unavailable/ {
+            for (i = 1; i <= NF; i++) if (\$i ~ /^[0-9A-F]{8}-[0-9A-F]{16}\$/) { print \$i; exit } }')
+    fi
+    if [ -z "\${IPAD:-}" ]; then
+        echo "No iPad is connected to the Mac (xcrun devicectl list devices). Plug it in, unlocked." >&2
+        xcrun devicectl list devices >&2 || true
+        exit 3
+    fi
+}
+
+$script
+EOF
+}
+
+cmd=${1:-}
+shift || true
+
+case "$cmd" in
+sync)
+    branch=$(git -C "$HERE" rev-parse --abbrev-ref HEAD)
+    git -C "$HERE" push -q -u origin "$branch"
+    remote '
+branch=$1
+if [ -n "$(git status --porcelain --untracked-files=no)" ]; then
+    echo "The Mac checkout has uncommitted changes; not touching them:" >&2
+    git status --short >&2
+    exit 4
+fi
+git fetch -q origin
+if git rev-parse -q --verify "refs/heads/$branch" >/dev/null; then
+    git checkout -q "$branch"
+else
+    git checkout -q -b "$branch" --track "origin/$branch"
+fi
+git pull -q --ff-only
+git submodule sync -q --recursive
+git submodule update -q --init --recursive ios/moonlight-common/moonlight-common-c ios/X1Kit ios/third_party/imgui ios/third_party/implot
+echo "Mac at $(git rev-parse --short HEAD) on $branch"
+' "$branch"
+    ;;
+
+build)
+    remote '
+need_team
+cd ios
+xcodegen generate --quiet
+common=(-project Starwire.xcodeproj -configuration Release -destination "generic/platform=iOS"
+    -derivedDataPath ../build/DerivedData -allowProvisioningUpdates -allowProvisioningDeviceRegistration
+    DEVELOPMENT_TEAM="$STARWIRE_TEAM" CODE_SIGN_STYLE=Automatic)
+status=0
+caffeinate -i xcodebuild "${common[@]}" -scheme StarwireDeviceRun build-for-testing > ../build/device-build.log 2>&1 || status=$?
+grep -E "error:|\*\* (BUILD|TEST BUILD) (SUCCEEDED|FAILED)" ../build/device-build.log | sort -u | tail -40
+echo "warnings: $(grep -c "warning:" ../build/device-build.log || true)"
+exit $status
+'
+    ;;
+
+install)
+    remote '
+need_ipad
+app=build/DerivedData/Build/Products/Release-iphoneos/Starwire.app
+[ -d "$app" ] || { echo "No build at $app: run build first" >&2; exit 5; }
+xcrun devicectl device install app --device "$IPAD" "$app" 2>&1 | tail -5
+'
+    ;;
+
+test)
+    name=${1:?test name: stream, resume, streams or a method name}
+    shift
+    case "$name" in
+        stream) method=testStreamAndSample ;;
+        resume) method=testBackgroundAndResume ;;
+        streams) method=testStreamsInARow ;;
+        *) method=$name ;;
+    esac
+    label="$name"
+    vars=()
+    for kv in "$@"; do
+        vars+=("TEST_RUNNER_STARWIRE_$kv")
+        label+="-${kv//[^A-Za-z0-9]/}"
+    done
+    label+="-$(date -u +%H%M%S)"
+    mkdir -p "$OUT"
+    remote '
+need_team
+need_ipad
+method=$1
+label=$2
+shift 2
+cd ios
+status=0
+env "$@" caffeinate -i xcodebuild test-without-building -project Starwire.xcodeproj -scheme StarwireDeviceRun \
+    -configuration Release -destination "id=$IPAD" -derivedDataPath ../build/DerivedData \
+    -resultBundlePath "../build/runs/$label.xcresult" \
+    -only-testing:"StarwireDeviceRun/StreamDeviceRunTests/$method" > "../build/runs/$label.log" 2>&1 || status=$?
+echo "test $method ($*), exit $status"
+grep -E "\[device-run\]|^ *(Video stream|Network:|Pacing|Shown for|Frames dropped|Average network|Decode time|Frame queue)|error:|Test Case .*(passed|failed)|\*\* TEST" "../build/runs/$label.log" || true
+exit $status
+' "$method" "$label" "${vars[@]}" | tee "$OUT/$label.txt"
+    exit "${PIPESTATUS[0]}"
+    ;;
+
+unit)
+    remote '
+cd ios
+xcodegen generate --quiet
+sim=$(xcrun simctl list devices available | grep -Eo "iPhone [0-9]+ Pro \(" | head -1 | sed "s/ ($//")
+[ -n "$sim" ] || sim=$(xcrun simctl list devices available | grep -Eo "iPhone[^(]*" | head -1 | sed "s/ *$//")
+status=0
+caffeinate -i xcodebuild -project Starwire.xcodeproj -scheme Starwire -configuration Debug \
+    -destination "platform=iOS Simulator,name=$sim" -derivedDataPath ../build/DerivedData \
+    CODE_SIGNING_ALLOWED=NO test > ../build/unit-tests.log 2>&1 || status=$?
+grep -E "error:|Executed [0-9]+ tests|\*\* TEST|failed \(" ../build/unit-tests.log | sort -u | tail -40
+exit $status
+'
+    ;;
+
+log)
+    seconds=${1:-20}
+    remote '
+need_ipad
+xcrun devicectl device process launch --console --terminate-existing \
+    --environment-variables "{\"OS_ACTIVITY_DT_MODE\":\"enable\"}" --device "$IPAD" io.github.shev0k.starwire > build/console.log 2>&1 &
+pid=$!
+sleep "$1"
+kill "$pid" 2>/dev/null || true
+wait "$pid" 2>/dev/null || true
+grep -E "Starwire\[" build/console.log | tail -200
+' "$seconds"
+    ;;
+
+run)
+    remote "$1"
+    ;;
+
+*)
+    sed -n '2,32p' "$0"
+    exit 1
+    ;;
+esac

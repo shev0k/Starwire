@@ -10,6 +10,8 @@
 #import "Plot.h"
 #import "Utils.h"
 #import "SessionOwnership.h"
+#import "FrameQueue.h"
+#import "PacingStats.h"
 #import "CoreAudioHelpers.h"
 
 #import <VideoToolbox/VideoToolbox.h>
@@ -209,6 +211,15 @@ int DrSubmitDecodeUnit(PDECODE_UNIT decodeUnit)
 
     currentVideoStats.receivedFrames++;
     currentVideoStats.totalFrames++;
+
+    // When the frame's first and last packets came, before any decoding, so the pacing stats can
+    // tell holes in the network from holes anywhere after it
+    uint64_t nowUs = LiGetMicroseconds();
+    CFTimeInterval nowMedia = CACurrentMediaTime();
+    [[FrameQueue sharedInstance].pacingStats
+        noteNetworkFrameReceivedAt:PacingMediaTimeFromMicroseconds(decodeUnit->receiveTimeUs, nowUs, nowMedia)
+                       assembledAt:PacingMediaTimeFromMicroseconds(decodeUnit->enqueueTimeUs, nowUs, nowMedia)
+                        hostTimeUs:decodeUnit->presentationTimeUs];
 
     [bwTracker addBytes:decodeUnit->fullLength];
 

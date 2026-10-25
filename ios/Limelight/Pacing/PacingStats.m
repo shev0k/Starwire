@@ -10,6 +10,9 @@
 #undef LOG_FILE_CATEGORY
 #define LOG_FILE_CATEGORY LOGCAT_PACING
 
+// Two gaps a second for over an hour
+#define PACING_MAX_GAP_TIMES 8192
+
 int PacingIntervalBucket(double interval, double step) {
     if (!(interval > 0) || !(step > 0)) {
         return 0;
@@ -47,8 +50,68 @@ static void AccumulateIntervals(PacingIntervals *total, const PacingIntervals *a
     total->offGrid += add->offGrid;
 }
 
+static int CompareDoubles(const void *a, const void *b) {
+    double x = *(const double *)a, y = *(const double *)b;
+    return x < y ? -1 : (x > y ? 1 : 0);
+}
+
+double PacingGapPeriod(const double *times, int count, double *regularShare) {
+    if (regularShare) {
+        *regularShare = 0;
+    }
+    if (count < 3) {
+        return 0;
+    }
+    int n = count - 1;
+    double *spacings = malloc(sizeof(double) * n);
+    if (!spacings) {
+        return 0;
+    }
+    for (int i = 0; i < n; i++) {
+        spacings[i] = times[i + 1] - times[i];
+    }
+    qsort(spacings, n, sizeof(double), CompareDoubles);
+    double median = (n % 2) ? spacings[n / 2] : (spacings[n / 2 - 1] + spacings[n / 2]) / 2.0;
+    if (median > 0 && regularShare) {
+        int regular = 0;
+        for (int i = 0; i < n; i++) {
+            double multiple = round(spacings[i] / median);
+            if (multiple >= 1 && multiple <= 4 && fabs(spacings[i] - multiple * median) <= 0.15 * median) {
+                regular++;
+            }
+        }
+        *regularShare = (double)regular / n;
+    }
+    free(spacings);
+    return median;
+}
+
+CFTimeInterval PacingMediaTimeFromMicroseconds(uint64_t timeUs, uint64_t nowUs, CFTimeInterval nowMediaTime) {
+    if (timeUs == 0) {
+        return 0;
+    }
+    // Signed, so a time a little after "now" (clocks read in the other order) still converts
+    double agoSeconds = ((double)(int64_t)(nowUs - timeUs)) / 1e6;
+    return nowMediaTime - agoSeconds;
+}
+
 void PacingWindowAccumulate(PacingWindow *total, const PacingWindow *w) {
     total->windowSeconds += w->windowSeconds;
+    total->netFrames += w->netFrames;
+    total->netGaps += w->netGaps;
+    total->netMaxGapMs = MAX(total->netMaxGapMs, w->netMaxGapMs);
+    total->netClumped += w->netClumped;
+    total->netMaxClump = MAX(total->netMaxClump, w->netMaxClump);
+    total->netReceiveSeconds += w->netReceiveSeconds;
+    total->netMaxReceiveMs = MAX(total->netMaxReceiveMs, w->netMaxReceiveMs);
+    total->hostGaps += w->hostGaps;
+    total->hostMaxGapMs = MAX(total->hostMaxGapMs, w->hostMaxGapMs);
+    total->netLatencySamples += w->netLatencySamples;
+    total->netLatencySeconds += w->netLatencySeconds;
+    total->maxNetLatencyMs = MAX(total->maxNetLatencyMs, w->maxNetLatencyMs);
+    total->jitterSamples += w->jitterSamples;
+    total->jitterTargetSum += w->jitterTargetSum;
+    total->maxJitterTarget = MAX(total->maxJitterTarget, w->maxJitterTarget);
     total->arrivals += w->arrivals;
     total->arrivalBursts += w->arrivalBursts;
     total->arrivalOnTime += w->arrivalOnTime;
@@ -87,6 +150,13 @@ void PacingWindowAccumulate(PacingWindow *total, const PacingWindow *w) {
     CFTimeInterval _lastPresented;
     double _lastArrivalGapFrames;
 
+    CFTimeInterval _lastAssembled;
+    uint64_t _lastHostTimeUs;
+    int _clumpRun;
+    // When each network gap ended, for the whole stream (the first PACING_MAX_GAP_TIMES)
+    double *_gapTimes;
+    int _gapTimeCount;
+
     PacingWindow _current;
     PacingWindow _last;
     // Every finished window added up
@@ -105,8 +175,80 @@ void PacingWindowAccumulate(PacingWindow *total, const PacingWindow *w) {
         _windowLength = windowLength > 0 ? windowLength : 5.0;
         _lastArrivalGapFrames = 1.0;
         _presenterName = @"loop";
+        _jitterBufferName = @"off";
+        _gapTimes = calloc(PACING_MAX_GAP_TIMES, sizeof(double));
     }
     return self;
+}
+
+- (void)dealloc {
+    free(_gapTimes);
+}
+
+- (void)noteNetworkFrameReceivedAt:(CFTimeInterval)received assembledAt:(CFTimeInterval)assembled hostTimeUs:(uint64_t)hostTimeUs {
+    if (assembled <= 0) {
+        return;
+    }
+    [self rollWindowIfDueAt:assembled];
+
+    os_unfair_lock_lock(&_lock);
+    if (_windowStart == 0) {
+        _windowStart = assembled;
+    }
+    _current.netFrames++;
+    if (received > 0 && assembled >= received) {
+        double receive = assembled - received;
+        _current.netReceiveSeconds += receive;
+        _current.netMaxReceiveMs = MAX(_current.netMaxReceiveMs, receive * 1000.0);
+    }
+    if (_lastAssembled > 0) {
+        double gap = assembled - _lastAssembled;
+        double frames = gap / _frameInterval;
+        if (frames > 2.5) {
+            _current.netGaps++;
+            if (_gapTimes && _gapTimeCount < PACING_MAX_GAP_TIMES) {
+                _gapTimes[_gapTimeCount++] = assembled;
+            }
+        }
+        _current.netMaxGapMs = MAX(_current.netMaxGapMs, gap * 1000.0);
+        if (frames < 0.5) {
+            _current.netClumped++;
+            _clumpRun++;
+        } else {
+            _clumpRun = 0;
+        }
+        // A clump counts the frame that started it too
+        _current.netMaxClump = MAX(_current.netMaxClump, _clumpRun + 1);
+    }
+    _lastAssembled = assembled;
+
+    if (_lastHostTimeUs > 0 && hostTimeUs > _lastHostTimeUs) {
+        double hostGap = (double)(hostTimeUs - _lastHostTimeUs) / 1e6;
+        if (hostGap / _frameInterval > 2.5) {
+            _current.hostGaps++;
+        }
+        _current.hostMaxGapMs = MAX(_current.hostMaxGapMs, hostGap * 1000.0);
+    }
+    if (hostTimeUs > 0) {
+        _lastHostTimeUs = hostTimeUs;
+    }
+    os_unfair_lock_unlock(&_lock);
+}
+
+- (void)noteJitterTarget:(int)target {
+    os_unfair_lock_lock(&_lock);
+    _current.jitterSamples++;
+    _current.jitterTargetSum += target;
+    _current.maxJitterTarget = MAX(_current.maxJitterTarget, target);
+    os_unfair_lock_unlock(&_lock);
+}
+
+// The median time between network gaps over the whole stream, in ms, and how regular it is
+- (double)gapPeriodMs:(double *)regularShare {
+    os_unfair_lock_lock(&_lock);
+    double period = PacingGapPeriod(_gapTimes, _gapTimeCount, regularShare);
+    os_unfair_lock_unlock(&_lock);
+    return period * 1000.0;
 }
 
 - (void)noteArrivalAt:(CFTimeInterval)time {
@@ -166,6 +308,10 @@ void PacingWindowAccumulate(PacingWindow *total, const PacingWindow *w) {
 }
 
 - (void)notePresentedAt:(CFTimeInterval)presentedTime target:(CFTimeInterval)target decodedAt:(CFTimeInterval)decodedAt {
+    [self notePresentedAt:presentedTime target:target decodedAt:decodedAt receivedAt:0];
+}
+
+- (void)notePresentedAt:(CFTimeInterval)presentedTime target:(CFTimeInterval)target decodedAt:(CFTimeInterval)decodedAt receivedAt:(CFTimeInterval)receivedAt {
     os_unfair_lock_lock(&_lock);
     if (presentedTime <= 0) {
         _current.presentSkipped++;
@@ -184,6 +330,12 @@ void PacingWindowAccumulate(PacingWindow *total, const PacingWindow *w) {
             if (latency * 1000.0 > _current.maxLatencyMs) {
                 _current.maxLatencyMs = latency * 1000.0;
             }
+        }
+        if (receivedAt > 0 && presentedTime >= receivedAt) {
+            double latency = presentedTime - receivedAt;
+            _current.netLatencySamples++;
+            _current.netLatencySeconds += latency;
+            _current.maxNetLatencyMs = MAX(_current.maxNetLatencyMs, latency * 1000.0);
         }
         _lastPresented = presentedTime;
     }
@@ -301,6 +453,28 @@ static double MeanLatencyMs(PacingWindow w) {
     return w.latencySamples > 0 ? w.latencySeconds * 1000.0 / w.latencySamples : 0.0;
 }
 
+static double MeanNetLatencyMs(PacingWindow w) {
+    return w.netLatencySamples > 0 ? w.netLatencySeconds * 1000.0 / w.netLatencySamples : 0.0;
+}
+
+static double MeanJitterTarget(PacingWindow w) {
+    return w.jitterSamples > 0 ? (double)w.jitterTargetSum / w.jitterSamples : 0.0;
+}
+
+// "gaps 90, max 141.1 ms, every 512 ms (80% regular), clumped 865, max clump 12, receive
+// 1.2/9.0 ms, host gaps 0, max 9.1 ms"
+- (NSString *)networkPartForWindow:(PacingWindow)w {
+    double regular = 0;
+    double period = [self gapPeriodMs:&regular];
+    NSString *every = period > 0
+        ? [NSString stringWithFormat:@"every %.0f ms (%.0f%% regular)", period, regular * 100.0]
+        : @"every - ms";
+    return [NSString stringWithFormat:@"gaps %d, max %.1f ms, %@, clumped %d, max clump %d, receive %.1f/%.1f ms, host gaps %d, max %.1f ms",
+            w.netGaps, w.netMaxGapMs, every, w.netClumped, w.netMaxClump,
+            w.netFrames > 0 ? w.netReceiveSeconds * 1000.0 / w.netFrames : 0.0, w.netMaxReceiveMs,
+            w.hostGaps, w.hostMaxGapMs];
+}
+
 - (NSString *)logLineForWindow:(PacingWindow)w {
     int drops = TotalDrops(w);
     return [NSString stringWithFormat:
@@ -308,7 +482,8 @@ static double MeanLatencyMs(PacingWindow w) {
             "arrival gaps burst/on time/late/gap %d/%d/%d/%d, max %.1f ms; "
             "shown %d, shown for %@, mean %.2f ms, max %.1f ms, off grid %d, late %d, skipped by compositor %d; "
             "refresh %@, mean %.2f ms; refreshes with/without a new frame %d/%d; drawable wait mean %.2f ms, max %.1f ms; "
-            "decode to screen mean %.1f ms, max %.1f ms",
+            "decode to screen mean %.1f ms, max %.1f ms; network %d frames, %@; network to screen mean %.1f ms, max %.1f ms; "
+            "jitter buffer %@ held mean %.2f, max %d, catch up %d",
             w.windowSeconds, w.arrivals, drops, Percent(drops, w.arrivals),
             w.drops[PacingDropIncoming], w.drops[PacingDropOldest], w.drops[PacingDropReplaced], w.dropsAfterBurst, w.maxQueueDepth,
             w.arrivalBursts, w.arrivalOnTime, w.arrivalLate, w.arrivalGaps, w.maxArrivalGapMs,
@@ -317,7 +492,9 @@ static double MeanLatencyMs(PacingWindow w) {
             [self histogramOf:w.refresh], MeanMs(w.refresh),
             w.refreshesWithFrame, w.refreshesWithoutFrame,
             w.drawableWaits > 0 ? w.drawableWaitSeconds * 1000.0 / w.drawableWaits : 0.0, w.maxDrawableWaitMs,
-            MeanLatencyMs(w), w.maxLatencyMs];
+            MeanLatencyMs(w), w.maxLatencyMs,
+            w.netFrames, [self networkPartForWindow:w], MeanNetLatencyMs(w), w.maxNetLatencyMs,
+            self.jitterBufferName, MeanJitterTarget(w), w.maxJitterTarget, w.drops[PacingDropCatchUp]];
 }
 
 - (NSString *)overlayLineForWindow:(PacingWindow)w {
@@ -327,6 +504,7 @@ static double MeanLatencyMs(PacingWindow w) {
             w.dropsAfterBurst,
             w.presentSkipped,
             w.presentLate,
+            self.jitterBufferName, MeanJitterTarget(w),
             [self histogramOf:w.shown], MeanMs(w.shown), MeanMs(w.refresh), MeanLatencyMs(w)];
 }
 
@@ -338,7 +516,9 @@ static double MeanLatencyMs(PacingWindow w) {
             "arrival late %d, gaps %d, max gap %.1f ms; shown %d, "
             "shown for %@, mean %.2f ms, max %.1f ms, off grid %.1f%%, late %d, skipped %d; "
             "refresh mean %.2f ms, off grid %.1f%%; refreshes without a new frame %.1f%%; drawable wait mean %.2f ms; "
-            "decode to screen mean %.1f ms, max %.1f ms",
+            "decode to screen mean %.1f ms, max %.1f ms; "
+            "network %@; network to screen mean %.1f ms, max %.1f ms; "
+            "jitter buffer %@, held mean %.2f, max %d, catch up %d",
             self.presenterName, w.windowSeconds, w.arrivals, Percent(drops, w.arrivals),
             w.drops[PacingDropIncoming], w.drops[PacingDropOldest], w.drops[PacingDropReplaced],
             w.arrivalLate, w.arrivalGaps, w.maxArrivalGapMs, w.presented,
@@ -347,7 +527,9 @@ static double MeanLatencyMs(PacingWindow w) {
             MeanMs(w.refresh), Percent(w.refresh.offGrid, w.refresh.total),
             Percent(w.refreshesWithoutFrame, refreshes),
             w.drawableWaits > 0 ? w.drawableWaitSeconds * 1000.0 / w.drawableWaits : 0.0,
-            MeanLatencyMs(w), w.maxLatencyMs];
+            MeanLatencyMs(w), w.maxLatencyMs,
+            [self networkPartForWindow:w], MeanNetLatencyMs(w), w.maxNetLatencyMs,
+            self.jitterBufferName, MeanJitterTarget(w), w.maxJitterTarget, w.drops[PacingDropCatchUp]];
 }
 
 @end

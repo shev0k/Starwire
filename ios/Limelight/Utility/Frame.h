@@ -5,6 +5,8 @@
 @property (nonatomic) int frameNumber;
 @property (nonatomic) int frameType;
 @property (nonatomic) CFTimeInterval decodedAt;
+// When the frame's last packet came from the network (CACurrentMediaTime), 0 if not known
+@property (nonatomic) CFTimeInterval receivedAt;
 @property (nonatomic) CMTime pts90;
 @property (nonatomic) CMTime duration90;
 @property (nonatomic, assign) CMVideoFormatDescriptionRef formatDesc;

@@ -33,6 +33,15 @@ steps and the checksums for each version.
 - **iOS: a display-driven presenter, as a test choice.** "Presenter" in iOS Settings draws the
   newest frame at each display refresh from a CAMetalDisplayLink, as Nonary's moonlight-qt does on
   macOS. The old render loop stays the default until a run on the iPad shows which is better.
+- **iOS: network arrival in the statistics overlay.** A "Network:" line says how often frames
+  reach the iPad late (gaps of more than 2.5 frames, measured from their packets before any
+  decoding), the longest gap, how regular the gaps are, how many frames come bunched together,
+  and whether the host itself skipped frames. The summary line adds the time from a frame's last
+  packet to the screen.
+- **iOS: a jitter buffer for the display-driven presenter,** with Starwire for Android's four
+  choices in iOS Settings: lowest latency (always the newest frame), low latency (up to 1 frame
+  held back), balanced (up to 2) and smooth (up to 4). It holds back only as many frames as the
+  recent gaps need, repeats the last frame when it runs dry, and catches up one frame at a time.
 - **iOS: unit tests on the simulator in CI,** including Andy Grundman's frame queue tests, and a
   UI test the Mac runs on the iPad.
 

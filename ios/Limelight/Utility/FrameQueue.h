@@ -5,6 +5,7 @@
 #import "FloatBuffer.h"
 #import "PacingPolicy.h"
 #import "PacingStats.h"
+#import "JitterBuffer.h"
 
 NS_ASSUME_NONNULL_BEGIN
 
@@ -19,6 +20,9 @@ NS_ASSUME_NONNULL_BEGIN
 @property (atomic) FrameDropPolicy dropPolicy;
 // Receives every drop with its reason. Optional.
 @property (atomic, nullable) PacingStats *pacingStats;
+// The display presenter's jitter buffer. Nil shows the newest frame at every refresh. Set before
+// a stream starts; it sees every enqueue and every refresh, under the queue's lock.
+@property (atomic, nullable) JitterBuffer *jitterBuffer;
 
 // The queue shared by the decoder and the Metal renderer
 + (instancetype)sharedInstance;
@@ -40,6 +44,11 @@ NS_ASSUME_NONNULL_BEGIN
 // the newest frame and drops every older one (PacingDropReplaced). They were decoded already, so
 // dropping one, an IDR frame included, only means it isn't shown. Returns nil at once when paused.
 - (nullable Frame *)dequeueNewestWithTimeout:(CFTimeInterval)timeout;
+// For the display presenter, once per refresh at `now`: waits up to `timeout` seconds if the
+// queue is empty, then asks the jitter buffer which frame to show and drops the frames before it
+// (PacingDropCatchUp). With no jitter buffer this is dequeueNewestWithTimeout. Nil means the last
+// frame stays up. Returns nil at once when paused.
+- (nullable Frame *)dequeueForRefreshAt:(CFTimeInterval)now waitingUpTo:(CFTimeInterval)timeout;
 // Frames per second arriving, from the frames' decodedAt times
 - (CFTimeInterval)estimatedFramerate;
 - (int)currentSoftCap;

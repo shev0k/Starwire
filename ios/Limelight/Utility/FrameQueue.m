@@ -20,6 +20,7 @@
 // - the frame rate estimate uses the frames' own timestamps, so it can be tested
 // - instances can be made for tests; the app uses sharedInstance
 // - dequeueNewestWithTimeout for the display presenter, which counts the frames it skips
+// - dequeueForRefreshAt for the display presenter's jitter buffer
 
 @implementation FrameQueue {
     NSMutableArray<id> *_buffer;
@@ -129,8 +130,9 @@
 
 - (void)_noteDroppedFrame:(Frame *)frame reason:(PacingDropReason)reason {
     [_pacingStats noteDrop:reason queueDepth:_count];
+    static const char *names[PacingDropReasonCount] = {"incoming", "oldest", "replaced", "catch up"};
     os_signpost_event_emit(LogHandle(LOGCAT_PACING), OS_SIGNPOST_ID_EXCLUSIVE, "drop", "frame %d, %{public}s, queue %d",
-                           frame.frameNumber, reason == PacingDropIncoming ? "incoming" : "oldest", _count);
+                           frame.frameNumber, (reason >= 0 && reason < PacingDropReasonCount) ? names[reason] : "?", _count);
 
     if ([frame durationIsValid]) {
         _ptsCorrection = CMTimeAdd(_ptsCorrection, frame.duration90);
@@ -176,6 +178,9 @@
 - (int)_unsafeEnqueue:(Frame *)frame withDropTarget:(int)frameDropTarget {
     int dropCount = 0;
     [self _noteArrivalForFramerate:frame];
+    if (frame.decodedAt > 0) {
+        [_jitterBuffer noteArrivalAt:frame.decodedAt];
+    }
 
     // The ring can't grow. Only a run of IDR frames could fill it, but don't overwrite.
     if (_count >= _capacity) {
@@ -317,6 +322,38 @@ static struct timespec TimespecFromInterval(CFTimeInterval interval) {
             _replacedSinceEnqueue++;
         }
         frame = [self _unsafeDequeue];
+    }
+    pthread_mutex_unlock(&_mutex);
+    return frame;
+}
+
+- (Frame *)dequeueForRefreshAt:(CFTimeInterval)now waitingUpTo:(CFTimeInterval)timeout {
+    JitterBuffer *jitterBuffer = self.jitterBuffer;
+    if (!jitterBuffer) {
+        return [self dequeueNewestWithTimeout:timeout];
+    }
+    if (self.paused) {
+        return nil;
+    }
+
+    pthread_mutex_lock(&_mutex);
+    if (_count == 0 && timeout > 0 && !self.paused) {
+        struct timespec ts = TimespecFromInterval(timeout);
+        pthread_cond_timedwait_relative_np(&_cond, &_mutex, &ts);
+    }
+    Frame *frame = nil;
+    if (!self.paused) {
+        JitterBufferChoice choice = [jitterBuffer chooseWithQueued:_count at:now];
+        for (int i = 0; i < choice.drop && _count > 1; i++) {
+            Frame *older = [self _popFrame];
+            [older setDurationFromNext:[self _peekFrame]];
+            [self _noteDroppedFrame:older reason:PacingDropCatchUp];
+            _replacedSinceEnqueue++;
+        }
+        if (choice.show) {
+            frame = [self _unsafeDequeue];
+        }
+        [_pacingStats noteJitterTarget:jitterBuffer.target];
     }
     pthread_mutex_unlock(&_mutex);
     return frame;

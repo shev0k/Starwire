@@ -31,6 +31,8 @@ NSString *const StreamVirtualDisplayKey = @"StarwireVirtualDisplay";
 
         NSInteger buffer = [defaults integerForKey:PacingFramesToBufferKey];
         _framesToBufferOverride = (buffer >= 1 && buffer <= 5) ? (int)buffer : 0;
+
+        _jitterBuffer = JitterBufferModeFromString([defaults stringForKey:JitterBufferKey]);
     }
     return self;
 }
@@ -40,6 +42,25 @@ NSString *const StreamVirtualDisplayKey = @"StarwireVirtualDisplay";
         return _framesToBufferOverride;
     }
     return appSetting > 0 ? appSetting : 2;
+}
+
+- (JitterBuffer *)makeJitterBufferForFrameInterval:(double)frameInterval {
+    if (_presenter != PacingPresenterDisplay || _jitterBuffer == JitterBufferModeLowestLatency) {
+        return nil;
+    }
+    return [[JitterBuffer alloc] initWithMode:_jitterBuffer frameInterval:frameInterval];
+}
+
+- (int)queueLimitWithFramesToBuffer:(int)framesToBuffer {
+    if (_presenter != PacingPresenterDisplay) {
+        return framesToBuffer;
+    }
+    // The target, the frame being shown, two frames above the target and one arriving
+    return MAX(framesToBuffer, JitterBufferMaxTarget(_jitterBuffer) + 4);
+}
+
+- (NSString *)jitterBufferName {
+    return _presenter == PacingPresenterDisplay ? JitterBufferModeName(_jitterBuffer) : @"off";
 }
 
 - (FrameDropPolicy)effectiveDropPolicy {
