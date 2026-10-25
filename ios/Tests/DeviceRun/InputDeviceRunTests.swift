@@ -161,7 +161,7 @@ final class InputDeviceRunTests: XCTestCase {
         // Dragging the button moves it and doesn't open the menu
         let start = button.frame
         // To the other side from where an earlier run left it
-        let screen: XCUIElement = app.frame
+        let screen = app.frame
         let target = CGVector(dx: start.midX > screen.midX ? 0.1 : 0.9, dy: start.midY > screen.midY ? 0.2 : 0.7)
         button.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
             .press(forDuration: 0.1, thenDragTo: app.coordinate(withNormalizedOffset: target))
