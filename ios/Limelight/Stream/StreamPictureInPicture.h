@@ -52,6 +52,8 @@ BOOL StreamEndsOnBackground(BOOL pictureInPictureActive);
 
 // From the decoder's queue, for every decoded frame
 - (void)noteDecodedPixelBuffer:(CVPixelBufferRef)pixelBuffer at:(CFTimeInterval)now;
+// Closes the window if it's showing, as a return to the app (the stream goes on)
+- (void)stop;
 // Keeps the layer the size of the view
 - (void)layout;
 // Removes the layer and the controller. Call before the stream view goes away.

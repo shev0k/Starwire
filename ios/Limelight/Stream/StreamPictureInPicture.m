@@ -78,6 +78,14 @@ BOOL StreamEndsOnBackground(BOOL pictureInPictureActive) {
     _layer.frame = _view.bounds;
 }
 
+- (void)stop {
+    if (_controller.isPictureInPictureActive) {
+        Log(LOG_I, @"Picture in picture: closing it, the app is back");
+        _restoring = YES;
+        [_controller stopPictureInPicture];
+    }
+}
+
 - (void)invalidate {
     _controller.delegate = nil;
     if (_controller.isPictureInPictureActive) {

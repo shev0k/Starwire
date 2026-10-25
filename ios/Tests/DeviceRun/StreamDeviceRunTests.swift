@@ -142,9 +142,8 @@ final class StreamDeviceRunTests: XCTestCase {
         sleep(6)
         let summary = summaryLine(in: overlay.label)
         record("summary: \(summary)")
-        XCTAssertTrue(summary.contains("picture in picture closed, started")
-                      || summary.contains("picture in picture showing, started"),
-                      "picture in picture never started")
+        // Started while away, and closed again on the way back
+        XCTAssertTrue(summary.contains("picture in picture closed, started"), "picture in picture: \(summary)")
         stopStreamWithEdgeSwipe()
         try assertBackAtAppList()
     }

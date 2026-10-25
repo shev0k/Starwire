@@ -524,6 +524,8 @@
 }
 
 - (void)applicationDidBecomeActive:(NSNotification *)notification {
+    // Back in the app: the full screen takes over from the picture in picture window
+    [_pictureInPicture stop];
     [self.metalViewController resumeRendering];
 
     // Stop the background timer, since we're foregrounded again
