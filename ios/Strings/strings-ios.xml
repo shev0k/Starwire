@@ -108,6 +108,7 @@
     <string name="ios_none">None</string>
     <string name="ios_add">Add</string>
     <string name="ios_open">Open</string>
+    <string name="ios_open_language_settings">Choose in iOS Settings</string>
     <string name="ios_back">Back</string>
     <string name="ios_back_to_pcs">Back to your PCs</string>
     <string name="ios_settings_title">Settings</string>

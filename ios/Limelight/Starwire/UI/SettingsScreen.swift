@@ -383,6 +383,24 @@ struct SettingRow: View {
 
     @ViewBuilder
     private var control: some View {
+        if item.id == "list_languages" {
+            // iOS keeps each app's language in its own page in iOS Settings
+            Button(L("ios_open_language_settings")) { openLanguageSettings() }
+                .buttonStyle(.bordered)
+                .accessibilityIdentifier("setting-\(item.id)")
+        } else {
+            standardControl
+        }
+    }
+
+    private func openLanguageSettings() {
+        if let url = URL(string: UIApplication.openSettingsURLString) {
+            UIApplication.shared.open(url)
+        }
+    }
+
+    @ViewBuilder
+    private var standardControl: some View {
         switch item.control {
         case .toggle:
             Toggle(L(item.titleKey), isOn: Binding(get: { model.bool(item.id) }, set: { setToggle($0) }))
@@ -481,6 +499,10 @@ struct SettingRow: View {
     /// A on a controller: flip a switch, open a list's menu as a panel, run an action.
     private func controllerAction() {
         guard model.isEnabled(item) else { return }
+        if item.id == "list_languages" {
+            openLanguageSettings()
+            return
+        }
         switch item.control {
         case .toggle:
             setToggle(!model.bool(item.id))
@@ -636,6 +658,8 @@ struct PredictedImpactPanel: View {
                 Spacer()
                 Text(L(SettingsFeel.smoothestKey))
             }
+            .lineLimit(1)
+            .minimumScaleFactor(0.5)
             .font(.footnote)
             .foregroundStyle(.white.opacity(0.92))
             GeometryReader { geometry in

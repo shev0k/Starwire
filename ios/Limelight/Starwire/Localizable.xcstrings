@@ -16043,6 +16043,17 @@
         }
       }
     },
+    "ios_open_language_settings" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose in iOS Settings"
+          }
+        }
+      }
+    },
     "ios_opens_website" : {
       "extractionState" : "manual",
       "localizations" : {
