@@ -92,8 +92,8 @@ steps and the checksums for each version.
   (Vibeshine's power actions). Vibeshine 2.0.1 doesn't have them yet, so it hasn't been tried.
 - **iOS: the PC's CPU and GPU in the statistics overlay,** when the PC sends hardware metrics
   (off by default in Vibeshine, and not in 2.0.1).
-- **iOS: a demo mode** in iOS Settings: a made-up PC and a moving test picture, to try the app
-  with no PC.
+- **iOS: a demo mode,** from "Try the demo" on the empty PC list: a made-up PC and a moving test
+  picture, to try the app with no PC.
 - **iOS: settings in one store with Android's keys,** with per-game settings and a JSON file
   format for moving settings between Starwire for Android and iOS. There's no screen for the
   file yet (phase 3).
@@ -119,8 +119,31 @@ steps and the checksums for each version.
   dropped connection can't leave the cursor hidden.
 - **iOS: Starwire's translations.** A script converts Starwire for Android's strings into an Xcode
   String Catalog: 28 languages besides English, with the same keys as Android. Strings only on
-  iOS go in `ios/Strings/strings-ios.xml`. The catalog is in the repo and CI checks it is current.
-  No iOS screen looks the strings up yet, and the catalog hasn't been built in Xcode.
+  iOS go in `ios/Strings/strings-ios.xml`. The catalog is in the repo, CI checks it is current,
+  and a test checks every string the app asks for is in it. Only English was looked at on the
+  iPad.
+- **iOS: the app in Starwire's look,** in SwiftUI. The PC list with frosted cards and its menu,
+  the game screen with the hero in its cover's colours, generated tiles for games without art,
+  Vibeshine's Remote tiles, Quick Launch and the overrides bar, the app menu (resume or quit,
+  start in the virtual or primary display, this game's settings, Quick Launch, hide, details),
+  each game's own settings, the settings screen with Android's ten sections, plain names,
+  "Impact:" lines, credits and the predicted-impact panel, About with the credits, and the
+  licences. Shown on the iPad Pro M4; iPhone and Split View layouts in snapshot tests on the
+  simulators. moonlight-ios's storyboards stay in the repo, unused.
+- **iOS: settings in the app.** The test choices batches 1 and 2 put in the iOS Settings app
+  moved to the app's own settings (copied over once). Settings export and import as JSON, in
+  Android's format, through the Files app. Launch arguments still override settings for tests.
+- **iOS: controller navigation of every screen.** The d-pad or left stick moves a highlight, A
+  presses, B goes back, Menu or Y opens a tile's menu, on the screens and the app's own menus.
+  Not tried with a controller yet.
+- **iOS: the encrypted microphone,** Starwire's SWMC to `StarwireMicReceiver` on the PC, with
+  pairing by the 16-character code, keys in the Keychain on this device only, capture with
+  Apple's echo and noise cancelling at 48 kHz mono in 256-sample VBAN packets, plain VBAN as the
+  "Not encrypted" choice, and the choice of microphone. It matches the shared test vectors and
+  streamed to the real receiver on the PC's loopback; the iPad sending to the PC hasn't been
+  tried yet. Security review: `docs/ios/security/2026-10-25-microphone-swmc.md`.
+- **iOS: audio haptics,** Android's bass-to-vibration, to the controller's motors and, on an
+  iPhone, the Taptic Engine, 25 to 200%. Not felt yet.
 
 ### Changed
 
@@ -132,6 +155,12 @@ steps and the checksums for each version.
 
 ### Fixed
 
+- **iOS: the on-screen controller is a sensible size on an iPad.** Android's layout filled the
+  whole screen height; the iPad now gets phone-sized controls along the bottom. Phones keep
+  Android's layout exactly.
+- **iOS: starting a stream right after the last one ended could crash the app.** The last
+  connection could still be running and handed its frames to the new stream's decoder before it
+  was set up. Five streams in a row now run on the iPad Pro.
 - **iOS: the overlay's audio bitrate and decode time.** Reading the overlay twice within a few
   milliseconds showed bitrates in the billions of kbps, and the decode time showed "nan" or 0.00.
 
