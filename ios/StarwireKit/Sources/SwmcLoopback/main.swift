@@ -9,33 +9,23 @@
 //
 // Not part of the app: only the StarwireKit library is linked into it.
 
+// It runs on Windows only, where the receiver is. Elsewhere it builds to a stub, so the package
+// still builds for `swift test` on macOS and CI.
+
+#if os(Windows)
 import Foundation
 import StarwireKit
-#if os(Windows)
 import WinSDK
-#elseif canImport(Glibc)
-import Glibc
-#else
-import Darwin
-#endif
 
 /// A UDP socket bound to 127.0.0.1, sending to one port there.
 final class LoopbackSocket {
-    #if os(Windows)
     private var socketHandle: SOCKET
-    #else
-    private var socketHandle: Int32
-    #endif
     private var peer = sockaddr_in()
 
     init(port: UInt16) {
-        #if os(Windows)
         var data = WSADATA()
         _ = WSAStartup(0x0202, &data)
         socketHandle = socket(AF_INET, Int32(SOCK_DGRAM), Int32(IPPROTO_UDP.rawValue))
-        #else
-        socketHandle = socket(AF_INET, Int32(SOCK_DGRAM), Int32(IPPROTO_UDP))
-        #endif
         var local = sockaddr_in()
         local.sin_family = ADDRESS_FAMILY(AF_INET)
         local.sin_port = 0
@@ -68,17 +58,12 @@ final class LoopbackSocket {
 
     /// One datagram within `milliseconds`, or nil.
     func receive(milliseconds: Int) -> [UInt8]? {
-        #if os(Windows)
         var timeout = DWORD(max(1, milliseconds))
         _ = withUnsafePointer(to: &timeout) {
             $0.withMemoryRebound(to: CChar.self, capacity: 4) {
                 setsockopt(socketHandle, SOL_SOCKET, SO_RCVTIMEO, $0, Int32(MemoryLayout<DWORD>.size))
             }
         }
-        #else
-        var timeout = timeval(tv_sec: milliseconds / 1000, tv_usec: Int32(milliseconds % 1000) * 1000)
-        _ = setsockopt(socketHandle, SOL_SOCKET, SO_RCVTIMEO, &timeout, socklen_t(MemoryLayout<timeval>.size))
-        #endif
         var buffer = [CChar](repeating: 0, count: 2048)
         let count = buffer.withUnsafeMutableBufferPointer { recv(socketHandle, $0.baseAddress, Int32($0.count), 0) }
         guard count > 0 else { return nil }
@@ -172,3 +157,6 @@ udp.send(packetizer.write([Int16](repeating: 100, count: 256)).first!)
 print("INFO sent \(sealedPackets.count) audio packets, then a replay and a plain VBAN packet")
 print(String(format: "SENT played=%d pcm=%016llx replayed_or_late=1 unencrypted=1", sealedPackets.count, hash))
 exit(0)
+#else
+print("swmc-loopback runs on Windows, next to the receiver: ios/scripts/mic-loopback.ps1")
+#endif
