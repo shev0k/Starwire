@@ -30,6 +30,35 @@ public enum TouchMode: Int, CaseIterable, Sendable {
         }
     }
 
+    /// How the mode is saved in `list_touch_mode`
+    public var settingValue: String {
+        switch self {
+        case .multiTouch: return "multi_touch"
+        case .direct: return "direct"
+        case .naturalTrackpad: return "natural_trackpad"
+        case .gamingTrackpad: return "gaming_trackpad"
+        case .disabled: return "disabled"
+        case .directSwapped: return "direct_swapped"
+        }
+    }
+
+    public init?(settingValue: String) {
+        guard let mode = Self.allCases.first(where: { $0.settingValue == settingValue }) else { return nil }
+        self = mode
+    }
+
+    /// An SF Symbol for the menu and settings
+    public var symbol: String {
+        switch self {
+        case .multiTouch: return "hand.raised.fingers.spread"
+        case .direct: return "hand.point.up.left"
+        case .naturalTrackpad: return "rectangle.and.hand.point.up.left"
+        case .gamingTrackpad: return "gamecontroller"
+        case .disabled: return "hand.raised.slash"
+        case .directSwapped: return "arrow.left.arrow.right"
+        }
+    }
+
     /// The mode a stream starts in: `checkbox_touchscreen_trackpad` picks the gaming trackpad,
     /// otherwise direct touch (Game.java applyMouseMode at start).
     public static func initial(touchscreenTrackpad: Bool) -> TouchMode {
@@ -66,6 +95,8 @@ public enum TouchAction: Equatable, Sendable {
 /// What the dispatcher wants besides input: the menu, or a new zoom.
 public enum TouchOutcome: Equatable, Sendable {
     case openMenu
+    /// A gesture shortcut (four or five-finger tap, or a three-finger tap set to something else)
+    case gesture(GestureAction)
     case geometry(VideoGeometry)
     /// Toasts Android shows, e.g. leaving pan and zoom mode
     case notice(String)
@@ -86,6 +117,8 @@ public final class TouchDispatcher {
     /// Points to pixels (the screen's scale), so Android's pixel thresholds keep their size
     public var pixelScale: CGFloat
     public let environment: TouchEnvironment
+    /// Four and five-finger taps, and what the three-finger tap does
+    public let gestures = GestureShortcuts()
     public var onOutcome: (TouchOutcome) -> Void = { _ in }
 
     private var contexts: [TouchContext] = []
@@ -177,6 +210,19 @@ public final class TouchDispatcher {
         case .down(_, let p), .move(let p), .up(_, let p), .cancel(let p): pointers = p
         }
 
+        switch gestures.handle(action, at: time) {
+        case .pass:
+            break
+        case .claim:
+            letGoForGesture()
+            return
+        case .swallow:
+            return
+        case .fire(let gesture):
+            onOutcome(gesture == .menu ? .openMenu : .gesture(gesture))
+            return
+        }
+
         // Pan and zoom, and touch disabled, have no three-finger tap of their own, so three
         // fingers down opens the menu at once (Game.opensMenuBeforeTouchHandling)
         if case .down = action, pointers.count == 3, isPanZoomMode || mode == .disabled {
@@ -198,6 +244,31 @@ public final class TouchDispatcher {
             return
         }
         dispatchToContexts(action, pointers: pointers, at: time)
+    }
+
+    /// A four-finger gesture took over: let go of everything the fingers were doing on the PC.
+    private func letGoForGesture() {
+        threeFingerDownTime = -.infinity
+        pinchActive = false
+        pinchStartSpan = 0
+        panLast = nil
+        if mode == .multiTouch && hostSupportsTouch && !isPanZoomMode {
+            environment.emit(.touch(id: 0, phase: .cancelAll, x: 0, y: 0, pressure: 0, contactMajor: 0, contactMinor: 0,
+                                    rotation: InputEvent.unknownRotation))
+        }
+        for context in contexts {
+            context.cancel()
+        }
+    }
+
+    /// The three-finger tap: Android's menu, or what the settings make it.
+    private func threeFingerTap() {
+        let action = gestures.settings.threeFingerTap
+        if action == .menu {
+            onOutcome(.openMenu)
+        } else if action != .none {
+            onOutcome(.gesture(action))
+        }
     }
 
     // MARK: Multi-touch passthrough
@@ -234,7 +305,8 @@ public final class TouchDispatcher {
             contexts[index].touchDown(sample(pointers[index]), at: time, isNewFinger: true)
         case .up(let index, _):
             if pointers.count == 1 && time - threeFingerDownTime < Self.threeFingerTapThreshold {
-                onOutcome(.openMenu)
+                threeFingerDownTime = -.infinity
+                threeFingerTap()
                 return
             }
             if index < contexts.count {
