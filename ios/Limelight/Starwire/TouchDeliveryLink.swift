@@ -20,29 +20,39 @@ final class TouchDeliveryLink {
     private var displayLink: CADisplayLink?
     private let target = Target()
 
+    /// Called at every display refresh while the link runs
+    var onRefresh: () -> Void = {}
+
     private final class Target: NSObject {
-        @objc func tick(_ link: CADisplayLink) {}
+        var onRefresh: () -> Void = {}
+        @objc func tick(_ link: CADisplayLink) { onRefresh() }
     }
 
+    /// Wanted for the touches, or for the paced scrolling's refreshes
     static var isWanted: Bool {
         UserDefaults.standard.object(forKey: "StarwireTouchUpdateLink") == nil
             || UserDefaults.standard.bool(forKey: "StarwireTouchUpdateLink")
     }
 
+    /// Low-latency touch dispatch; off with -StarwireTouchUpdateLink NO, while the link may still
+    /// run for the scroll pacing's refreshes
+    static var lowLatencyTouches: Bool { isWanted }
+
     func start(in view: UIView) {
-        guard Self.isWanted, updateLink == nil, displayLink == nil else { return }
+        guard Self.isWanted || StarwireStreamInput.pacesScrolling, updateLink == nil, displayLink == nil else { return }
         let maximum = Float(view.window?.screen.maximumFramesPerSecond ?? UIScreen.main.maximumFramesPerSecond)
         let range = CAFrameRateRange(minimum: min(80, maximum), maximum: maximum, preferred: maximum)
         if #available(iOS 18.0, *) {
             let link = UIUpdateLink(view: view)
-            link.addAction { _, _ in }
+            link.addAction { [weak self] _, _ in self?.onRefresh() }
             link.requiresContinuousUpdates = true
-            link.wantsLowLatencyEventDispatch = true
+            link.wantsLowLatencyEventDispatch = Self.lowLatencyTouches
             link.preferredFrameRateRange = range
             link.isEnabled = true
             updateLink = link
             StarwireLog.info("Input: touch delivery at up to \(Int(maximum)) Hz (update link, low-latency events)")
         } else {
+            target.onRefresh = { [weak self] in self?.onRefresh() }
             let link = CADisplayLink(target: target, selector: #selector(Target.tick(_:)))
             link.preferredFrameRateRange = range
             link.add(to: .main, forMode: .common)

@@ -84,6 +84,7 @@ final class StarwireStreamControls: NSObject {
     @objc func streamStarted(hostFeatureFlags: UInt32, pcUUID: String?, host: String, appID: Int) {
         input.streamStarted(hostFeatureFlags: hostFeatureFlags, pcUUID: pcUUID, host: host, appID: appID)
         guard let view else { return }
+        touchDelivery.onRefresh = { [weak self] in self?.input.displayRefresh() }
         touchDelivery.start(in: view)
         if StarwireSettings.store.bool("checkbox_show_onscreen_controls") {
             setOnScreenControls(shown: true)

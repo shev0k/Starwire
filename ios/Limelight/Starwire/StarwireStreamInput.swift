@@ -45,9 +45,18 @@ final class StarwireStreamInput: NSObject {
     /// A short message for a toast
     @objc var onNotice: ((String) -> Void)?
 
+    /// Scrolls from the touch modes, sent once per display refresh (`displayRefresh()`)
+    let scrollPacer = ScrollPacer()
+    /// -StarwireScrollPacing NO sends each scroll as it comes, to compare
+    static var pacesScrolling: Bool {
+        UserDefaults.standard.object(forKey: "StarwireScrollPacing") == nil || UserDefaults.standard.bool(forKey: "StarwireScrollPacing")
+    }
+
     @objc init(streamWidth: Int, streamHeight: Int, viewSize: CGSize, scale: CGFloat) {
         let sink = LiveInputSink()
         self.sink = sink
+        let pacer = scrollPacer
+        let paced = Self.pacesScrolling
         streamSize = CGSize(width: streamWidth, height: streamHeight)
         let settings = StarwireSettings.store
         var geometry = VideoGeometry(viewSize: viewSize, streamSize: streamSize)
@@ -57,7 +66,10 @@ final class StarwireStreamInput: NSObject {
         let environment = TouchEnvironment(geometry: geometry, viewPixelSize: CGSize(width: viewSize.width * scale, height: viewSize.height * scale),
                                            longPressRightClick: settings.bool("checkbox_long_press_right_click"),
                                            absoluteMouseMode: settings.bool("checkbox_absolute_mouse_mode"),
-                                           emit: { sink.send($0) })
+                                           emit: { event in
+                                               // Scrolls wait for the next display refresh
+                                               if !(paced && pacer.add(event)) { sink.send(event) }
+                                           })
         let sensitivity = settings.int("seekbar_touch_sensitivity")
         // Android starts with the custom sensitivity on when it isn't 100
         let mode = TouchMode(settingValue: settings.string("list_touch_mode") ?? "")
@@ -104,6 +116,7 @@ final class StarwireStreamInput: NSObject {
     /// caller waits a moment before stopping the connection.
     @objc func streamStopping() -> Bool {
         timer?.invalidate()
+        scrollPacer.flush().forEach(sink.send)
         return hostCursor?.onStopping() ?? false
     }
 
@@ -150,6 +163,11 @@ final class StarwireStreamInput: NSObject {
 
     /// The latency probe's line, empty unless the probe is on
     @objc static var latencyProbeSummary: String { StarwireLatencyProbeTap.summary }
+
+    /// Each display refresh during the stream (the touch link): send the scrolling held for it
+    func displayRefresh() {
+        scrollPacer.tick().forEach(sink.send)
+    }
 
     @objc var touchModeIndex: Int {
         get { dispatcher.mode.rawValue }
