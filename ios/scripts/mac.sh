@@ -12,7 +12,7 @@
 #   ios/scripts/mac.sh build                xcodegen, then a Release build of the app and of the
 #                                           device-run tests for the iPad
 #   ios/scripts/mac.sh install              install the app over the old copy (never uninstalls)
-#   ios/scripts/mac.sh test <name> [VAR=value ...]
+#   ios/scripts/mac.sh test <name> [VAR=value ...]  (name: a StreamDeviceRunTests method, or Class/method)
 #                                           run one StarwireDeviceRun test, for example
 #                                           `test stream PRESENTER=display SECONDS=120`. VAR becomes
 #                                           TEST_RUNNER_STARWIRE_VAR. The [device-run] lines and the
@@ -95,7 +95,9 @@ sync)
     git -C "$HERE" push -q -u origin "$branch"
     wip=""
     if [ "${1:-}" = "--wip" ]; then
-        wip=$(git -C "$HERE" diff HEAD -- ios | base64 -w0)
+        # Sent on its own over stdin: a large patch as an argument resets the SSH connection
+        git -C "$HERE" diff HEAD -- ios | ssh_mac "mkdir -p '$REPO/build' && cat > '$REPO/build/wip.next.patch'"
+        wip=1
     fi
     remote '
 branch=$1
@@ -120,7 +122,7 @@ git submodule sync -q --recursive
 git submodule update -q --init --recursive ios/moonlight-common/moonlight-common-c ios/X1Kit ios/third_party/imgui ios/third_party/implot
 echo "Mac at $(git rev-parse --short HEAD) on $branch"
 if [ -n "${2:-}" ]; then
-    echo "$2" | base64 -d > build/wip.patch
+    mv build/wip.next.patch build/wip.patch
     git apply build/wip.patch
     echo "plus the uncommitted changes under ios/ ($(grep -c "^diff" build/wip.patch) files)"
 fi
@@ -131,8 +133,14 @@ build)
     remote '
 need_team
 (cd ios && xcodegen generate --quiet)
+# Signing for the named iPad registers it with the team and puts it in every profile, the test
+# runner too; a generic build only covers iPads that were registered before
+destination=generic/platform=iOS
+if [ -n "${STARWIRE_DEVICE:-}" ]; then
+    destination=id=$STARWIRE_DEVICE
+fi
 status=0
-in_gui "cd ios && caffeinate -i xcodebuild -project Starwire.xcodeproj -scheme StarwireDeviceRun     -configuration Release -destination generic/platform=iOS -derivedDataPath ../build/DerivedData     -allowProvisioningUpdates -allowProvisioningDeviceRegistration     DEVELOPMENT_TEAM=$STARWIRE_TEAM CODE_SIGN_STYLE=Automatic build-for-testing" > build/device-build.log 2>&1 || status=$?
+in_gui "cd ios && caffeinate -i xcodebuild -project Starwire.xcodeproj -scheme StarwireDeviceRun     -configuration Release -destination $destination -derivedDataPath ../build/DerivedData     -allowProvisioningUpdates -allowProvisioningDeviceRegistration     DEVELOPMENT_TEAM=$STARWIRE_TEAM CODE_SIGN_STYLE=Automatic build-for-testing" > build/device-build.log 2>&1 || status=$?
 grep -E ": (fatal )?error:|^error:|errSec|\[-Wformat|\*\* (BUILD|TEST BUILD) (SUCCEEDED|FAILED)" build/device-build.log | cut -c1-300 | sort -u | tail -40
 echo "warnings: $(grep -c ": warning:" build/device-build.log || true)"
 exit $status
@@ -155,9 +163,13 @@ test)
         stream) method=testStreamAndSample ;;
         resume) method=testBackgroundAndResume ;;
         streams) method=testStreamsInARow ;;
-        *) method=$name ;;
+        */*) method=$name ;;
+        *) method=StreamDeviceRunTests/$name ;;
     esac
-    label="$name"
+    case "$method" in
+        test*) method=StreamDeviceRunTests/$method ;;
+    esac
+    label="${name////-}"
     vars=()
     for kv in "$@"; do
         vars+=("TEST_RUNNER_STARWIRE_$kv")
@@ -181,7 +193,7 @@ vars=""
 for kv in "$@"; do vars+=" $(printf "%q" "$kv")"; done
 nohup bash -c "cd ios; status=0; env$vars caffeinate -i xcodebuild test-without-building -project Starwire.xcodeproj \
     -scheme StarwireDeviceRun -configuration Release -destination id=$IPAD -derivedDataPath ../build/DerivedData \
-    -resultBundlePath ../build/runs/$label.xcresult -only-testing:StarwireDeviceRun/StreamDeviceRunTests/$method \
+    -resultBundlePath ../build/runs/$label.xcresult -only-testing:StarwireDeviceRun/$method \
     > ../build/runs/$label.log 2>&1 || status=\$?; echo \$status > ../build/runs/$label.done" >/dev/null 2>&1 &
 echo "started $method ($*) as $label"
 ' "$method" "$label" "${vars[@]}" || exit $?
