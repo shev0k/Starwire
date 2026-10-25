@@ -80,6 +80,11 @@ final class StreamMenuModel: ObservableObject {
             go(to: .main)
         case .close:
             hide()
+        case .setTouchMode, .setBitrate, .setPictureScaling:
+            // A choice made: back to the main page, which shows it
+            onAction(item.action)
+            reload()
+            go(to: .main)
         default:
             if item.closesMenu { hide() }
             onAction(item.action)

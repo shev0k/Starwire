@@ -508,6 +508,7 @@ final class InputDeviceRunTests: XCTestCase {
         // "Direct touch" is also the start of "Direct touch, swapped clicks"
         let exact = app.buttons.matching(NSPredicate(format: "label == %@ OR label == %@", name, "\(name) (now)")).firstMatch
         (exact.exists ? exact : choice).tap()
+        // Choosing returns to the main page; close the menu from there
         closeMenu()
         XCTAssertTrue(waitFor("Touch: \(name)"), "the touch mode didn't change to \(name)")
     }
