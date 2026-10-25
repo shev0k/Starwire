@@ -104,6 +104,14 @@ owner got the pictures as the design checkpoint. One picture (the docked full ke
 back and isn't in the repo: the PC's monitors were asleep, so Windows had moved one of the
 owner's own windows onto the stream's virtual display, and it showed in the stream.
 
+![The stream menu over the test pattern](2026-10-25-feature-ios-batch-4-5-1.jpg)
+
+![The controller keyboard](2026-10-25-feature-ios-batch-4-5-2.jpg)
+
+![Settings with the sidebar, Touch & mouse](2026-10-25-feature-ios-batch-4-5-3.jpg)
+
+These were taken before the fixes below (the menu button over the menu, "Trackpad" twice).
+
 - **Stream menu:** opened from the floating button and from the edge tab; its Touch mode and
   Bitrate pages opened and Back returned. The touch-mode choices showed "Trackpad" twice (the
   bracketed "natural" and "gaming" were cut off as if they were controller buttons): fixed.
