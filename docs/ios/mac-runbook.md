@@ -133,6 +133,12 @@ was added on 25 Oct 2026 with the owner's OK; `apps.json` was backed up next to 
 
 ## Rules for every run
 
+- **Ask the owner before any run that streams, and wait for their OK.** A stream's test input
+  (keys, mouse, touches) goes to whatever window has focus on the PC, even with the test pattern
+  on its own virtual display, and switching virtual displays makes Windows stutter: on 25 Oct
+  2026 the owner's PC lagged and their own keyboard stopped typing during a batch 4.5 run. Do the
+  streaming runs in one agreed block; use simulator, unit and snapshot tests the rest of the time.
+
 - **Never delete the app from the iPad.** Not with `devicectl`, not from the home screen. Always
   install over the old copy. Deleting it loses the pairing with the PC, and pairing again needs
   the PC.
