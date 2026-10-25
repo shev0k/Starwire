@@ -346,6 +346,8 @@ final class InputDeviceRunTests: XCTestCase {
             if let v = env["STARWIRE_FPS"] { args += ["-StarwireFrameRate", v] }
             // TOUCH_LINK=NO: without the low-latency touch delivery, to compare
             if let v = env["STARWIRE_TOUCH_LINK"] { args += ["-StarwireTouchUpdateLink", v] }
+            // SCROLL_PACING=NO: each scroll sent as it comes, not once per refresh
+            if let v = env["STARWIRE_SCROLL_PACING"] { args += ["-StarwireScrollPacing", v] }
             app.launchArguments = args
             app.launch()
             try startStream()
