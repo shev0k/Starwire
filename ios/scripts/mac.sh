@@ -40,7 +40,13 @@
 
 set -euo pipefail
 
-MAC=${STARWIRE_MAC:-shevok@192.168.1.122}
+# user@host of the Mac: STARWIRE_MAC, or the first line of ~/.config/starwire/mac-host on this PC
+# (kept out of git, like the team ID on the Mac)
+MAC=${STARWIRE_MAC:-$(head -n 1 "$HOME/.config/starwire/mac-host" 2>/dev/null || true)}
+if [ -z "$MAC" ]; then
+    echo "Set STARWIRE_MAC=user@host or put it in ~/.config/starwire/mac-host" >&2
+    exit 2
+fi
 KEY=${STARWIRE_MAC_KEY:-$HOME/.ssh/id_ed25519_starwire_mac}
 REPO=${STARWIRE_MAC_REPO:-/Users/shevok/Developer/Starwire}
 HERE=$(cd "$(dirname "$0")/../.." && pwd)

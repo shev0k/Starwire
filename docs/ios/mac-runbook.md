@@ -34,7 +34,8 @@ each `VAR=value` becomes `TEST_RUNNER_STARWIRE_VAR`. The `[device-run]` lines co
 `build/mac/` on the PC.
 
 What it needs on the Mac:
-- The SSH key `~/.ssh/id_ed25519_starwire_mac` on the PC, and Remote Login on the Mac.
+- The SSH key `~/.ssh/id_ed25519_starwire_mac` on the PC, the Mac's `user@host` in `~/.config/starwire/mac-host`
+  on the PC (or `STARWIRE_MAC`), and Remote Login on the Mac. The address stays out of git.
 - `~/.config/starwire/env` with `STARWIRE_TEAM=<team ID>` (section 3). Optionally `IPAD=<UDID>`;
   otherwise the first connected iPad is used. This file stays out of git.
 - Someone logged in at the Mac. Codesign can't use the login keychain from SSH (it fails with
@@ -42,11 +43,20 @@ What it needs on the Mac:
   as self-hosted CI runners do, and removes it afterwards. The Mac's password is never needed.
   Such jobs can't read `~/Documents`, which is why the script has its own checkout in
   `~/Developer/Starwire`. The copy in `~/Documents` is left alone.
+- The Mac awake. Its power settings say `sleep 1` (asleep after a minute idle), and on 25 Oct
+  2026 SSH dropped mid-batch when it dozed between runs. Builds and tests run under `caffeinate`;
+  before a long batch also start `nohup caffeinate -dims -t 10800 &` on the Mac, which changes no
+  setting and ends on its own. `test` runs detached and is polled, so a dropped connection doesn't
+  stop it.
 
-The PC is also the Vibeshine host. Its app list has "Starwire test pattern", which opens
-testufo.com full screen in a Chrome kiosk window with its own empty profile, so the device runs
-have moving content with nobody at the PC and no browser tabs in screenshots. It was added on
-25 Oct 2026 with the owner's OK; `apps.json` was backed up next to itself first.
+The PC is also the Vibeshine host, and the owner may be using it during a run. Its app list has
+"Starwire test pattern", which runs `ios/scripts/test-pattern.ps1` (installed in
+`%LOCALAPPDATA%\StarwireTestPattern`): testufo.com full screen in a Chrome kiosk window with its own
+empty profile, on the stream's own virtual display. The app's entry sets
+`"virtual-display-layout": "extended_isolated"`, so the PC's monitors stay on (Vibeshine's default
+layout, `exclusive`, turns them off for every stream), and the device tests pass
+`-StarwirePlayAudioOnPC YES` so the PC keeps its sound. Other apps keep the host's defaults. It
+was added on 25 Oct 2026 with the owner's OK; `apps.json` was backed up next to itself first.
 
 ## Rules for every run
 
@@ -402,6 +412,14 @@ everything, including the refresh histogram.
 | refreshes without a new frame | Display presenter only: refreshes where no new frame had arrived, so the last one stayed up |
 | drawable wait | Render loop only: time spent waiting in `nextDrawable` |
 | decode to screen | From the end of decoding to `presentedTime`: queue, render and compositor together. Compare it between presenters for latency |
+| Network: gaps, max | From batch 1. Frames whose last packet came more than 2.5 frame intervals after the one before, timed from the packets (`DECODE_UNIT` receive and enqueue times), before any decoding. The first gap of a stream is the start, not a fault |
+| every n ms (r% regular) | The median time between network gaps over the stream, and the share of gaps on 1 to 4 times that period. A steady period means something on a timer, like the Wi-Fi radio leaving the channel |
+| clumped, max clump | Frames that came within half a frame interval of the one before: what arrives after a hole |
+| receive | Mean and longest time from a frame's first packet to its last |
+| host gaps | Gaps in the host's own frame times. A host gap with a network gap means the host sent nothing; a network gap alone means the network held frames up |
+| network to screen | From a frame's last packet to `presentedTime`: everything on the iPad |
+| jitter buffer, held | Display presenter: the mode, and the mean and largest number of frames held back. "catch up" counts frames dropped to get back to the target |
+| 1% low | The frame rate of the slowest 1% of on-screen frame times in a 5 second window; the summary keeps the worst window |
 
 **The display presenter** (`StarwirePresenter`, "Presenter" in iOS Settings > Apps > Starwire, or
 `TEST_RUNNER_STARWIRE_PRESENTER`). `loop` is the render loop from phase 1a and is still the
