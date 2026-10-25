@@ -324,18 +324,19 @@ public final class NaturalTrackpadContext: TouchContext {
         pendingY -= Double(sendY)
     }
 
-    /// The dominant axis scrolls; the other one too when it's nearly as large.
+    /// The dominant axis scrolls; the other one too when it's nearly as large. A scroll of 0 isn't
+    /// sent: each one is a reliable packet, and slow scrolls would send one for every touch.
     private func sendScroll(dx: Double, dy: Double, absX: Double, absY: Double) {
+        let horizontal = Int(-dx * Self.scrollSpeedFactorX)
+        let vertical = Int(dy * Self.scrollSpeedFactorY)
+        func h() { if horizontal != 0 { env.emit(.hScroll(amount: horizontal)) } }
+        func v() { if vertical != 0 { env.emit(.scroll(amount: vertical)) } }
         if absX > absY {
-            env.emit(.hScroll(amount: Int(-dx * Self.scrollSpeedFactorX)))
-            if absY * 1.05 > absX {
-                env.emit(.scroll(amount: Int(dy * Self.scrollSpeedFactorY)))
-            }
+            h()
+            if absY * 1.05 > absX { v() }
         } else {
-            env.emit(.scroll(amount: Int(dy * Self.scrollSpeedFactorY)))
-            if absX * 1.05 >= absY {
-                env.emit(.hScroll(amount: Int(-dx * Self.scrollSpeedFactorX)))
-            }
+            v()
+            if absX * 1.05 >= absY { h() }
         }
     }
 
@@ -395,13 +396,7 @@ public final class NaturalTrackpadContext: TouchContext {
             let interval = Self.momentumInterval * 1000
             if flickIsScroll {
                 let fx = velocityX * interval, fy = velocityY * interval
-                if abs(fx) > abs(fy) {
-                    env.emit(.hScroll(amount: Int(-fx * Self.scrollSpeedFactorX)))
-                    if abs(fy) * 1.05 > abs(fx) { env.emit(.scroll(amount: Int(fy * Self.scrollSpeedFactorY))) }
-                } else {
-                    env.emit(.scroll(amount: Int(fy * Self.scrollSpeedFactorY)))
-                    if abs(fx) * 1.05 >= abs(fy) { env.emit(.hScroll(amount: Int(-fx * Self.scrollSpeedFactorX))) }
-                }
+                sendScroll(dx: fx, dy: fy, absX: abs(fx), absY: abs(fy))
             } else {
                 pendingX += velocityX * interval
                 pendingY += velocityY * interval

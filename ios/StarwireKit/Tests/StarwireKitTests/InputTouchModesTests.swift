@@ -156,6 +156,23 @@ final class InputTouchModesTests: XCTestCase {
         XCTAssertEqual(sink.events, [.scroll(amount: 204)])
     }
 
+    /// A slow two-finger scroll moves less than a pixel per touch; it used to send a zero scroll
+    /// (and a zero sideways one) for every touch, each a reliable packet the PC had to process.
+    func testNaturalSlowScrollSendsNoEmptyScrolls() {
+        let d = dispatcher(.naturalTrackpad)
+        d.handle(.down(index: 0, pointers: [p(1, 100, 100)]), at: 0)
+        d.handle(.down(index: 1, pointers: [p(1, 100, 100), p(2, 200, 100)]), at: 0)
+        d.handle(.move(pointers: [p(1, 100, 120), p(2, 200, 120)]), at: 0.05)
+        var y: CGFloat = 120
+        for step in 1...40 {
+            y += 0.1
+            d.handle(.move(pointers: [p(1, 100, y), p(2, 200, y)]), at: 0.05 + Double(step) / 120)
+        }
+        XCTAssertFalse(sink.events.contains(.scroll(amount: 0)), "\(sink.events)")
+        XCTAssertFalse(sink.events.contains(.hScroll(amount: 0)), "\(sink.events)")
+        XCTAssertGreaterThan(sink.events.count, 1, "the slow part still scrolls once it adds up to a pixel")
+    }
+
     func testNaturalTapThenDragDrags() {
         let d = dispatcher(.naturalTrackpad)
         tap(d, at: CGPoint(x: 100, y: 100), time: 0, length: 0.1)
