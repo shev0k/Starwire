@@ -25,7 +25,7 @@ final class InputDeviceRunTests: XCTestCase {
     private var overlay: XCUIElement!
 
     private var appName: String { env["STARWIRE_APP"] ?? "Starwire test pattern" }
-    private let quittableApps = ["Starwire test pattern", "Starwire colour bars", "Desktop"]
+    private let quittableApps = ["Starwire test pattern", "Starwire colour bars", "Starwire input latency", "Desktop"]
 
     override func setUpWithError() throws {
         continueAfterFailure = false
@@ -125,7 +125,7 @@ final class InputDeviceRunTests: XCTestCase {
         screenshot("after pinch to zoom")
         // Pan and zoom mode: a double tap resets the zoom, nothing reaches the PC
         openMenuWithThreeFingers()
-        tapMenu("menu_pan_zoom")
+        tapMenu("menu-pan_zoom")
         closeMenu()
         XCTAssertTrue(waitFor("pan and zoom"), "pan and zoom mode didn't come on")
         before = counts()
@@ -134,7 +134,7 @@ final class InputDeviceRunTests: XCTestCase {
         XCTAssertEqual(counts().total, before.total, "pan and zoom mode sent input")
         screenshot("after the zoom reset")
         openMenuWithThreeFingers()
-        tapMenu("menu_pan_zoom")
+        tapMenu("menu-pan_zoom")
         closeMenu()
 
         stopStream()
@@ -150,14 +150,14 @@ final class InputDeviceRunTests: XCTestCase {
         button.tap()
         XCTAssertTrue(app.descendants(matching: .any)["StreamMenu"].waitForExistence(timeout: 5), "the floating button didn't open the menu")
         screenshot("stream menu")
-        for id in ["menu_keyboard", "menu_full_keyboard", "menu_mouse_emulation", "menu_stats", "menu_guide", "menu_shortcuts",
-                   "menu_monitors", "menu_bitrate", "menu_touch_mode", "menu_pan_zoom", "menu_sensitivity", "menu_task_manager",
-                   "menu_onscreen_controls", "menu_edit_controls", "menu_floating_button", "menu_close", "menu_quit", "menu_disconnect"] {
+        for id in ["menu-keyboard", "menu-full_keyboard", "menu-mouse_emulation", "menu-stats", "menu-guide", "menu-shortcuts",
+                   "menu-monitors", "menu-bitrate", "menu-touch_mode", "menu-pan_zoom", "menu-sensitivity", "menu-task_manager",
+                   "menu-onscreen_controls", "menu-edit_controls", "menu-floating_button", "menu-close", "menu-quit", "menu-disconnect"] {
             XCTAssertTrue(app.buttons[id].exists, "no \(id) in the menu")
         }
         XCTAssertFalse(app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "Clipboard")).firstMatch.exists)
-        button.tap()
-        XCTAssertTrue(waitForGone(app.descendants(matching: .any)["StreamMenu"]), "the floating button didn't close the menu")
+        // The button hides under the open menu; the menu's own close button closes it
+        closeMenu()
 
         // Dragging the button moves it and doesn't open the menu
         let start = button.frame
@@ -173,7 +173,7 @@ final class InputDeviceRunTests: XCTestCase {
 
         // The Shortcuts page: Esc reaches the PC
         openMenuWithThreeFingers()
-        tapMenu("menu_shortcuts")
+        tapMenu("menu-shortcuts")
         let esc = app.buttons.matching(NSPredicate(format: "label == %@", "Esc")).firstMatch
         XCTAssertTrue(esc.waitForExistence(timeout: 5), "no Esc on the Shortcuts page")
         XCTAssertTrue(app.buttons.matching(NSPredicate(format: "label == %@", "Win+Alt+B")).firstMatch.exists)
@@ -184,8 +184,8 @@ final class InputDeviceRunTests: XCTestCase {
 
         // Manage on the Shortcuts page: the custom commands editor and the shortcut file import
         openMenuWithThreeFingers()
-        tapMenu("menu_shortcuts")
-        tapMenu("menu_manage_shortcuts")
+        tapMenu("menu-shortcuts")
+        tapMenu("menu-manage_shortcuts")
         XCTAssertTrue(app.buttons["AddCommand"].waitForExistence(timeout: 5), "no Add command in Manage")
         XCTAssertTrue(app.buttons["ImportShortcuts"].exists, "no Import from Files in Manage")
         screenshot("shortcuts and commands")
@@ -194,15 +194,15 @@ final class InputDeviceRunTests: XCTestCase {
 
         // The Monitors page lists six (not pressed: it would switch the PC's display)
         openMenuWithThreeFingers()
-        tapMenu("menu_monitors")
+        tapMenu("menu-monitors")
         XCTAssertTrue(app.buttons.matching(NSPredicate(format: "label == %@", "Monitor 6")).firstMatch.waitForExistence(timeout: 5))
-        tapMenu("menu_back")
-        XCTAssertTrue(app.buttons["menu_keyboard"].waitForExistence(timeout: 5), "Back didn't return to the main page")
+        tapMenu("menu-back")
+        XCTAssertTrue(app.buttons["menu-keyboard"].waitForExistence(timeout: 5), "Back didn't return to the main page")
 
         // The Stats switch hides and shows the overlay
-        tapMenu("menu_stats")
+        tapMenu("menu-stats")
         XCTAssertTrue(waitForGone(overlay), "the Stats switch didn't hide the overlay")
-        tapMenu("menu_stats")
+        tapMenu("menu-stats")
         XCTAssertTrue(overlay.waitForExistence(timeout: 5), "the Stats switch didn't show the overlay")
         closeMenu()
 
@@ -217,14 +217,14 @@ final class InputDeviceRunTests: XCTestCase {
         // switch turns them off, then on again
         if control("A button").waitForExistence(timeout: 3) {
             openMenuWithThreeFingers()
-            tapMenu("menu_onscreen_controls")
-            XCTAssertEqual(app.buttons["menu_onscreen_controls"].value as? String, "Off")
+            tapMenu("menu-onscreen_controls")
+            XCTAssertEqual(app.buttons["menu-onscreen_controls"].value as? String, "Off")
             closeMenu()
             XCTAssertTrue(waitForGone(control("A button")), "the switch didn't hide the on-screen controller")
         }
         openMenuWithThreeFingers()
-        tapMenu("menu_onscreen_controls")
-        XCTAssertEqual(app.buttons["menu_onscreen_controls"].value as? String, "On")
+        tapMenu("menu-onscreen_controls")
+        XCTAssertEqual(app.buttons["menu-onscreen_controls"].value as? String, "On")
         closeMenu()
         let a = control("A button")
         if !a.waitForExistence(timeout: 5) {
@@ -245,7 +245,7 @@ final class InputDeviceRunTests: XCTestCase {
 
         // The editor: move A, save, then put the defaults back
         openMenuWithThreeFingers()
-        tapMenu("menu_edit_controls")
+        tapMenu("menu-edit_controls")
         let done = app.buttons["OnScreenEditorDone"]
         XCTAssertTrue(done.waitForExistence(timeout: 5), "the layout editor didn't open")
         let from = control("A button").frame
@@ -259,14 +259,14 @@ final class InputDeviceRunTests: XCTestCase {
         XCTAssertNotEqual(control("A button").frame.origin, from.origin, "A didn't move")
         record("A moved from \(from.origin) to \(control("A button").frame.origin)")
         openMenuWithThreeFingers()
-        tapMenu("menu_edit_controls")
+        tapMenu("menu-edit_controls")
         XCTAssertTrue(app.buttons["OnScreenEditorReset"].waitForExistence(timeout: 5))
         app.buttons["OnScreenEditorReset"].tap()
         app.buttons["OnScreenEditorDone"].tap()
         XCTAssertEqual(control("A button").frame.origin, from.origin, "Reset didn't put A back")
 
         openMenuWithThreeFingers()
-        tapMenu("menu_onscreen_controls")
+        tapMenu("menu-onscreen_controls")
         closeMenu()
         XCTAssertTrue(waitForGone(control("A button")), "the on-screen controller didn't hide")
         stopStream()
@@ -278,7 +278,7 @@ final class InputDeviceRunTests: XCTestCase {
         try startStream()
         // The full keyboard
         openMenuWithThreeFingers()
-        tapMenu("menu_full_keyboard")
+        tapMenu("menu-full_keyboard")
         closeMenu()
         XCTAssertTrue(app.otherElements["FullKeyboard"].waitForExistence(timeout: 5) || key("a").waitForExistence(timeout: 5),
                       "the full keyboard didn't appear")
@@ -300,7 +300,7 @@ final class InputDeviceRunTests: XCTestCase {
 
         // The system keyboard: text goes as UTF-8, Return as Enter
         openMenuWithThreeFingers()
-        tapMenu("menu_keyboard")
+        tapMenu("menu-keyboard")
         // The text field is hidden, so XCUITest can't type into it: press the keyboard's keys
         let keyboard = app.keyboards.firstMatch
         XCTAssertTrue(keyboard.waitForExistence(timeout: 5), "the system keyboard didn't come up")
@@ -494,20 +494,21 @@ final class InputDeviceRunTests: XCTestCase {
     }
 
     private func closeMenu() {
-        if app.buttons["menu_close"].exists {
-            app.buttons["menu_close"].tap()
+        if app.buttons["menu-close"].exists {
+            app.buttons["menu-close"].tap()
         }
         XCTAssertTrue(waitForGone(app.descendants(matching: .any)["StreamMenu"]), "the menu didn't close")
     }
 
     private func chooseTouchMode(_ name: String) {
         openMenuWithButton()
-        tapMenu("menu_touch_mode")
+        tapMenu("menu-touch_mode")
         let choice = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", name)).firstMatch
         XCTAssertTrue(choice.waitForExistence(timeout: 5), "no \(name) in the touch modes")
         // "Direct touch" is also the start of "Direct touch, swapped clicks"
         let exact = app.buttons.matching(NSPredicate(format: "label == %@ OR label == %@", name, "\(name) (now)")).firstMatch
         (exact.exists ? exact : choice).tap()
+        closeMenu()
         XCTAssertTrue(waitFor("Touch: \(name)"), "the touch mode didn't change to \(name)")
     }
 
