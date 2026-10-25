@@ -5,6 +5,7 @@
 
 #import "SceneDelegate.h"
 #import "AppDelegate.h"
+#import "Moonlight-Swift.h"
 
 #if !TARGET_OS_TV
 @implementation SceneDelegate
@@ -27,7 +28,10 @@
     UIStoryboard* storyboard = [UIStoryboard storyboardWithName:storyboardName bundle:nil];
 
     self.window = [[UIWindow alloc] initWithWindowScene:(UIWindowScene*)scene];
-    self.window.rootViewController = [storyboard instantiateInitialViewController];
+    // The demo mode (iOS Settings) shows StarwireKit's fakes instead of the PC list
+    self.window.rootViewController = StarwireSettings.demoModeEnabled
+        ? [StarwireDemo makeViewController]
+        : [storyboard instantiateInitialViewController];
     appDelegate.window = self.window;
     [self.window makeKeyAndVisible];
 }
