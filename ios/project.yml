@@ -78,6 +78,9 @@ targets:
           - "Limelight-Info.plist"
           # Upstream doesn't bundle these fonts either
           - "Font/**"
+          # Since phase 3 the settings are in the app; the iOS Settings page would only confuse
+          - "Settings.bundle"
+          - "Settings.bundle/**"
       - path: ImGui
       - path: X1Kit/Sources/X1Kit/X1Kit.swift
       - path: third_party/imgui/imgui.cpp

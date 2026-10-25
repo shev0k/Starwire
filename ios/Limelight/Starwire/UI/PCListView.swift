@@ -50,6 +50,9 @@ struct PCListView: View {
             RainbowWordmark(paused: state.isStreaming)
                 .accessibilityAddTraits(.isHeader)
             Spacer(minLength: 8)
+            if library.backend.isDemo {
+                pillButton(L("ios_demo_leave"), id: "pcs-leave-demo") { StarwireAppUI.setDemoMode(false) }
+            }
             iconButton("plus", label: L("title_add_pc"), id: "pcs-add") { askForAddress() }
             iconButton("info.circle", label: L("ios_about_title"), id: "pcs-about") { state.path.append(.about) }
             iconButton("gearshape.fill", label: L("ios_settings_title"), id: "pcs-settings") {
@@ -86,7 +89,7 @@ struct PCListView: View {
                 .multilineTextAlignment(.center)
             HStack(spacing: 12) {
                 pillButton(L("title_add_pc"), id: "pcs-add-empty") { askForAddress() }
-                pillButton(L("ios_demo_try"), id: "pcs-demo") { state.message(L("ios_demo_try"), L("ios_demo_how")) }
+                pillButton(L("ios_demo_try"), id: "pcs-demo") { StarwireAppUI.setDemoMode(true) }
             }
         }
         .frame(maxWidth: 560)

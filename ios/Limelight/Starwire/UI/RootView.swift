@@ -13,6 +13,14 @@ import UIKit
 
 @objc(StarwireAppUI)
 final class StarwireAppUI: NSObject {
+    /// Turns the demo mode on or off and starts the screens again with the right PCs.
+    @MainActor static func setDemoMode(_ on: Bool) {
+        UserDefaults.standard.set(on, forKey: "StarwireDemoMode")
+        let window = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+            .flatMap(\.windows).first { $0.isKeyWindow }
+        window?.rootViewController = makeRootViewController()
+    }
+
     /// The window's root: the demo PC in demo mode, else the real ones.
     @MainActor @objc static func makeRootViewController() -> UIViewController {
         StarwireSettings.migrateLegacySettingsOnce(StarwireHostLibraryFacade.legacyCoreDataSettings())

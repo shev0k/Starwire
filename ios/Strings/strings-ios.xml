@@ -120,7 +120,7 @@
     <string name="ios_add_pc_help">Type your PC\'s IP address or name if Starwire doesn\'t find it by itself.</string>
     <string name="ios_adding_pc">Looking for the PC…</string>
     <string name="ios_demo_try">Try the demo</string>
-    <string name="ios_demo_how">The demo shows Starwire without a PC. To start it, open Starwire with the launch argument -StarwireDemoMode YES, as the device tests do.</string>
+    <string name="ios_demo_leave">Leave the demo</string>
     <string name="ios_demo_no_pc">The demo has no real PC.</string>
     <string name="ios_demo_end_stream">End the demo stream</string>
     <string name="ios_pc_menu">PC menu</string>

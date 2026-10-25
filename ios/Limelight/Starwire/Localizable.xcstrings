@@ -15394,13 +15394,13 @@
         }
       }
     },
-    "ios_demo_how" : {
+    "ios_demo_leave" : {
       "extractionState" : "manual",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "The demo shows Starwire without a PC. To start it, open Starwire with the launch argument -StarwireDemoMode YES, as the device tests do."
+            "value" : "Leave the demo"
           }
         }
       }
