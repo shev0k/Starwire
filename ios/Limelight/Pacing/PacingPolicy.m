@@ -25,9 +25,16 @@ NSString *const StreamPlayAudioOnPCKey = @"StarwirePlayAudioOnPC";
     self = [super init];
     if (self) {
         NSString *presenter = [defaults stringForKey:PacingPresenterKey];
-        // The display presenter is the default since batch 1 (device-runs/2026-10-25-feature-ios-batch-1.md):
-        // as smooth as the render loop with about 12 ms less from decode to screen
-        _presenter = [presenter isEqualToString:@"loop"] ? PacingPresenterLoop : PacingPresenterDisplay;
+        // The system presenter is the default since batch 1 (device-runs/2026-10-25-feature-ios-batch-1.md):
+        // the owner saw Metal's colours darker and tinted next to picture in picture, and the system's
+        // video layer, which official moonlight-ios uses too, matched picture in picture exactly
+        if ([presenter isEqualToString:@"loop"]) {
+            _presenter = PacingPresenterLoop;
+        } else if ([presenter isEqualToString:@"display"]) {
+            _presenter = PacingPresenterDisplay;
+        } else {
+            _presenter = PacingPresenterSystem;
+        }
 
         NSString *timing = [defaults stringForKey:PacingPresentTimingKey];
         _presentTiming = [timing isEqualToString:@"frame"] ? PresentTimingFrameInterval : PresentTimingNearestRefresh;
@@ -66,14 +73,14 @@ NSString *const StreamPlayAudioOnPCKey = @"StarwirePlayAudioOnPC";
 
 - (JitterBuffer *)makeJitterBufferForFrameInterval:(double)frameInterval interpolating:(BOOL)interpolating {
     JitterBufferMode mode = [self jitterBufferModeInterpolating:interpolating];
-    if (_presenter != PacingPresenterDisplay || mode == JitterBufferModeLowestLatency) {
+    if (![self isRefreshDriven] || mode == JitterBufferModeLowestLatency) {
         return nil;
     }
     return [[JitterBuffer alloc] initWithMode:mode frameInterval:frameInterval];
 }
 
 - (int)queueLimitWithFramesToBuffer:(int)framesToBuffer {
-    if (_presenter != PacingPresenterDisplay) {
+    if (![self isRefreshDriven]) {
         return framesToBuffer;
     }
     // The target, the frame being shown, two frames above the target and one arriving
@@ -81,15 +88,23 @@ NSString *const StreamPlayAudioOnPCKey = @"StarwirePlayAudioOnPC";
 }
 
 - (NSString *)jitterBufferName {
-    return _presenter == PacingPresenterDisplay ? JitterBufferModeName(_jitterBuffer) : @"off";
+    return [self isRefreshDriven] ? JitterBufferModeName(_jitterBuffer) : @"off";
 }
 
 - (FrameDropPolicy)effectiveDropPolicy {
-    return _presenter == PacingPresenterDisplay ? FrameDropPolicyNewest : _dropPolicy;
+    return [self isRefreshDriven] ? FrameDropPolicyNewest : _dropPolicy;
 }
 
 - (NSString *)presenterName {
-    return _presenter == PacingPresenterDisplay ? @"display" : @"loop";
+    switch (_presenter) {
+        case PacingPresenterDisplay: return @"display";
+        case PacingPresenterSystem: return @"system";
+        default: return @"loop";
+    }
+}
+
+- (BOOL)isRefreshDriven {
+    return _presenter == PacingPresenterDisplay || _presenter == PacingPresenterSystem;
 }
 
 - (NSString *)presentTimingName {

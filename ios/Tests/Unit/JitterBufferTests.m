@@ -373,4 +373,18 @@ typedef struct {
     XCTAssertGreaterThanOrEqual(shown, 238);
 }
 
+
+// The system presenter takes frames through the jitter buffer like the display presenter
+- (void)testSystemPresenterUsesTheJitterBuffer {
+    [_defaults setObject:@"system" forKey:PacingPresenterKey];
+    PacingSettings *settings = [[PacingSettings alloc] initWithDefaults:_defaults];
+    XCTAssertEqual(settings.presenter, PacingPresenterSystem);
+    XCTAssertEqualObjects(settings.presenterName, @"system");
+    XCTAssertTrue([settings isRefreshDriven]);
+    XCTAssertEqual(settings.effectiveDropPolicy, FrameDropPolicyNewest);
+    XCTAssertEqual([settings makeJitterBufferForFrameInterval:kFrame].mode, JitterBufferDefaultMode);
+    [_defaults setObject:@"loop" forKey:PacingPresenterKey];
+    XCTAssertFalse([[[PacingSettings alloc] initWithDefaults:_defaults] isRefreshDriven]);
+}
+
 @end

@@ -49,6 +49,10 @@ BOOL StreamEndsOnBackground(BOOL pictureInPictureActive) {
         Log(LOG_I, @"Picture in picture isn't supported on this device");
         return nil;
     }
+    return [self initWithView:view pictureInPicture:YES];
+}
+
+- (instancetype)initWithView:(UIView *)view pictureInPicture:(BOOL)pictureInPicture {
     self = [super init];
     if (self) {
         _view = view;
@@ -57,6 +61,9 @@ BOOL StreamEndsOnBackground(BOOL pictureInPictureActive) {
         _layer.frame = view.bounds;
         [view.layer insertSublayer:_layer atIndex:0];
 
+        if (!pictureInPicture || ![AVPictureInPictureController isPictureInPictureSupported]) {
+            return self;
+        }
         AVPictureInPictureControllerContentSource *source =
             [[AVPictureInPictureControllerContentSource alloc] initWithSampleBufferDisplayLayer:_layer playbackDelegate:self];
         _controller = [[AVPictureInPictureController alloc] initWithContentSource:source];
@@ -105,6 +112,14 @@ BOOL StreamEndsOnBackground(BOOL pictureInPictureActive) {
     if (!pixelBuffer || !PictureInPictureShouldEnqueue(self.active || self.feedsEveryFrame, now, _lastEnqueue, kIdleEnqueueInterval)) {
         return;
     }
+    [self showPixelBuffer:pixelBuffer at:now];
+}
+
+- (void)showPixelBuffer:(CVPixelBufferRef)pixelBuffer at:(CFTimeInterval)now {
+    if (!pixelBuffer) {
+        return;
+    }
+    @synchronized (self) {
     _lastEnqueue = now;
 
     if (!_format || !CMVideoFormatDescriptionMatchesImageBuffer(_format, pixelBuffer)) {
@@ -140,6 +155,7 @@ BOOL StreamEndsOnBackground(BOOL pictureInPictureActive) {
     }
     [renderer enqueueSampleBuffer:sample];
     CFRelease(sample);
+    }
 }
 
 - (NSString *)note {

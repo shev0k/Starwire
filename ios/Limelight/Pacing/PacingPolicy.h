@@ -41,12 +41,18 @@ typedef NS_ENUM(NSInteger, PacingPresenter) {
     // oldest queued frame and presents it with a minimum duration (PresentTiming). A test choice
     // ("loop") since batch 1.
     PacingPresenterLoop = 0,
-    // The default: the display drives it. A CAMetalDisplayLink asks for a frame at every
-    // refresh, the jitter buffer picks one, and it is drawn into the drawable the link hands over
+    // Metal driven by the display: a CAMetalDisplayLink asks for a frame at every refresh, the
+    // jitter buffer picks one, and it is drawn into the drawable the link hands over. Measures
+    // when each frame reaches the screen, which the system presenter can't.
     PacingPresenterDisplay = 1,
+    // The system's video layer (AVSampleBufferDisplayLayer), as official moonlight-ios and
+    // picture in picture show video: a display link takes a frame from the jitter buffer at each
+    // refresh and hands it over to be shown at once. iPadOS does the colour conversion and HDR
+    // mapping, so full screen looks the same as picture in picture. The default.
+    PacingPresenterSystem = 2,
 };
 
-extern NSString *const PacingPresenterKey;         // "loop" or "display"
+extern NSString *const PacingPresenterKey;         // "loop", "display" or "system"
 extern NSString *const PacingPresentTimingKey;     // "nearest" or "frame"
 extern NSString *const PacingDropPolicyKey;        // "alternate" or "newest"
 extern NSString *const PacingFramesToBufferKey;    // 0 = the app's "Frames to buffer" setting, else 1 to 5
@@ -109,6 +115,8 @@ typedef struct {
 - (FrameDropPolicy)effectiveDropPolicy;
 
 - (NSString *)presenterName;
+// Display or system: a display link takes frames from the jitter buffer at each refresh
+- (BOOL)isRefreshDriven;
 - (NSString *)presentTimingName;
 - (NSString *)dropPolicyName;
 

@@ -20,6 +20,7 @@
 #import "StreamPictureInPicture.h"
 #import "ExternalDisplay.h"
 #import "FrameInterpolator.h"
+#import "SystemVideoPresenter.h"
 #import "StreamTestOverrides.h"
 #import "PacingPolicy.h"
 #import "FrameQueue.h"
@@ -64,8 +65,11 @@
     // One alert per stream, none while closing (see StreamAlertGate)
     StreamAlertGate *_alertGate;
     __weak UIAlertController *_presentedAlert;
-    // Picture in picture, when it's on in iOS Settings (StarwirePictureInPicture)
+    // Picture in picture, when it's on in iOS Settings (StarwirePictureInPicture). With the system
+    // presenter it is also the full-screen video layer.
     StreamPictureInPicture *_pictureInPicture;
+    // The system presenter (PacingPresenterSystem), or nil with Metal
+    SystemVideoPresenter *_systemPresenter;
 
 #if TARGET_OS_TV
     UITapGestureRecognizer *_menuTapGestureRecognizer;
@@ -281,13 +285,26 @@
                                            fps:presentRate displayHz:UIScreen.mainScreen.maximumFramesPerSecond]) {
         presentRate *= 2;
     }
-    self.metalViewController = [[MetalViewController alloc] initWithFrame:self.view.bounds
-                                                                framerate:presentRate
-                                                                enableHdr:self->_settings.enableHdr
-                                                           metricsHandler:self.imguiView.metricsHandler];
-    self.metalViewController.view.userInteractionEnabled = NO;
-    [self.view addSubview:self.metalViewController.view];
-    [self.view bringSubviewToFront:self.metalViewController.view];
+    PacingSettings *pacing = [PacingSettings current];
+    // "Video on the external display" moves the Metal view, so it keeps Metal
+    BOOL externalVideo = ExternalDisplayModeFromDefaults([NSUserDefaults standardUserDefaults]) == ExternalDisplayModeVideo;
+    if (pacing.presenter == PacingPresenterSystem && !externalVideo) {
+        // The system's video layer shows the stream, as picture in picture does (SystemVideoPresenter.h)
+        Log(LOG_I, @"StreamFrameViewController showing video through the system's video layer");
+        _pictureInPicture = [[StreamPictureInPicture alloc] initWithView:self.view
+                                                       pictureInPicture:StreamUsesPictureInPicture([NSUserDefaults standardUserDefaults])];
+        PacingRefreshRange range = PacingDisplayRefreshRange(presentRate, UIScreen.mainScreen.maximumFramesPerSecond, pacing.reduceRefreshRate);
+        _systemPresenter = [[SystemVideoPresenter alloc] initWithLayer:_pictureInPicture range:range framerate:presentRate];
+        [_systemPresenter start];
+    } else {
+        self.metalViewController = [[MetalViewController alloc] initWithFrame:self.view.bounds
+                                                                    framerate:presentRate
+                                                                    enableHdr:self->_settings.enableHdr
+                                                               metricsHandler:self.imguiView.metricsHandler];
+        self.metalViewController.view.userInteractionEnabled = NO;
+        [self.view addSubview:self.metalViewController.view];
+        [self.view bringSubviewToFront:self.metalViewController.view];
+    }
 
     // Make a MetalKit view for ImGui
     self.imguiView = [[ImGuiRenderer alloc] initWithFrame:self.view.bounds
@@ -307,7 +324,9 @@
     [self placeVideoView];
 
     BOOL showSampleBufferLayer = [[NSUserDefaults standardUserDefaults] boolForKey:StreamShowSampleBufferLayerKey];
-    if (StreamUsesPictureInPicture([NSUserDefaults standardUserDefaults]) || showSampleBufferLayer) {
+    if (_systemPresenter) {
+        // Fed by the system presenter while the app is active (see applicationWillResignActive)
+    } else if (StreamUsesPictureInPicture([NSUserDefaults standardUserDefaults]) || showSampleBufferLayer) {
         _pictureInPicture = [[StreamPictureInPicture alloc] initWithView:self.view];
         if (showSampleBufferLayer) {
             // A colour comparison: the system's video layer full screen, Metal hidden
@@ -316,6 +335,8 @@
             self.metalViewController.view.hidden = YES;
         }
         [FrameQueue sharedInstance].decodedFrameObserver = _pictureInPicture;
+    }
+    if (_pictureInPicture) {
         __weak StreamFrameViewController *weakSelf = self;
         _pictureInPicture.onStop = ^(BOOL restored) {
             // Closing the window while the app is away ends the stream, as going to the
@@ -379,6 +400,8 @@
     // Only cleanup when we're being destroyed
     if (parent == nil) {
         [_alertGate markExiting];
+        [_systemPresenter stop];
+        _systemPresenter = nil;
         [self stopPictureInPicture];
         // Stop drawing before the view goes away (VoidLink stops the renderer explicitly too)
         [self.metalViewController shutdown];
@@ -505,6 +528,13 @@
 
     // iOS doesn't allow GPU work in the background; stop drawing until we're active again
     [self.metalViewController pauseRendering];
+    // The system presenter's display link stops in the background; picture in picture is then fed
+    // every decoded frame instead
+    if (_systemPresenter) {
+        _systemPresenter.paused = YES;
+        _pictureInPicture.feedsEveryFrame = YES;
+        [FrameQueue sharedInstance].decodedFrameObserver = _pictureInPicture;
+    }
     
 #if !TARGET_OS_TV
     // Terminate the stream if the app is inactive for 60 seconds
@@ -534,6 +564,11 @@
     // Back in the app: the full screen takes over from the picture in picture window
     [_pictureInPicture stop];
     [self.metalViewController resumeRendering];
+    if (_systemPresenter) {
+        [FrameQueue sharedInstance].decodedFrameObserver = nil;
+        _pictureInPicture.feedsEveryFrame = NO;
+        _systemPresenter.paused = NO;
+    }
 
     // Stop the background timer, since we're foregrounded again
     if (_inactivityTimer != nil) {

@@ -129,16 +129,18 @@
 			<key>Key</key>
 			<string>StarwirePresenter</string>
 			<key>DefaultValue</key>
-			<string>display</string>
+			<string>system</string>
 			<key>Titles</key>
 			<array>
 				<string>Render loop (old)</string>
 				<string>Display driven</string>
+				<string>System video layer</string>
 			</array>
 			<key>Values</key>
 			<array>
 				<string>loop</string>
 				<string>display</string>
+				<string>system</string>
 			</array>
 		</dict>
 		<dict>

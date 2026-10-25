@@ -137,7 +137,7 @@ extern int ff_isom_write_av1c(AVIOContext *pb, const uint8_t *buf, int size,
                                                             windowLength:5.0];
     _frameQueue.pacingStats.presenterName = _pacingSettings.presenterName;
     BOOL interpolating = _interpolator != nil;
-    _frameQueue.pacingStats.jitterBufferName = _pacingSettings.presenter == PacingPresenterDisplay
+    _frameQueue.pacingStats.jitterBufferName = [_pacingSettings isRefreshDriven]
         ? JitterBufferModeName([_pacingSettings jitterBufferModeInterpolating:interpolating]) : @"off";
     if ([[NSUserDefaults standardUserDefaults] boolForKey:FrameInterpolationKey]) {
         _frameQueue.pacingStats.interpolationNote = interpolating

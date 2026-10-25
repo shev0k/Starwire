@@ -30,10 +30,14 @@ steps and the checksums for each version.
   steps of 4.2 ms (8.3, 12.5, 16.7 ms and so on), the display's refresh interval, the time from
   decoding to the screen, and a summary line for the whole stream. The summary line also counts
   gaps of more than 2.5 frames between arriving frames, and the longest time a frame stayed up.
-- **iOS: a display-driven presenter, now the default.** A CAMetalDisplayLink draws a frame at
-  each display refresh, as Nonary's moonlight-qt does on macOS. On the iPad Pro M4 it was as smooth
-  as the old render loop with about 12 ms less from decoding to the screen. "Presenter" in iOS
-  Settings still offers the old loop.
+- **iOS: full screen through the system's video layer, now the default.** The stream is shown the
+  way official Moonlight for iOS and picture in picture show it, so iPadOS handles the colours and
+  HDR: full screen now looks exactly like picture in picture (it was darker and tinted with Metal).
+  A display link hands it one frame per refresh through the jitter buffer.
+- **iOS: a display-driven Metal presenter, as a choice.** A CAMetalDisplayLink draws a frame at
+  each display refresh, as Nonary's moonlight-qt does on macOS; on the iPad Pro M4 it was as smooth
+  as the old render loop with about 12 ms less from decoding to the screen, and it measures when
+  frames reach the screen. "Presenter" in iOS Settings offers it and the old loop.
 - **iOS: network arrival in the statistics overlay.** A "Network:" line says how often frames
   reach the iPad late (gaps of more than 2.5 frames, measured from their packets before any
   decoding), the longest gap, how regular the gaps are, how many frames come bunched together,

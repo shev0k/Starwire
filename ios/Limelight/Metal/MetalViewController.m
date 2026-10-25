@@ -107,7 +107,7 @@ The implementation of the cross-platform game view controller.
 
     // Which presenter draws (PacingPresenter). The display presenter's CAMetalDisplayLink holds
     // the frame rate itself.
-    view.usesDisplayLink = pacing.presenter == PacingPresenterDisplay;
+    view.usesDisplayLink = [pacing isRefreshDriven];
     Log(LOG_I, @"[MetalViewController] presenter %@", pacing.presenterName);
     if (view.usesDisplayLink) {
         return;

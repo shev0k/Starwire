@@ -434,9 +434,9 @@ static const double kMs = 1000.0;
 #pragma mark - Display presenter
 
 - (void)testPresenterSettings {
-    // The display presenter is the default since batch 1
+    // The system presenter is the default since batch 1
     PacingSettings *settings = [[PacingSettings alloc] initWithDefaults:_defaults];
-    XCTAssertEqual(settings.presenter, PacingPresenterDisplay);
+    XCTAssertEqual(settings.presenter, PacingPresenterSystem);
     [_defaults setObject:@"loop" forKey:PacingPresenterKey];
     settings = [[PacingSettings alloc] initWithDefaults:_defaults];
     XCTAssertEqual(settings.presenter, PacingPresenterLoop);

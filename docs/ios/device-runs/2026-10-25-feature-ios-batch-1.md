@@ -89,7 +89,8 @@ drops a frame whenever two decoded frames land in one refresh, with or without h
 shows them in order instead, for about 3 ms more. Smooth met the most holes and still dropped
 only 0.03%, but it holds about 3 frames, 23 ms more than low latency.
 
-**The new default: the display presenter with the low latency jitter buffer.** It was as smooth
+**The jitter buffer default: low latency** (first chosen with the display presenter; the system
+presenter below became the default presenter afterwards, with the same jitter buffer). It was as smooth
 as the render loop on this network (0.01% drops, 1% low 100 FPS) with about 12 ms less from
 decode to screen. A 30 second stream with no test choices set confirmed it: display presenter,
 low latency, 0.03% drops. Low latency only met one hole in its 5 minutes, so on patchier Wi-Fi
@@ -135,9 +136,20 @@ With HDR10 metadata on the layer, iPadOS showed the desktop in absolute nits, di
 screen's own white, and squeezed every full colour. Asking for Rec. 709 instead of 601, or for
 standard dynamic range, changed nothing. The fix maps BT.2408 reference white (203 nits) to the
 screen's white and eases highlights into the headroom left, with no metadata. The system's video
-layer lifts the mid greys well above the PC's; full screen now follows the PC more closely than
-picture in picture does. Not yet re-checked by eye, and an HDR game (highlights above white) not
-tried.
+layer lifts the mid greys well above the PC's.
+
+**The owner checked by eye and full screen still looked darker and tinted, in SDR and HDR.** The
+screenshots don't show what the panel does, so the measurement above wasn't enough. Every other
+iOS client (official moonlight-ios, Artemis, imoonlight, VibeLight) shows video through the
+system's video layer; the only Metal renderers (Andy Grundman's, VoidLink's, moonlight-qt's on
+macOS) convert colours in their own shader without the video's transfer function. So a third
+presenter, "system", now shows full screen through the same AVSampleBufferDisplayLayer as picture
+in picture, fed one frame per refresh by a display link through the jitter buffer. It is the new
+default. On the iPad: colour bars identical to picture in picture (246, 233, 180, 96 and full
+primaries), 0.02% drops over 2 minutes, picture in picture still starting and closing. The system
+layer doesn't report when frames reach the screen, so its on-screen timing and latency weren't
+measured; the Metal display presenter stays a choice for that. "Video on the external display"
+keeps Metal, which can move to the display.
 
 ## Problems
 

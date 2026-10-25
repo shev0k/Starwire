@@ -41,6 +41,12 @@ BOOL StreamEndsOnBackground(BOOL pictureInPictureActive);
 // Adds the layer behind everything else in `view`. Returns nil where iOS has no picture in
 // picture (it isn't supported on every device).
 - (nullable instancetype)initWithView:(UIView *)view;
+// The same, for the system presenter: the layer shows the stream full screen, with picture in
+// picture only when `pictureInPicture` (and the device has it). Never nil.
+- (instancetype)initWithView:(UIView *)view pictureInPicture:(BOOL)pictureInPicture;
+
+// Shows a frame at once (the system presenter, one per refresh)
+- (void)showPixelBuffer:(CVPixelBufferRef)pixelBuffer at:(CFTimeInterval)now;
 - (instancetype)init NS_UNAVAILABLE;
 
 // Feed every frame, not two a second: for showing the layer full screen in a colour comparison
