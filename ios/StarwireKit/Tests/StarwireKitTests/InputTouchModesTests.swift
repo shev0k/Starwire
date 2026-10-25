@@ -1,4 +1,7 @@
 import XCTest
+#if canImport(CoreGraphics)
+import CoreGraphics
+#endif
 @testable import StarwireKit
 
 /// The touch modes on the iPad 10th gen's screen in landscape (1180x820 points, 2x), showing a
@@ -309,6 +312,33 @@ final class InputTouchModesTests: XCTestCase {
         d.setMode(.naturalTrackpad)
         XCTAssertEqual(sink.events.last, left(false))
         XCTAssertEqual(d.mode, .naturalTrackpad)
+    }
+
+    // Regression: Android's contexts let go again on cancel after the button was already up, so
+    // changing the mode after a tap sent a stray release (seen in the batch 3 device run)
+    func testChangingModeAfterAFinishedClickSendsNothing() {
+        let d = dispatcher(.direct)
+        tap(d, at: CGPoint(x: 590, y: 410), time: 0)
+        d.tick(now: 0.2)
+        let afterTap = sink.events
+        d.setMode(.gamingTrackpad)
+        XCTAssertEqual(sink.events, afterTap)
+
+        d.handle(.down(index: 0, pointers: [p(1, 100, 100)]), at: 1)
+        d.tick(now: 1.65)
+        d.handle(.up(index: 0, pointers: [p(1, 100, 100)]), at: 1.8)
+        let afterHold = sink.events
+        XCTAssertEqual(Array(afterHold.suffix(2)), [right(true), right(false)])
+        d.setMode(.direct)
+        XCTAssertEqual(sink.events, afterHold)
+    }
+
+    func testCancellingBeforeTheTapReleaseLetsGoOnce() {
+        let d = dispatcher(.direct)
+        tap(d, at: CGPoint(x: 590, y: 410), time: 0)
+        d.setMode(.naturalTrackpad)
+        d.tick(now: 1)
+        XCTAssertEqual(sink.events, [.mousePosition(x: 960, y: 540, width: 1920, height: 1080), left(true), left(false)])
     }
 
     // MARK: Zoom

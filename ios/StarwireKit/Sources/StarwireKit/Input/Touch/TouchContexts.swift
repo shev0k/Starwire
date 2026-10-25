@@ -1,4 +1,7 @@
 import Foundation
+#if canImport(CoreGraphics)
+import CoreGraphics
+#endif
 
 // The touch modes' gesture logic, one context per finger slot (the first and second finger), as
 // Starwire for Android does it. Ported from Starwire for Android (GPL-3.0):
@@ -500,6 +503,8 @@ public final class GamingTrackpadContext: TouchContext {
         env.timers.cancel(dragTimer)
         if confirmedDrag {
             env.buttonUp(dragButton)
+            // Up on the PC now: a later cancel has nothing to let go of
+            confirmedDrag = false
         } else if isTap(time) {
             let button = buttonIndex
             env.buttonDown(button)
@@ -602,6 +607,9 @@ public final class DirectTouchContext: TouchContext {
     private var lastLocationY = 0
     public private(set) var isCancelled = false
     private var confirmedLongPress = false, confirmedTap = false
+    /// The button this finger holds down on the PC, if any. Android lets go on cancel whenever
+    /// the tap was confirmed, even when the button is already up, which sends a stray release.
+    private var held: Int?
 
     private var longPressTimer: String { "direct\(actionIndex).longpress" }
     private var tapDownTimer: String { "direct\(actionIndex).tapdown" }
@@ -645,7 +653,17 @@ public final class DirectTouchContext: TouchContext {
         if lastDownTime - lastUpTime > Self.doubleTapTime || distance(lastDown, lastUp) > Self.doubleTapDistance {
             updatePosition(lastDown.point)
         }
-        env.buttonDown(primary)
+        press(primary)
+    }
+
+    private func press(_ button: Int) {
+        held = button
+        env.buttonDown(button)
+    }
+
+    private func release(_ button: Int) {
+        if held == button { held = nil }
+        env.buttonUp(button)
     }
 
     public func touchUp(_ s: TouchSample, at time: TimeInterval) {
@@ -654,9 +672,9 @@ public final class DirectTouchContext: TouchContext {
             env.timers.cancel(longPressTimer)
             env.timers.cancel(tapDownTimer)
             if confirmedLongPress {
-                env.buttonUp(secondary)
+                release(secondary)
             } else if confirmedTap {
-                env.buttonUp(primary)
+                release(primary)
             } else {
                 tapConfirmed()
                 env.timers.schedule(releaseTimer, at: time + Self.tapReleaseDelay)
@@ -688,10 +706,10 @@ public final class DirectTouchContext: TouchContext {
         isCancelled = true
         env.timers.cancel(longPressTimer)
         env.timers.cancel(tapDownTimer)
-        if confirmedLongPress {
-            env.buttonUp(secondary)
-        } else if confirmedTap {
-            env.buttonUp(primary)
+        env.timers.cancel(releaseTimer)
+        // Only what is still down on the PC
+        if let button = held {
+            release(button)
         }
     }
 
@@ -707,13 +725,13 @@ public final class DirectTouchContext: TouchContext {
             env.timers.cancel(tapDownTimer)
             confirmedLongPress = true
             if confirmedTap {
-                env.buttonUp(primary)
+                release(primary)
             }
-            env.buttonDown(secondary)
+            press(secondary)
         case tapDownTimer:
             tapConfirmed()
         case releaseTimer:
-            env.buttonUp(primary)
+            release(primary)
         default:
             break
         }
