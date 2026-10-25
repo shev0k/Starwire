@@ -82,9 +82,12 @@ struct Vertex {
 
 static const NSUInteger MaxFramesInFlight = 3;
 
-// EDR tone-mapping is possible but it's unclear how
-// best to tone-map Windows content
-static BOOL useEDR = NO;
+MetalLayerMode MetalLayerModeForFrame(BOOL isPQ, BOOL edrAvailable) {
+    if (!isPQ) {
+        return MetalLayerModeSDR;
+    }
+    return edrAvailable ? MetalLayerModeEDR : MetalLayerModePQ;
+}
 
 // The layer's colorspace name, for the stats overlay. Guarded by @synchronized on the class,
 // because a new renderer can start while the old one is being freed (from VoidLink).
@@ -237,7 +240,7 @@ static void ReleaseTextures(CVMetalTextureRef *textures, size_t count) {
 }
 
 - (void)applyEDRFromFrame:(Frame *)frame withColorspace:(int)colorspace toLayer:(CAMetalLayer *)layer {
-    // Guards from VoidLink. EDR itself stays off (useEDR) until phase 4.
+    // Guards from VoidLink. Used for PQ frames only (MetalLayerModeForFrame).
     if (!frame || !layer) {
         Log(LOG_E, @"applyEDRFromFrame called with nil frame or layer");
         return;
@@ -397,14 +400,15 @@ static void ReleaseTextures(CVMetalTextureRef *textures, size_t count) {
                 layer.pixelFormat = newPixelFormat;
             }];
 #else
-            if (useEDR && [CAEDRMetadata isAvailable]) {
+            MetalLayerMode mode = MetalLayerModeForFrame(isHDR, [CAEDRMetadata isAvailable]);
+            Log(LOG_I, @"Layer mode %@", mode == MetalLayerModeEDR ? @"HDR10 with EDR" : mode == MetalLayerModePQ ? @"HDR10 as PQ" : @"SDR");
+            if (mode == MetalLayerModeEDR) {
                 [self applyEDRFromFrame:frame withColorspace:colorspace toLayer:layer];
             } else {
-                // These can only be changed on the main thread
+                // These can only be changed on the main thread. Leaving HDR clears what EDR set.
                 [self performOnMainAndWait:^{
-                    if (isHDR) {
-                        layer.wantsExtendedDynamicRangeContent = YES;
-                    }
+                    layer.wantsExtendedDynamicRangeContent = isHDR;
+                    layer.EDRMetadata = nil;
                     layer.colorspace = newColorSpace;
                     layer.pixelFormat = newPixelFormat;
                 }];

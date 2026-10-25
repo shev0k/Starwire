@@ -5,6 +5,20 @@
 #import "Frame.h"
 #import "Plot.h"
 
+// How the layer shows a frame
+typedef NS_ENUM(NSInteger, MetalLayerMode) {
+    // SDR: 8 or 10 bit in the frame's own colour space
+    MetalLayerModeSDR = 0,
+    // HDR10 as PQ in a 10 bit layer, without EDR metadata (EDR not available)
+    MetalLayerModePQ = 1,
+    // HDR10 the way VoidLink shows it: PQ decoded to linear light in a half-float layer, with the
+    // stream's HDR10 metadata as the layer's EDRMetadata, so the system maps it to the panel
+    MetalLayerModeEDR = 2,
+};
+
+// The mode for a frame: EDR for PQ frames when the system has it, PQ without it, else SDR
+MetalLayerMode MetalLayerModeForFrame(BOOL isPQ, BOOL edrAvailable);
+
 @interface MetalVideoRenderer : NSObject
 
 @property (atomic) CFTimeInterval averageGPUTime;

@@ -9,6 +9,7 @@
 #import <XCTest/XCTest.h>
 
 #import "VideoFormatPolicy.h"
+#import "MetalVideoRenderer.h"
 #include "Limelight.h"
 
 @interface VideoFormatTests : XCTestCase
@@ -56,6 +57,16 @@
     [defaults setBool:YES forKey:StreamFullRangeKey];
     XCTAssertTrue(StreamUsesFullRange(defaults));
     [defaults removePersistentDomainForName:suite];
+}
+
+
+// HDR10 frames use VoidLink's EDR path when the system has EDR; SDR frames never do, so a stream
+// that leaves HDR goes back to a plain layer
+- (void)testLayerModeForFrames {
+    XCTAssertEqual(MetalLayerModeForFrame(YES, YES), MetalLayerModeEDR);
+    XCTAssertEqual(MetalLayerModeForFrame(YES, NO), MetalLayerModePQ);
+    XCTAssertEqual(MetalLayerModeForFrame(NO, YES), MetalLayerModeSDR);
+    XCTAssertEqual(MetalLayerModeForFrame(NO, NO), MetalLayerModeSDR);
 }
 
 @end

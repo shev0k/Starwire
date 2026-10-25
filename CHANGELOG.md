@@ -53,6 +53,9 @@ steps and the checksums for each version.
   (it was always 10 bit), and "Force full range video" in iOS Settings asks the PC for full range,
   as on Android. The renderer takes the range from the decoded pixels, so the colours match
   either way. Vibeshine on an NVIDIA card encodes 4:4:4 with HEVC only, not AV1.
+- **iOS: HDR10 with EDR.** HDR streams are decoded to linear light and shown with the stream's
+  HDR10 metadata, so iPadOS maps them to the panel's brightness, as VoidLink does. The layer goes
+  back to SDR when the PC leaves HDR. Not yet checked by eye on the iPad.
 - **iOS: unit tests on the simulator in CI,** including Andy Grundman's frame queue tests, and a
   UI test the Mac runs on the iPad.
 
