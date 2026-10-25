@@ -9,6 +9,11 @@
 
 NS_ASSUME_NONNULL_BEGIN
 
+// Sees every decoded frame, kept or dropped (picture in picture)
+@protocol DecodedFrameObserver <NSObject>
+- (void)noteDecodedPixelBuffer:(CVPixelBufferRef)pixelBuffer at:(CFTimeInterval)now;
+@end
+
 @interface FrameQueue : NSObject
 
 @property (nonatomic, readonly) NSUInteger count;
@@ -23,6 +28,8 @@ NS_ASSUME_NONNULL_BEGIN
 // The display presenter's jitter buffer. Nil shows the newest frame at every refresh. Set before
 // a stream starts; it sees every enqueue and every refresh, under the queue's lock.
 @property (atomic, nullable) JitterBuffer *jitterBuffer;
+// Called from the decoder's queue for every decoded frame. Weak: the stream screen owns it.
+@property (atomic, weak, nullable) id<DecodedFrameObserver> decodedFrameObserver;
 
 // The queue shared by the decoder and the Metal renderer
 + (instancetype)sharedInstance;

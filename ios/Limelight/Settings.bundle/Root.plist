@@ -31,7 +31,7 @@
 			<key>Title</key>
 			<string>Display</string>
 			<key>FooterText</key>
-			<string>Lower display refresh rates can save power at the expense of some additional video latency. Full range video loses detail in light and dark areas if the PC doesn't send it properly. The statistics overlay itself is turned on in the app's settings.</string>
+			<string>Lower display refresh rates can save power at the expense of some additional video latency. Full range video loses detail in light and dark areas if the PC doesn't send it properly. Picture in picture lets you watch the stream, but not control it, while another app is open. The statistics overlay itself is turned on in the app's settings.</string>
 		</dict>
 		<dict>
 			<key>Type</key>
@@ -40,6 +40,16 @@
 			<string>Allow refresh rate reduction</string>
 			<key>Key</key>
 			<string>StarwireReduceRefreshRate</string>
+			<key>DefaultValue</key>
+			<false/>
+		</dict>
+		<dict>
+			<key>Type</key>
+			<string>PSToggleSwitchSpecifier</string>
+			<key>Title</key>
+			<string>Picture in picture</string>
+			<key>Key</key>
+			<string>StarwirePictureInPicture</string>
 			<key>DefaultValue</key>
 			<false/>
 		</dict>

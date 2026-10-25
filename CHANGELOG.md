@@ -56,6 +56,9 @@ steps and the checksums for each version.
 - **iOS: HDR10 with EDR.** HDR streams are decoded to linear light and shown with the stream's
   HDR10 metadata, so iPadOS maps them to the panel's brightness, as VoidLink does. The layer goes
   back to SDR when the PC leaves HDR. Not yet checked by eye on the iPad.
+- **iOS: picture in picture,** off by default as on Android. With "Picture in picture" on in iOS
+  Settings, leaving the app keeps the stream going in a small window you can watch but not
+  control. Closing the window ends the stream.
 - **iOS: unit tests on the simulator in CI,** including Andy Grundman's frame queue tests, and a
   UI test the Mac runs on the iPad.
 

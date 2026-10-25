@@ -19,6 +19,10 @@
 //    TEST_RUNNER_STARWIRE_BUFFER          frames to buffer, 1 to 3
 //    TEST_RUNNER_STARWIRE_JITTER_BUFFER   "lowest-latency", "low-latency", "balanced" or "smooth"
 //                                         (display presenter only)
+//    TEST_RUNNER_STARWIRE_PIP             "1" for picture in picture (testPictureInPicture sets it)
+//    TEST_RUNNER_STARWIRE_OVERLAY         "full" or "lite"
+//    TEST_RUNNER_STARWIRE_FULL_RANGE      "1" to ask for full range video
+//    TEST_RUNNER_STARWIRE_REDUCE_REFRESH  "1" to allow refresh rate reduction
 //    TEST_RUNNER_STARWIRE_VIRTUAL_DISPLAY "1" to stream a Vibeshine virtual display
 //  They become the app's launch arguments, which the app reads as user defaults. The app has no
 //  code for tests.
@@ -45,6 +49,10 @@ final class StreamDeviceRunTests: XCTestCase {
         if let v = env["STARWIRE_DROP_POLICY"] { args += ["-StarwireDropPolicy", v] }
         if let v = env["STARWIRE_BUFFER"] { args += ["-StarwireFramesToBuffer", v] }
         if let v = env["STARWIRE_JITTER_BUFFER"] { args += ["-StarwireJitterBuffer", v] }
+        if let v = env["STARWIRE_PIP"] { args += ["-StarwirePictureInPicture", v == "1" ? "YES" : "NO"] }
+        if let v = env["STARWIRE_OVERLAY"] { args += ["-StarwireOverlay", v] }
+        if let v = env["STARWIRE_FULL_RANGE"] { args += ["-StarwireFullRange", v == "1" ? "YES" : "NO"] }
+        if let v = env["STARWIRE_REDUCE_REFRESH"] { args += ["-StarwireReduceRefreshRate", v == "1" ? "YES" : "NO"] }
         if let v = env["STARWIRE_VIRTUAL_DISPLAY"] { args += ["-StarwireVirtualDisplay", v == "1" ? "YES" : "NO"] }
         app.launchArguments = args
         app.launch()
@@ -92,6 +100,32 @@ final class StreamDeviceRunTests: XCTestCase {
         // And a stream starts again afterwards
         try startStream()
         _ = try waitForOverlay()
+        stopStreamWithEdgeSwipe()
+        try assertBackAtAppList()
+    }
+
+    // With picture in picture on, leaving the app keeps the stream: switch to the Settings app,
+    // come back, and the stream (not the app list) is still there.
+    func testPictureInPicture() throws {
+        app.terminate()
+        app.launchArguments += ["-StarwirePictureInPicture", "YES"]
+        app.launch()
+        try startStream()
+        _ = try waitForOverlay()
+        sleep(5)
+
+        let settings = XCUIApplication(bundleIdentifier: "com.apple.Preferences")
+        settings.activate()
+        XCTAssertTrue(settings.wait(for: .runningForeground, timeout: 10))
+        sleep(10)
+        record("in the background: app state \(app.state.rawValue) (4 = foreground, 3 = background)")
+        screenshot("picture in picture")
+        app.activate()
+        XCTAssertTrue(app.wait(for: .runningForeground, timeout: 10))
+
+        let overlay = app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", "Video stream:")).firstMatch
+        XCTAssertTrue(overlay.waitForExistence(timeout: 10), "the stream ended in the background")
+        record("after coming back:\n\(overlay.label)")
         stopStreamWithEdgeSwipe()
         try assertBackAtAppList()
     }

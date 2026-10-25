@@ -10,6 +10,7 @@
 
 #import "VideoFormatPolicy.h"
 #import "MetalVideoRenderer.h"
+#import "StreamPictureInPicture.h"
 #include "Limelight.h"
 
 @interface VideoFormatTests : XCTestCase
@@ -67,6 +68,29 @@
     XCTAssertEqual(MetalLayerModeForFrame(YES, NO), MetalLayerModePQ);
     XCTAssertEqual(MetalLayerModeForFrame(NO, YES), MetalLayerModeSDR);
     XCTAssertEqual(MetalLayerModeForFrame(NO, NO), MetalLayerModeSDR);
+}
+
+
+// Two frames a second keep the layer ready while the app is in front; every frame once the
+// picture in picture window is up
+- (void)testPictureInPictureFeedsTheLayerSlowlyUntilItShows {
+    XCTAssertTrue(PictureInPictureShouldEnqueue(NO, 10.0, 0, 0.5));
+    XCTAssertFalse(PictureInPictureShouldEnqueue(NO, 10.2, 10.0, 0.5));
+    XCTAssertTrue(PictureInPictureShouldEnqueue(NO, 10.5, 10.0, 0.5));
+    XCTAssertTrue(PictureInPictureShouldEnqueue(YES, 10.0083, 10.0, 0.5));
+}
+
+- (void)testOnlyPictureInPictureKeepsTheStreamInTheBackground {
+    XCTAssertTrue(StreamEndsOnBackground(NO));
+    XCTAssertFalse(StreamEndsOnBackground(YES));
+    NSString *suite = @"VideoFormatTests.pip";
+    NSUserDefaults *defaults = [[NSUserDefaults alloc] initWithSuiteName:suite];
+    [defaults removePersistentDomainForName:suite];
+    // Off by default, as on Android
+    XCTAssertFalse(StreamUsesPictureInPicture(defaults));
+    [defaults setBool:YES forKey:StreamPictureInPictureKey];
+    XCTAssertTrue(StreamUsesPictureInPicture(defaults));
+    [defaults removePersistentDomainForName:suite];
 }
 
 @end

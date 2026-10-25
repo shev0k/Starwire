@@ -695,6 +695,7 @@ int DrSubmitDecodeUnit(PDECODE_UNIT decodeUnit);
 
               [self->_frameQueue.pacingStats noteArrivalAt:frame.decodedAt];
               os_signpost_event_emit(pacingLog, OS_SIGNPOST_ID_EXCLUSIVE, "enqueue", "frame %d", frameNumber);
+              [self->_frameQueue.decodedFrameObserver noteDecodedPixelBuffer:pixelBuffer at:frame.decodedAt];
               int framesDropped = [self->_frameQueue enqueue:frame withSlackSize:3];
 
               static PlotMetrics frameQueueMetrics = {};

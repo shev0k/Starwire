@@ -17,6 +17,8 @@
 #import "RelativeTouchHandler.h"
 #import "MetalVideoRenderer.h"
 #import "StreamAlertGate.h"
+#import "StreamPictureInPicture.h"
+#import "FrameQueue.h"
 
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -58,6 +60,8 @@
     // One alert per stream, none while closing (see StreamAlertGate)
     StreamAlertGate *_alertGate;
     __weak UIAlertController *_presentedAlert;
+    // Picture in picture, when it's on in iOS Settings (StarwirePictureInPicture)
+    StreamPictureInPicture *_pictureInPicture;
 
 #if TARGET_OS_TV
     UITapGestureRecognizer *_menuTapGestureRecognizer;
@@ -281,6 +285,37 @@
     self.imguiView.mtkView.userInteractionEnabled = NO;
     [self.view addSubview:self.imguiView.mtkView];
     [self.view bringSubviewToFront:self.imguiView.mtkView];
+
+#if !TARGET_OS_TV
+    if (StreamUsesPictureInPicture([NSUserDefaults standardUserDefaults])) {
+        _pictureInPicture = [[StreamPictureInPicture alloc] initWithView:self.view];
+        [FrameQueue sharedInstance].decodedFrameObserver = _pictureInPicture;
+        __weak StreamFrameViewController *weakSelf = self;
+        _pictureInPicture.onStop = ^(BOOL restored) {
+            // Closing the window while the app is away ends the stream, as going to the
+            // background without picture in picture does
+            if (!restored && UIApplication.sharedApplication.applicationState == UIApplicationStateBackground) {
+                Log(LOG_I, @"Picture in picture closed in the background, ending the stream");
+                [weakSelf returnToMainFrame];
+            }
+        };
+    }
+#endif
+}
+
+- (void)viewDidLayoutSubviews {
+    [super viewDidLayoutSubviews];
+    [_pictureInPicture layout];
+}
+
+- (void)stopPictureInPicture {
+    if (_pictureInPicture) {
+        if ([FrameQueue sharedInstance].decodedFrameObserver == _pictureInPicture) {
+            [FrameQueue sharedInstance].decodedFrameObserver = nil;
+        }
+        [_pictureInPicture invalidate];
+        _pictureInPicture = nil;
+    }
 }
 
 - (UIView *)viewForZoomingInScrollView:(UIScrollView *)scrollView {
@@ -291,6 +326,7 @@
     // Only cleanup when we're being destroyed
     if (parent == nil) {
         [_alertGate markExiting];
+        [self stopPictureInPicture];
         // Stop drawing before the view goes away (VoidLink stops the renderer explicitly too)
         [self.metalViewController shutdown];
         [_controllerSupport cleanup];
@@ -427,6 +463,11 @@
 }
 
 - (void)inactiveTimerExpired:(NSTimer*)timer {
+    if (_pictureInPicture.active) {
+        Log(LOG_I, @"Inactive for 60 seconds, but picture in picture is showing the stream");
+        _inactivityTimer = nil;
+        return;
+    }
     Log(LOG_I, @"Terminating stream after inactivity");
 
     [self returnToMainFrame];
@@ -447,6 +488,10 @@
 
 // This fires when the home button is pressed
 - (void)applicationDidEnterBackground:(UIApplication *)application {
+    if (!StreamEndsOnBackground(_pictureInPicture.active)) {
+        Log(LOG_I, @"In the background with picture in picture: the stream goes on");
+        return;
+    }
     Log(LOG_I, @"Terminating stream immediately for backgrounding");
 
     if (_inactivityTimer != nil) {
