@@ -1,4 +1,7 @@
 import Foundation
+#if canImport(CoreGraphics)
+import CoreGraphics
+#endif
 
 /// Where the stream's picture is on the screen, and how screen points map to the PC's pixels.
 /// Every input path (touch, Pencil, mouse, pointer lock) uses this one function, so they agree

@@ -1,4 +1,7 @@
 import Foundation
+#if canImport(CoreGraphics)
+import CoreGraphics
+#endif
 
 // Routes the screen's touches to the touch mode, as Starwire for Android's Game.handleMotionEvent
 // does (GPL-3.0): the three-finger tap for the stream menu, pan and zoom mode, pinch to zoom

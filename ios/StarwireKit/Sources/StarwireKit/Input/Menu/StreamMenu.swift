@@ -1,4 +1,7 @@
 import Foundation
+#if canImport(CoreGraphics)
+import CoreGraphics
+#endif
 
 // The stream menu's pages and items, from Starwire for Android's OverlayMenuView (GPL-3.0), with
 // what Vibeshine lacks left out: Send Clipboard, Get Clipboard and PC Commands (no
