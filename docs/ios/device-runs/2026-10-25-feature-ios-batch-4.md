@@ -139,3 +139,13 @@ VB-Cable and the firewall rule), then on the iPad:
 4. **Pencil** (from batch 3): a stroke at each pressure curve, tilt, hover.
 5. **Controllers** (from batch 3): the checklist in
    [the batch 3 report](2026-10-25-feature-ios-batch-3.md#hands-on-checklist-for-the-end-of-the-port).
+
+## Notes on the branch
+
+`check-publish.sh` flags, besides the author identity it flags on every iOS commit: five commits
+whose committer date isn't UTC (four cherry-picked from helper sessions, one of mine), and
+private-range example addresses in the home network test in two commits, fixed forward in
+`8486713c`. Three commits' contents don't match their messages (`d0fb6ae1` holds most of the
+SwiftUI app, `2a08255c` the strings, `b4e15f8a` the contrast fixes and the screen tour) because
+files were staged early for a work-in-progress sync. All were pushed before this was noticed, so
+the history was left as it is rather than force-pushed.
