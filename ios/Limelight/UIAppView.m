@@ -27,6 +27,11 @@ static UIImage* noImage;
     _app = app;
     _callback = callback;
     _artCache = cache;
+
+    // The tile shows box art, which has no text: VoiceOver and the device-run tests find it by
+    // the app's name
+    self.isAccessibilityElement = YES;
+    self.accessibilityLabel = app.name;
     
     // Cache the NoAppImage ourselves to avoid
     // having to load it each time

@@ -9,6 +9,7 @@
 //    TEST_RUNNER_STARWIRE_APP             app tile to start (default "Desktop")
 //    TEST_RUNNER_STARWIRE_SECONDS         stream length for testStreamAndSample (default 300)
 //    TEST_RUNNER_STARWIRE_STREAMS         streams for testStreamsInARow (default 10)
+//    TEST_RUNNER_STARWIRE_PRESENTER       "loop" (render loop) or "display" (CAMetalDisplayLink)
 //    TEST_RUNNER_STARWIRE_PRESENT_TIMING  "nearest" or "frame"
 //    TEST_RUNNER_STARWIRE_DROP_POLICY     "alternate" or "newest"
 //    TEST_RUNNER_STARWIRE_BUFFER          frames to buffer, 1 to 3
@@ -31,6 +32,7 @@ final class StreamDeviceRunTests: XCTestCase {
         continueAfterFailure = false
         app = XCUIApplication()
         var args: [String] = []
+        if let v = env["STARWIRE_PRESENTER"] { args += ["-StarwirePresenter", v] }
         if let v = env["STARWIRE_PRESENT_TIMING"] { args += ["-StarwirePresentTiming", v] }
         if let v = env["STARWIRE_DROP_POLICY"] { args += ["-StarwireDropPolicy", v] }
         if let v = env["STARWIRE_BUFFER"] { args += ["-StarwireFramesToBuffer", v] }
@@ -53,7 +55,10 @@ final class StreamDeviceRunTests: XCTestCase {
             sleep(15)
             elapsed += 15
         }
-        record("sample at \(elapsed) s:\n\(overlay.label)")
+        let last = overlay.label
+        record("sample at \(elapsed) s:\n\(last)")
+        // The whole-stream pacing totals, on one line for the report
+        record("summary: \(summaryLine(in: last))")
         screenshot("stream end")
 
         stopStreamWithEdgeSwipe()
@@ -98,8 +103,21 @@ final class StreamDeviceRunTests: XCTestCase {
 
     // MARK: - Helpers
 
+    // App tiles are buttons labelled with the app's name (UIAppView)
+    private var appTile: XCUIElement {
+        app.buttons.matching(NSPredicate(format: "label == %@", appName)).firstMatch
+    }
+
+    // From "Pacing summary" to the end of its line. The label may come back with its line
+    // breaks or without them, so this doesn't rely on a line starting with it.
+    private func summaryLine(in overlayText: String) -> String {
+        guard let start = overlayText.range(of: "Pacing summary") else { return "(no summary line)" }
+        let rest = overlayText[start.lowerBound...]
+        return String(rest.prefix { $0 != "\n" })
+    }
+
     private func startStream() throws {
-        let tile = app.descendants(matching: .any).matching(NSPredicate(format: "label == %@", appName)).firstMatch
+        let tile = appTile
         XCTAssertTrue(tile.waitForExistence(timeout: 30), "no \"\(appName)\" tile: is the PC paired, awake and showing its app list?")
         tile.tap()
 
@@ -129,8 +147,7 @@ final class StreamDeviceRunTests: XCTestCase {
     }
 
     private func assertBackAtAppList() throws {
-        let tile = app.descendants(matching: .any).matching(NSPredicate(format: "label == %@", appName)).firstMatch
-        XCTAssertTrue(tile.waitForExistence(timeout: 20), "the app list didn't come back")
+        XCTAssertTrue(appTile.waitForExistence(timeout: 20), "the app list didn't come back")
         assertNoAlert()
     }
 

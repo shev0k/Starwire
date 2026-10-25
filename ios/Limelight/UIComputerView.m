@@ -106,6 +106,7 @@ static const int LABEL_DY = 20;
     
     [_hostLabel setText:@"Add Host Manually"];
     [_hostLabel sizeToFit];
+    self.accessibilityLabel = _hostLabel.text;
     
     [_hostOverlay setImage:[UIImage imageNamed:@"AddOverlayIcon"]];
     
@@ -175,6 +176,10 @@ static const int LABEL_DY = 20;
 - (void) updateContentsForHost:(TemporaryHost*)host {
     _hostLabel.text = _host.name;
     [_hostLabel sizeToFit];
+    // The card is a button, so its own label hides the name label from VoiceOver and the
+    // device-run tests unless it is set here
+    self.isAccessibilityElement = YES;
+    self.accessibilityLabel = _host.name;
     
     if (host.state == StateOnline) {
         [_hostSpinner stopAnimating];
