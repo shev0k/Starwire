@@ -146,6 +146,32 @@ public enum SettingsMigration {
         if let drop = string("StarwireDropPolicy") { values["list_drop_policy"] = .string(drop) }
         if let frames = int("StarwireFramesToBuffer") { values["seekbar_pacing_frames_to_buffer"] = .int(frames) }
         if let verbose = bool("StarwireVerboseLogging") { values["checkbox_verbose_logging"] = .bool(verbose) }
+        // Input (phase 5): the iOS Settings app's choices, under Android's keys.
+        if let v = bool("StarwireTouchscreenTrackpad") { values["checkbox_touchscreen_trackpad"] = .bool(v) }
+        if let v = int("StarwireTouchSensitivity") { values["seekbar_touch_sensitivity"] = .int(v) }
+        if let v = bool("StarwireLongPressRightClick") { values["checkbox_long_press_right_click"] = .bool(v) }
+        if let v = bool("StarwirePinchToZoom") { values["checkbox_pinch_to_zoom"] = .bool(v) }
+        if let v = string("StarwireHideCursor") { values["hide_cursor_mode"] = .string(v) }
+        if let v = bool("StarwireAbsoluteMouse") { values["checkbox_absolute_mouse_mode"] = .bool(v) }
+        if let v = bool("StarwireMouseNavButtons") { values["checkbox_mouse_nav_buttons"] = .bool(v) }
+        if let v = bool("StarwireStickyModifiers") { values["checkbox_sticky_modifier_keys"] = .bool(v) }
+        if let v = int("StarwireKeyboardOpacity") { values["seekbar_keyboard_opacity"] = .int(v) }
+        if let v = bool("StarwireFloatingButton") { values["checkbox_enable_floating_button"] = .bool(v) }
+        if let v = string("StarwireMenuTrigger") { values["overlay_trigger_button"] = .string(v) }
+        if let v = string("StarwireMenuHold") { values["overlay_hold_duration"] = .string(v) }
+        if let v = bool("StarwireShowOnScreenControls") { values["checkbox_show_onscreen_controls"] = .bool(v) }
+        if let v = int("StarwireOnScreenOpacity") { values["seekbar_osc_opacity"] = .int(v) }
+        if let v = bool("StarwireOnlyL3R3") { values["checkbox_only_show_L3R3"] = .bool(v) }
+        if let v = bool("StarwireShowGuide") { values["checkbox_show_guide_button"] = .bool(v) }
+        if let v = int("StarwireDeadzone") { values["seekbar_deadzone"] = .int(v) }
+        if let v = bool("StarwireFlipFaceButtons") { values["checkbox_flip_face_buttons"] = .bool(v) }
+        if let v = string("StarwireAnalogScrolling") { values["analog_scrolling"] = .string(v) }
+        if let v = bool("StarwireTouchpadAsMouse") { values["checkbox_gamepad_touchpad_as_mouse"] = .bool(v) }
+        if let v = bool("StarwireMotionSensors") { values["checkbox_gamepad_motion_sensors"] = .bool(v) }
+        if let v = bool("StarwireMotionFallback") { values["checkbox_gamepad_motion_fallback"] = .bool(v) }
+        if let v = bool("StarwireVibrateFallback") { values["checkbox_vibrate_fallback"] = .bool(v) }
+        if let v = bool("StarwireMultiController") { values["checkbox_multi_controller"] = .bool(v) }
+        if let v = string("StarwirePencilCurve") { values["list_pencil_pressure_curve"] = .string(v) }
 
         var applied: [String] = []
         for (key, value) in values {
@@ -163,5 +189,12 @@ public enum SettingsMigration {
         "StarwireFrameInterpolation", "StarwirePictureInPicture", "StarwireFullRange", "StarwireOverlay",
         "StarwirePresenter", "StarwireJitterBuffer", "StarwirePresentTiming", "StarwireDropPolicy",
         "StarwireFramesToBuffer", "StarwireVerboseLogging",
+        "StarwireTouchscreenTrackpad", "StarwireTouchSensitivity", "StarwireLongPressRightClick",
+        "StarwirePinchToZoom", "StarwireHideCursor", "StarwireAbsoluteMouse", "StarwireMouseNavButtons",
+        "StarwireStickyModifiers", "StarwireKeyboardOpacity", "StarwireFloatingButton", "StarwireMenuTrigger",
+        "StarwireMenuHold", "StarwireShowOnScreenControls", "StarwireOnScreenOpacity", "StarwireOnlyL3R3",
+        "StarwireShowGuide", "StarwireDeadzone", "StarwireFlipFaceButtons", "StarwireAnalogScrolling",
+        "StarwireTouchpadAsMouse", "StarwireMotionSensors", "StarwireMotionFallback", "StarwireVibrateFallback",
+        "StarwireMultiController", "StarwirePencilCurve",
     ]
 }

@@ -362,6 +362,462 @@
 			<key>DefaultValue</key>
 			<false/>
 		</dict>
+		<dict>
+			<key>Type</key>
+			<string>PSGroupSpecifier</string>
+			<key>Title</key>
+			<string>Touch</string>
+			<key>FooterText</key>
+			<string>Trackpad sensitivity is a percentage of the normal speed.</string>
+		</dict>
+		<dict>
+			<key>Type</key>
+			<string>PSToggleSwitchSpecifier</string>
+			<key>Title</key>
+			<string>Use the touchscreen as a trackpad</string>
+			<key>Key</key>
+			<string>StarwireTouchscreenTrackpad</string>
+			<key>DefaultValue</key>
+			<true/>
+		</dict>
+		<dict>
+			<key>Type</key>
+			<string>PSMultiValueSpecifier</string>
+			<key>Title</key>
+			<string>Trackpad sensitivity</string>
+			<key>Key</key>
+			<string>StarwireTouchSensitivity</string>
+			<key>DefaultValue</key>
+			<integer>100</integer>
+			<key>Titles</key>
+			<array>
+				<string>25%</string>
+				<string>50%</string>
+				<string>75%</string>
+				<string>100%</string>
+				<string>125%</string>
+				<string>150%</string>
+				<string>200%</string>
+				<string>250%</string>
+				<string>300%</string>
+			</array>
+			<key>Values</key>
+			<array>
+				<integer>25</integer>
+				<integer>50</integer>
+				<integer>75</integer>
+				<integer>100</integer>
+				<integer>125</integer>
+				<integer>150</integer>
+				<integer>200</integer>
+				<integer>250</integer>
+				<integer>300</integer>
+			</array>
+		</dict>
+		<dict>
+			<key>Type</key>
+			<string>PSToggleSwitchSpecifier</string>
+			<key>Title</key>
+			<string>Long-press to right-click</string>
+			<key>Key</key>
+			<string>StarwireLongPressRightClick</string>
+			<key>DefaultValue</key>
+			<true/>
+		</dict>
+		<dict>
+			<key>Type</key>
+			<string>PSToggleSwitchSpecifier</string>
+			<key>Title</key>
+			<string>Pinch to zoom anytime</string>
+			<key>Key</key>
+			<string>StarwirePinchToZoom</string>
+			<key>DefaultValue</key>
+			<true/>
+		</dict>
+		<dict>
+			<key>Type</key>
+			<string>PSMultiValueSpecifier</string>
+			<key>Title</key>
+			<string>Hide PC cursor</string>
+			<key>Key</key>
+			<string>StarwireHideCursor</string>
+			<key>DefaultValue</key>
+			<string>never</string>
+			<key>Titles</key>
+			<array>
+				<string>Never</string>
+				<string>While touching the screen</string>
+				<string>Always</string>
+			</array>
+			<key>Values</key>
+			<array>
+				<string>never</string>
+				<string>touching</string>
+				<string>always</string>
+			</array>
+		</dict>
+		<dict>
+			<key>Type</key>
+			<string>PSToggleSwitchSpecifier</string>
+			<key>Title</key>
+			<string>Remote desktop mouse mode</string>
+			<key>Key</key>
+			<string>StarwireAbsoluteMouse</string>
+			<key>DefaultValue</key>
+			<false/>
+		</dict>
+		<dict>
+			<key>Type</key>
+			<string>PSToggleSwitchSpecifier</string>
+			<key>Title</key>
+			<string>Enable back and forward mouse buttons</string>
+			<key>Key</key>
+			<string>StarwireMouseNavButtons</string>
+			<key>DefaultValue</key>
+			<false/>
+		</dict>
+		<dict>
+			<key>Type</key>
+			<string>PSGroupSpecifier</string>
+			<key>Title</key>
+			<string>Keyboard</string>
+		</dict>
+		<dict>
+			<key>Type</key>
+			<string>PSToggleSwitchSpecifier</string>
+			<key>Title</key>
+			<string>Sticky modifier keys</string>
+			<key>Key</key>
+			<string>StarwireStickyModifiers</string>
+			<key>DefaultValue</key>
+			<true/>
+		</dict>
+		<dict>
+			<key>Type</key>
+			<string>PSMultiValueSpecifier</string>
+			<key>Title</key>
+			<string>On-screen full keyboard opacity</string>
+			<key>Key</key>
+			<string>StarwireKeyboardOpacity</string>
+			<key>DefaultValue</key>
+			<integer>90</integer>
+			<key>Titles</key>
+			<array>
+				<string>20%</string>
+				<string>30%</string>
+				<string>40%</string>
+				<string>50%</string>
+				<string>60%</string>
+				<string>70%</string>
+				<string>80%</string>
+				<string>90%</string>
+				<string>100%</string>
+			</array>
+			<key>Values</key>
+			<array>
+				<integer>20</integer>
+				<integer>30</integer>
+				<integer>40</integer>
+				<integer>50</integer>
+				<integer>60</integer>
+				<integer>70</integer>
+				<integer>80</integer>
+				<integer>90</integer>
+				<integer>100</integer>
+			</array>
+		</dict>
+		<dict>
+			<key>Type</key>
+			<string>PSGroupSpecifier</string>
+			<key>Title</key>
+			<string>Menu</string>
+		</dict>
+		<dict>
+			<key>Type</key>
+			<string>PSToggleSwitchSpecifier</string>
+			<key>Title</key>
+			<string>Floating menu button</string>
+			<key>Key</key>
+			<string>StarwireFloatingButton</string>
+			<key>DefaultValue</key>
+			<true/>
+		</dict>
+		<dict>
+			<key>Type</key>
+			<string>PSMultiValueSpecifier</string>
+			<key>Title</key>
+			<string>Menu trigger button</string>
+			<key>Key</key>
+			<string>StarwireMenuTrigger</string>
+			<key>DefaultValue</key>
+			<string>select</string>
+			<key>Titles</key>
+			<array>
+				<string>Select</string>
+				<string>Start</string>
+				<string>Guide</string>
+				<string>LB + RB</string>
+			</array>
+			<key>Values</key>
+			<array>
+				<string>select</string>
+				<string>start</string>
+				<string>guide</string>
+				<string>lb_rb</string>
+			</array>
+		</dict>
+		<dict>
+			<key>Type</key>
+			<string>PSMultiValueSpecifier</string>
+			<key>Title</key>
+			<string>Trigger button hold duration</string>
+			<key>Key</key>
+			<string>StarwireMenuHold</string>
+			<key>DefaultValue</key>
+			<string>1500</string>
+			<key>Titles</key>
+			<array>
+				<string>0.5 seconds</string>
+				<string>1 second</string>
+				<string>1.5 seconds</string>
+				<string>2 seconds</string>
+				<string>2.5 seconds</string>
+				<string>3 seconds</string>
+			</array>
+			<key>Values</key>
+			<array>
+				<string>500</string>
+				<string>1000</string>
+				<string>1500</string>
+				<string>2000</string>
+				<string>2500</string>
+				<string>3000</string>
+			</array>
+		</dict>
+		<dict>
+			<key>Type</key>
+			<string>PSGroupSpecifier</string>
+			<key>Title</key>
+			<string>On-screen controls</string>
+		</dict>
+		<dict>
+			<key>Type</key>
+			<string>PSToggleSwitchSpecifier</string>
+			<key>Title</key>
+			<string>Show on-screen controls</string>
+			<key>Key</key>
+			<string>StarwireShowOnScreenControls</string>
+			<key>DefaultValue</key>
+			<false/>
+		</dict>
+		<dict>
+			<key>Type</key>
+			<string>PSMultiValueSpecifier</string>
+			<key>Title</key>
+			<string>On-screen controls opacity</string>
+			<key>Key</key>
+			<string>StarwireOnScreenOpacity</string>
+			<key>DefaultValue</key>
+			<integer>90</integer>
+			<key>Titles</key>
+			<array>
+				<string>0%</string>
+				<string>10%</string>
+				<string>20%</string>
+				<string>30%</string>
+				<string>40%</string>
+				<string>50%</string>
+				<string>60%</string>
+				<string>70%</string>
+				<string>80%</string>
+				<string>90%</string>
+				<string>100%</string>
+			</array>
+			<key>Values</key>
+			<array>
+				<integer>0</integer>
+				<integer>10</integer>
+				<integer>20</integer>
+				<integer>30</integer>
+				<integer>40</integer>
+				<integer>50</integer>
+				<integer>60</integer>
+				<integer>70</integer>
+				<integer>80</integer>
+				<integer>90</integer>
+				<integer>100</integer>
+			</array>
+		</dict>
+		<dict>
+			<key>Type</key>
+			<string>PSToggleSwitchSpecifier</string>
+			<key>Title</key>
+			<string>Only show L3 and R3</string>
+			<key>Key</key>
+			<string>StarwireOnlyL3R3</string>
+			<key>DefaultValue</key>
+			<false/>
+		</dict>
+		<dict>
+			<key>Type</key>
+			<string>PSToggleSwitchSpecifier</string>
+			<key>Title</key>
+			<string>Show Guide button</string>
+			<key>Key</key>
+			<string>StarwireShowGuide</string>
+			<key>DefaultValue</key>
+			<true/>
+		</dict>
+		<dict>
+			<key>Type</key>
+			<string>PSGroupSpecifier</string>
+			<key>Title</key>
+			<string>Controllers</string>
+		</dict>
+		<dict>
+			<key>Type</key>
+			<string>PSMultiValueSpecifier</string>
+			<key>Title</key>
+			<string>Analog stick deadzone</string>
+			<key>Key</key>
+			<string>StarwireDeadzone</string>
+			<key>DefaultValue</key>
+			<integer>7</integer>
+			<key>Titles</key>
+			<array>
+				<string>1%</string>
+				<string>3%</string>
+				<string>5%</string>
+				<string>7%</string>
+				<string>10%</string>
+				<string>12%</string>
+				<string>15%</string>
+				<string>20%</string>
+			</array>
+			<key>Values</key>
+			<array>
+				<integer>1</integer>
+				<integer>3</integer>
+				<integer>5</integer>
+				<integer>7</integer>
+				<integer>10</integer>
+				<integer>12</integer>
+				<integer>15</integer>
+				<integer>20</integer>
+			</array>
+		</dict>
+		<dict>
+			<key>Type</key>
+			<string>PSToggleSwitchSpecifier</string>
+			<key>Title</key>
+			<string>Flip face buttons</string>
+			<key>Key</key>
+			<string>StarwireFlipFaceButtons</string>
+			<key>DefaultValue</key>
+			<false/>
+		</dict>
+		<dict>
+			<key>Type</key>
+			<string>PSMultiValueSpecifier</string>
+			<key>Title</key>
+			<string>Use an analog stick to scroll</string>
+			<key>Key</key>
+			<string>StarwireAnalogScrolling</string>
+			<key>DefaultValue</key>
+			<string>right</string>
+			<key>Titles</key>
+			<array>
+				<string>None</string>
+				<string>Right analog stick</string>
+				<string>Left analog stick</string>
+			</array>
+			<key>Values</key>
+			<array>
+				<string>none</string>
+				<string>right</string>
+				<string>left</string>
+			</array>
+		</dict>
+		<dict>
+			<key>Type</key>
+			<string>PSToggleSwitchSpecifier</string>
+			<key>Title</key>
+			<string>Always control mouse with touchpad</string>
+			<key>Key</key>
+			<string>StarwireTouchpadAsMouse</string>
+			<key>DefaultValue</key>
+			<false/>
+		</dict>
+		<dict>
+			<key>Type</key>
+			<string>PSToggleSwitchSpecifier</string>
+			<key>Title</key>
+			<string>Allow use of controller motion sensors</string>
+			<key>Key</key>
+			<string>StarwireMotionSensors</string>
+			<key>DefaultValue</key>
+			<true/>
+		</dict>
+		<dict>
+			<key>Type</key>
+			<string>PSToggleSwitchSpecifier</string>
+			<key>Title</key>
+			<string>Use the iPad's motion sensors when a controller has none</string>
+			<key>Key</key>
+			<string>StarwireMotionFallback</string>
+			<key>DefaultValue</key>
+			<false/>
+		</dict>
+		<dict>
+			<key>Type</key>
+			<string>PSToggleSwitchSpecifier</string>
+			<key>Title</key>
+			<string>Emulate rumble with vibration</string>
+			<key>Key</key>
+			<string>StarwireVibrateFallback</string>
+			<key>DefaultValue</key>
+			<false/>
+		</dict>
+		<dict>
+			<key>Type</key>
+			<string>PSToggleSwitchSpecifier</string>
+			<key>Title</key>
+			<string>Automatic controller presence detection</string>
+			<key>Key</key>
+			<string>StarwireMultiController</string>
+			<key>DefaultValue</key>
+			<true/>
+		</dict>
+		<dict>
+			<key>Type</key>
+			<string>PSGroupSpecifier</string>
+			<key>Title</key>
+			<string>Apple Pencil</string>
+			<key>FooterText</key>
+			<string>How hard you need to press for the same line weight. Soft needs a lighter press, firm a harder one.</string>
+		</dict>
+		<dict>
+			<key>Type</key>
+			<string>PSMultiValueSpecifier</string>
+			<key>Title</key>
+			<string>Pressure curve</string>
+			<key>Key</key>
+			<string>StarwirePencilCurve</string>
+			<key>DefaultValue</key>
+			<string>linear</string>
+			<key>Titles</key>
+			<array>
+				<string>Linear</string>
+				<string>Soft</string>
+				<string>Firm</string>
+			</array>
+			<key>Values</key>
+			<array>
+				<string>linear</string>
+				<string>soft</string>
+				<string>firm</string>
+			</array>
+		</dict>
 	</array>
 </dict>
 </plist>

@@ -184,6 +184,8 @@ public enum SettingsCatalog {
         SettingDefinition("checkbox_vrr_request", .bool(false), .iosOnly),
         // The name this device gives the PC at launch (`clientName`). Empty uses the device's own.
         SettingDefinition("text_client_name", .string(""), .iosOnly),
+        // The Apple Pencil's pressure curve (Android has no Pencil).
+        SettingDefinition("list_pencil_pressure_curve", .string("linear"), allowed: ["linear", "soft", "firm"], .iosOnly),
     ]
 
     private static let byKey: [String: SettingDefinition] = Dictionary(uniqueKeysWithValues: all.map { ($0.key, $0) })
