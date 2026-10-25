@@ -22,7 +22,8 @@ enum StarwireLog {
     /// Only with "Verbose logging" on (StarwireVerboseLogging), like LOG_D in the ObjC code
     static func debug(_ message: @autoclosure () -> String, _ logger: Logger = app) {
         guard UserDefaults.standard.bool(forKey: "StarwireVerboseLogging") else { return }
-        logger.log("<DEBUG> \(message(), privacy: .public)")
+        let text = message()
+        logger.log("<DEBUG> \(text, privacy: .public)")
     }
 
     static func warning(_ message: String, _ logger: Logger = app) {
