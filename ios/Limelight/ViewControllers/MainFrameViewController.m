@@ -29,6 +29,7 @@
 
 #import "PacingPolicy.h"
 #import "VideoFormatPolicy.h"
+#import "StreamTestOverrides.h"
 #if !TARGET_OS_TV
 #import "SettingsViewController.h"
 #else
@@ -631,8 +632,13 @@ static NSMutableSet* hostList;
 
     DataManager* dataMan = [[DataManager alloc] init];
     TemporarySettings* streamSettings = [dataMan getSettings];
+    // Launch arguments from the device runs (StreamTestOverrides.h); none in normal use
+    NSString* overrides = StreamApplyTestOverrides(streamSettings, [NSUserDefaults standardUserDefaults]);
+    if (overrides.length > 0) {
+        Log(LOG_I, @"Settings replaced by launch arguments for this launch: %@", overrides);
+    }
 
-    _streamConfig.frameRate = StreamFrameRateWithOverride([NSUserDefaults standardUserDefaults], [streamSettings.framerate intValue]);
+    _streamConfig.frameRate = [streamSettings.framerate intValue];
     if (@available(iOS 10.3, *)) {
         // Don't stream more FPS than the display can show
         if (_streamConfig.frameRate > [UIScreen mainScreen].maximumFramesPerSecond) {
@@ -656,7 +662,7 @@ static NSMutableSet* hostList;
 
     _streamConfig.bitRate = [streamSettings.bitrate intValue];
     _streamConfig.optimizeGameSettings = streamSettings.optimizeGames;
-    _streamConfig.playAudioOnPC = StreamPlayAudioOnPCWithOverride([NSUserDefaults standardUserDefaults], streamSettings.playAudioOnPC);
+    _streamConfig.playAudioOnPC = streamSettings.playAudioOnPC;
     _streamConfig.swapABXYButtons = streamSettings.swapABXYButtons;
 
     // multiController must be set before calling getConnectedGamepadMask

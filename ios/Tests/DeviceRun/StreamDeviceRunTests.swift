@@ -25,6 +25,10 @@
 //    TEST_RUNNER_STARWIRE_REDUCE_REFRESH  "1" to allow refresh rate reduction
 //    TEST_RUNNER_STARWIRE_INTERPOLATION   "1" for frame interpolation (iOS 26 or later)
 //    TEST_RUNNER_STARWIRE_FPS             a frame rate instead of the app's setting, like 60
+//    TEST_RUNNER_STARWIRE_CODEC           av1, hevc, h264 or auto instead of the app's setting
+//    TEST_RUNNER_STARWIRE_RESOLUTION      WIDTHxHEIGHT instead of the app's setting
+//    TEST_RUNNER_STARWIRE_HDR             "1" or "0" for the app's HDR setting
+//    TEST_RUNNER_STARWIRE_YUV444          "1" or "0" for the app's 4:4:4 setting
 //    TEST_RUNNER_STARWIRE_PC_AUDIO        "0" to move the PC's sound to the stream; by default it
 //                                         stays on the PC
 //    TEST_RUNNER_STARWIRE_VIRTUAL_DISPLAY "1" to stream a Vibeshine virtual display
@@ -59,6 +63,10 @@ final class StreamDeviceRunTests: XCTestCase {
         if let v = env["STARWIRE_REDUCE_REFRESH"] { args += ["-StarwireReduceRefreshRate", v == "1" ? "YES" : "NO"] }
         if let v = env["STARWIRE_INTERPOLATION"] { args += ["-StarwireFrameInterpolation", v == "1" ? "YES" : "NO"] }
         if let v = env["STARWIRE_FPS"] { args += ["-StarwireFrameRate", v] }
+        if let v = env["STARWIRE_CODEC"] { args += ["-StarwireCodec", v] }
+        if let v = env["STARWIRE_RESOLUTION"] { args += ["-StarwireResolution", v] }
+        if let v = env["STARWIRE_HDR"] { args += ["-StarwireHDR", v == "1" ? "YES" : "NO"] }
+        if let v = env["STARWIRE_YUV444"] { args += ["-StarwireYUV444", v == "1" ? "YES" : "NO"] }
         // The PC's sound stays on the PC unless a run asks otherwise: the owner may be using it
         args += ["-StarwirePlayAudioOnPC", env["STARWIRE_PC_AUDIO"] == "0" ? "NO" : "YES"]
         if let v = env["STARWIRE_VIRTUAL_DISPLAY"] { args += ["-StarwireVirtualDisplay", v == "1" ? "YES" : "NO"] }

@@ -20,6 +20,7 @@
 #import "StreamPictureInPicture.h"
 #import "ExternalDisplay.h"
 #import "FrameInterpolator.h"
+#import "StreamTestOverrides.h"
 #import "PacingPolicy.h"
 #import "FrameQueue.h"
 
@@ -118,7 +119,7 @@
     [UIApplication sharedApplication].idleTimerDisabled = YES;
     
     _settings = [[[DataManager alloc] init] getSettings];
-    _settings.framerate = @(StreamFrameRateWithOverride([NSUserDefaults standardUserDefaults], [_settings.framerate intValue]));
+    StreamApplyTestOverrides(_settings, [NSUserDefaults standardUserDefaults]);
     _alertGate = [[StreamAlertGate alloc] init];
 
     _stageLabel = [[UILabel alloc] init];
