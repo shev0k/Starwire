@@ -53,7 +53,7 @@ class LatencyAppTest(unittest.TestCase):
             {"name": "Starwire colour bars", "cmd": "x -Url colour", "virtual-display-layout": "extended_isolated",
              "uuid": "abc"},
         ]}
-        folder = Path("C:/StarwireTestPattern")
+        folder = PureWindowsPath("C:/StarwireTestPattern")
         after = install_latency_app.with_latency_app(apps, folder)
         self.assertEqual(after["apps"][:2], apps["apps"], "the other apps stay as they were")
         app = after["apps"][2]

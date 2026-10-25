@@ -247,7 +247,7 @@ step() {
         results+="$name: passed in $(( $(date +%s) - t0 )) s"$'"'"'\n'"'"'
     else
         results+="$name: FAILED (build/ci/$name.log)"$'"'"'\n'"'"'
-        grep -E "error:|failed \(|\*\* .* FAILED" "$log/$name.log" | sort -u | head -15
+        grep -E "error:|failed \(|\*\* .* FAILED" "$log/$name.log" | sort -u | head -15 || true
     fi
 }
 # An Xcode step. A precompiled header kept from an earlier build fails when the module maps
@@ -258,7 +258,7 @@ xstep() {
     step "$name" "$@"
     if grep -q "has been modified since the precompiled header\|module file .* is out of date" "$log/$name.log"; then
         rm -rf "$data/Build/Intermediates.noindex/PrecompiledHeaders" "$data/ModuleCache.noindex"
-        results=$(printf "%s" "$results" | grep -v "^$name: ")$'"'"'\n'"'"'
+        results=$(printf "%s" "$results" | grep -v "^$name: " || true)$'"'"'\n'"'"'
         step "$name" "$@"
     fi
 }
