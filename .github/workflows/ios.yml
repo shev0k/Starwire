@@ -67,11 +67,9 @@ jobs:
         working-directory: ios
         run: |
           set -o pipefail
-          # Signed ad hoc like the unit tests below, which reuse this build: different signing
-          # settings would leave them a stale precompiled header
           xcodebuild -project Starwire.xcodeproj -scheme Starwire -configuration Debug \
             -destination 'generic/platform=iOS Simulator' -derivedDataPath ../build/DerivedData \
-            CODE_SIGN_IDENTITY=- build 2>&1 | tee ../logs/build-debug.log
+            CODE_SIGNING_ALLOWED=NO build 2>&1 | tee ../logs/build-debug.log
 
       - name: Build for the simulator (Release)
         working-directory: ios
@@ -82,9 +80,10 @@ jobs:
             CODE_SIGNING_ALLOWED=NO build 2>&1 | tee ../logs/build-release.log
 
       # The app's unit tests (StarwireTests) on whichever iPad simulator this Xcode has, else an
-      # iPhone one
-      # Signed ad hoc ("-"), which needs no certificate: an unsigned app gets no Keychain on the
-      # simulator, and the identity tests use it
+      # iPhone one. Signed ad hoc ("-"), which needs no certificate: an unsigned app gets no
+      # Keychain on the simulator, and the identity tests use it. Their own derived data: the
+      # Release build above rewrites StarwireKit's module map in the folder Debug shares, which
+      # left the Debug precompiled header stale
       - name: Unit tests on the simulator
         working-directory: ios
         run: |
@@ -99,7 +98,7 @@ jobs:
           if [ -z "$udid" ]; then echo "no iOS simulator available"; exit 1; fi
           xcrun simctl list devices | grep "$udid" | tee -a ../logs/versions.txt
           xcodebuild -project Starwire.xcodeproj -scheme Starwire -configuration Debug \
-            -destination "id=$udid" -derivedDataPath ../build/DerivedData \
+            -destination "id=$udid" -derivedDataPath ../build/DerivedDataTests \
             -resultBundlePath ../logs/unit-tests.xcresult \
             CODE_SIGN_IDENTITY=- test 2>&1 | tee ../logs/unit-tests.log
 
