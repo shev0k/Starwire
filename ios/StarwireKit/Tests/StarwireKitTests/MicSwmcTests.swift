@@ -306,7 +306,7 @@ final class SwmcCodecTests: XCTestCase {
     }
 
     func testHomeNetworkAddresses() {
-        for address in ["192.168.1.2", "10.0.0.1", "172.16.0.1", "172.31.255.255", "169.254.1.1", "127.0.0.1",
+        for address in ["192.168.200.7", "10.0.0.1", "172.16.0.1", "172.31.255.255", "169.254.1.1", "127.0.0.1",
                         "100.64.0.1", "100.127.255.255", "fe80::1", "fe80::1%en0", "fd12:3456::1", "::1", "fec0::1",
                         "::ffff:192.168.0.1"] {
             XCTAssertTrue(HomeNetwork.contains(address), address)
