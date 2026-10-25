@@ -26,7 +26,10 @@
 #
 # The Mac keeps the team ID and the iPad's UDID out of git, in ~/.config/starwire/env:
 #   STARWIRE_TEAM=XXXXXXXXXX   the free personal team (runbook section 3)
-#   IPAD=<UDID>                optional; otherwise the first physical iPad devicectl lists
+#   IPAD=<UDID>                optional, used only when one iPad is connected
+# The iPad for install, test and log: STARWIRE_DEVICE=<UDID> in the PC's environment, or the
+# first line of ~/.config/starwire/device on the PC. With more than one iPad on the Mac and no
+# device named, those commands stop instead of picking one.
 # Connection settings can be overridden with STARWIRE_MAC, STARWIRE_MAC_KEY and STARWIRE_MAC_REPO.
 #
 # The build signs the app, which needs the login keychain. macOS keeps it locked to SSH sessions,
@@ -50,6 +53,7 @@ fi
 KEY=${STARWIRE_MAC_KEY:-$HOME/.ssh/id_ed25519_starwire_mac}
 REPO=${STARWIRE_MAC_REPO:-/Users/shevok/Developer/Starwire}
 HERE=$(cd "$(dirname "$0")/../.." && pwd)
+DEVICE=${STARWIRE_DEVICE:-$(head -n 1 "$HOME/.config/starwire/device" 2>/dev/null || true)}
 OUT="$HERE/build/mac"
 
 ssh_mac() {
@@ -67,6 +71,7 @@ remote() {
     done
     {
         printf 'REPO=%q\n' "$REPO"
+        printf 'STARWIRE_DEVICE=%q\n' "$DEVICE"
         cat "$HERE/ios/scripts/mac-remote.sh"
         printf '%s\n' "$script"
     } | ssh_mac "bash -s --$quoted"

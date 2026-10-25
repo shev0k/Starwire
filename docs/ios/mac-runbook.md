@@ -45,8 +45,11 @@ secret scanner flagged a made-up token in a fixture on 25 Oct 2026).
 What it needs on the Mac:
 - The SSH key `~/.ssh/id_ed25519_starwire_mac` on the PC, the Mac's `user@host` in `~/.config/starwire/mac-host`
   on the PC (or `STARWIRE_MAC`), and Remote Login on the Mac. The address stays out of git.
-- `~/.config/starwire/env` with `STARWIRE_TEAM=<team ID>` (section 3). Optionally `IPAD=<UDID>`;
-  otherwise the first connected iPad is used. This file stays out of git.
+- `~/.config/starwire/env` with `STARWIRE_TEAM=<team ID>` (section 3). This file stays out of git.
+- The iPad to use, by UDID: `STARWIRE_DEVICE=<UDID>` on the PC, or the first line of
+  `~/.config/starwire/device` there. With more than one iPad connected to the Mac and no device
+  named, `install`, `test` and `log` stop and list them instead of picking one (from batch 3, when
+  an iPad in someone else's use was plugged in too). With one iPad connected, that one is used.
 - Someone logged in at the Mac. Codesign can't use the login keychain from SSH (it fails with
   `errSecInternalComponent`), so `build` runs as a one-off launchd job in the logged-in session,
   as self-hosted CI runners do, and removes it afterwards. The Mac's password is never needed.

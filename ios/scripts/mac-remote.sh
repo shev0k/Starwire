@@ -18,16 +18,37 @@ need_team() {
     fi
 }
 
+# The iPad to use. STARWIRE_DEVICE (passed from the PC by mac.sh) names one by UDID. Without it,
+# the only physical iPad connected is used, or IPAD from the env file. With more than one iPad
+# connected and no STARWIRE_DEVICE, it stops: an iPad that is in someone else's use must never be
+# picked by accident.
 need_ipad() {
-    if [ -z "${IPAD:-}" ]; then
-        IPAD=$(xcrun devicectl list devices 2>/dev/null | awk '/iPad/ && !/simulated/ && !/unavailable/ && !/shutdown/ {
-            for (i = 1; i <= NF; i++) if ($i ~ /^[0-9A-F]{8}-[0-9A-F]{16}$/) { print $i; exit } }')
+    local list ipads count
+    list=$(xcrun devicectl list devices 2>/dev/null || true)
+    ipads=$(echo "$list" | awk '/iPad/ && / physical/ && !/unavailable/ {
+        for (i = 1; i <= NF; i++) if ($i ~ /^[0-9A-F]{8}-[0-9A-F]{16}$/) print $i }')
+    count=$(echo "$ipads" | grep -c . || true)
+    if [ -n "${STARWIRE_DEVICE:-}" ]; then
+        if ! echo "$ipads" | grep -qx "$STARWIRE_DEVICE"; then
+            echo "STARWIRE_DEVICE $STARWIRE_DEVICE isn't connected and available:" >&2
+            echo "$list" >&2
+            exit 3
+        fi
+        IPAD=$STARWIRE_DEVICE
+    elif [ "$count" -gt 1 ]; then
+        echo "$count iPads are connected. Name one with STARWIRE_DEVICE=<UDID> (on the PC, or in" >&2
+        echo "~/.config/starwire/device there); mac.sh won't pick one itself:" >&2
+        echo "$list" | grep -E "iPad.* physical" >&2
+        exit 3
+    elif [ -z "${IPAD:-}" ]; then
+        IPAD=$ipads
     fi
     if [ -z "${IPAD:-}" ]; then
         echo "No iPad is connected to the Mac (xcrun devicectl list devices). Plug it in, unlocked." >&2
-        xcrun devicectl list devices >&2 || true
+        echo "$list" >&2
         exit 3
     fi
+    echo "device: $(echo "$list" | grep "$IPAD" | sed -E 's/ {2,}/ | /g' | cut -c1-120)" >&2
 }
 
 # Runs a command line in the logged-in user's GUI session and waits for it, up to an hour.
