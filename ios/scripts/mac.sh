@@ -244,7 +244,7 @@ need_ipad
 seconds=$1
 shift
 xcrun devicectl device process launch --console --terminate-existing \
-    --environment-variables "{\"OS_ACTIVITY_DT_MODE\":\"enable\"}" --device "$IPAD" io.github.shev0k.starwire "$@" > build/console.log 2>&1 &
+    --environment-variables "{\"OS_ACTIVITY_DT_MODE\":\"enable\"}" --device "$IPAD" io.github.shev0k.starwire ${1:+--} "$@" > build/console.log 2>&1 &
 pid=$!
 sleep "$seconds"
 kill "$pid" 2>/dev/null || true
