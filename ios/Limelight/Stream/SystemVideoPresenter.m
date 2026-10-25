@@ -20,6 +20,7 @@
     dispatch_semaphore_t _exited;
 
     // Display link thread only
+    BOOL _shownFirst;
     CFTimeInterval _lastTarget;
     int _refreshesPerFrame;
     int _refreshesSinceShown;
@@ -116,6 +117,13 @@
     }
     _refreshesSinceShown = 0;
     [_layer showPixelBuffer:frame.pixelBuffer at:now];
+    if (!_shownFirst) {
+        _shownFirst = YES;
+        void (^onFirstFrame)(void) = self.onFirstFrame;
+        if (onFirstFrame) {
+            dispatch_async(dispatch_get_main_queue(), onFirstFrame);
+        }
+    }
 }
 
 @end

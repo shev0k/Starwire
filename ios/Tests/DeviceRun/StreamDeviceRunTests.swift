@@ -85,6 +85,10 @@ final class StreamDeviceRunTests: XCTestCase {
         try startStream()
         let overlay = try waitForOverlay()
         screenshot("stream start")
+        // Nothing left over the picture once it's streaming (the loading spinner stayed up with
+        // the system presenter before it was fixed)
+        sleep(3)
+        XCTAssertFalse(app.activityIndicators.firstMatch.exists, "a loading spinner is still showing over the stream")
 
         var elapsed = 0
         while elapsed < seconds {

@@ -295,6 +295,13 @@
                                                        pictureInPicture:StreamUsesPictureInPicture([NSUserDefaults standardUserDefaults])];
         PacingRefreshRange range = PacingDisplayRefreshRange(presentRate, UIScreen.mainScreen.maximumFramesPerSecond, pacing.reduceRefreshRate);
         _systemPresenter = [[SystemVideoPresenter alloc] initWithLayer:_pictureInPicture range:range framerate:presentRate];
+        // The system's layer sits under this screen's views, so nothing covers the loading
+        // spinner the way the Metal view did: stop it at the first frame
+        __weak UIActivityIndicatorView *spinner = _spinner;
+        _systemPresenter.onFirstFrame = ^{
+            [spinner stopAnimating];
+            spinner.hidden = YES;
+        };
         [_systemPresenter start];
     } else {
         self.metalViewController = [[MetalViewController alloc] initWithFrame:self.view.bounds

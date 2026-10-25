@@ -25,6 +25,9 @@ NS_ASSUME_NONNULL_BEGIN
 - (instancetype)initWithLayer:(StreamPictureInPicture *)layer range:(PacingRefreshRange)range framerate:(double)framerate;
 - (instancetype)init NS_UNAVAILABLE;
 
+// Called once on the main thread when the first frame is shown
+@property (nonatomic, copy, nullable) void (^onFirstFrame)(void);
+
 - (void)start;
 // Pauses at refreshes (the app is inactive; picture in picture is fed from the decoder then)
 @property (atomic) BOOL paused;
