@@ -5,8 +5,10 @@
 # prompts to the Mac. The steps are the ones in docs/ios/mac-runbook.md.
 #
 #   ios/scripts/mac.sh setup                clone the agent's own checkout on the Mac, once
-#   ios/scripts/mac.sh sync                 push this branch, then fetch, check out and pull it on
-#                                           the Mac, with the iOS submodules
+#   ios/scripts/mac.sh sync [--wip]         push this branch, then fetch, check out and pull it on
+#                                           the Mac, with the iOS submodules. --wip also applies the
+#                                           uncommitted changes under ios/ (new files must be staged);
+#                                           the next sync takes them out again
 #   ios/scripts/mac.sh build                xcodegen, then a Release build of the app and of the
 #                                           device-run tests for the iPad
 #   ios/scripts/mac.sh install              install the app over the old copy (never uninstalls)
@@ -80,8 +82,17 @@ echo "checkout at $REPO"
 sync)
     branch=$(git -C "$HERE" rev-parse --abbrev-ref HEAD)
     git -C "$HERE" push -q -u origin "$branch"
+    wip=""
+    if [ "${1:-}" = "--wip" ]; then
+        wip=$(git -C "$HERE" diff HEAD -- ios | base64 -w0)
+    fi
     remote '
 branch=$1
+# Undo the last --wip patch first: it is the only change this script makes in the checkout
+if [ -f build/wip.patch ]; then
+    git apply -R build/wip.patch
+    rm build/wip.patch
+fi
 if [ -n "$(git status --porcelain --untracked-files=no)" ]; then
     echo "The Mac checkout has uncommitted changes; not touching them:" >&2
     git status --short >&2
@@ -97,7 +108,12 @@ git pull -q --ff-only
 git submodule sync -q --recursive
 git submodule update -q --init --recursive ios/moonlight-common/moonlight-common-c ios/X1Kit ios/third_party/imgui ios/third_party/implot
 echo "Mac at $(git rev-parse --short HEAD) on $branch"
-' "$branch"
+if [ -n "${2:-}" ]; then
+    echo "$2" | base64 -d > build/wip.patch
+    git apply build/wip.patch
+    echo "plus the uncommitted changes under ios/ ($(grep -c "^diff" build/wip.patch) files)"
+fi
+' "$branch" "$wip"
     ;;
 
 build)
@@ -106,7 +122,7 @@ need_team
 (cd ios && xcodegen generate --quiet)
 status=0
 in_gui "cd ios && caffeinate -i xcodebuild -project Starwire.xcodeproj -scheme StarwireDeviceRun     -configuration Release -destination generic/platform=iOS -derivedDataPath ../build/DerivedData     -allowProvisioningUpdates -allowProvisioningDeviceRegistration     DEVELOPMENT_TEAM=$STARWIRE_TEAM CODE_SIGN_STYLE=Automatic build-for-testing" > build/device-build.log 2>&1 || status=$?
-grep -E ": (fatal )?error:|^error:|errSec|\*\* (BUILD|TEST BUILD) (SUCCEEDED|FAILED)" build/device-build.log | cut -c1-300 | sort -u | tail -40
+grep -E ": (fatal )?error:|^error:|errSec|\[-Wformat|\*\* (BUILD|TEST BUILD) (SUCCEEDED|FAILED)" build/device-build.log | cut -c1-300 | sort -u | tail -40
 echo "warnings: $(grep -c ": warning:" build/device-build.log || true)"
 exit $status
 '

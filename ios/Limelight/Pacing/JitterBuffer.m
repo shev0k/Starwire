@@ -150,7 +150,7 @@ int JitterBufferMaxTarget(JitterBufferMode mode) {
         _aboveSince = now;
         return choice;
     }
-    if (now - _aboveSince >= kCatchUpAfterSeconds &&
+    if (now - _aboveSince >= kCatchUpAfterSeconds - 1e-6 &&
         now - _lastCatchUp >= kCatchUpEveryFrames * _frameInterval - 1e-6) {
         choice.drop++;
         _catchUpDrops++;

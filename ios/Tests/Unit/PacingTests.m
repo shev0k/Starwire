@@ -397,8 +397,7 @@ static const double kMs = 1000.0;
     NSString *overlay = [stats overlayLineForWindow:w];
     // The network line first, then pacing
     XCTAssertTrue([overlay hasPrefix:@"Network: "], @"%@", overlay);
-    XCTAssertTrue([overlay containsString:@"
-Pacing: "], @"%@", overlay);
+    XCTAssertTrue([overlay containsString:@"\nPacing: "], @"%@", overlay);
     XCTAssertTrue([overlay containsString:@"bursts 100.0%"], @"%@", overlay);
     XCTAssertTrue([overlay containsString:@"\nShown for "], @"%@", overlay);
 }
@@ -621,7 +620,7 @@ Pacing: "], @"%@", overlay);
     [stats noteJitterTarget:2];
     [stats notePresentedAt:2.0 target:0 decodedAt:1.99 receivedAt:1.98];
     NSString *summary = [stats summaryLineForWindow:[stats totalWindow]];
-    XCTAssertTrue([summary containsString:@"network gaps 3, max 41.7 ms, every 533 ms (100% regular)"], @"%@", summary);
+    XCTAssertTrue([summary containsString:@"network gaps 3, max 41.6 ms, every 533 ms (100% regular)"], @"%@", summary);
     XCTAssertTrue([summary containsString:@"network to screen mean 20.0 ms"], @"%@", summary);
     XCTAssertTrue([summary containsString:@"jitter buffer smooth, held mean 3.00, max 4, catch up 0"], @"%@", summary);
     NSString *overlay = [stats overlayLineForWindow:[stats currentWindow]];

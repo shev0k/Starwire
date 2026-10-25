@@ -498,8 +498,10 @@ static double MeanJitterTarget(PacingWindow w) {
 }
 
 - (NSString *)overlayLineForWindow:(PacingWindow)w {
-    return [NSString stringWithFormat:@"Pacing: bursts %.1f%%, drops after burst %d, skipped %d, late %d\n"
+    return [NSString stringWithFormat:@"Network: %@\n"
+            "Pacing: bursts %.1f%%, drops after burst %d, skipped %d, late %d, jitter buffer %@ %.1f\n"
             "Shown for %@, mean %.2f ms, refresh %.2f ms, decode to screen %.1f ms",
+            [self networkPartForWindow:w],
             Percent(w.arrivalBursts, w.arrivals > 1 ? w.arrivals - 1 : 0),
             w.dropsAfterBurst,
             w.presentSkipped,
