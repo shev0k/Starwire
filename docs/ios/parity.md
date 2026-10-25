@@ -3,7 +3,7 @@
 This table tracks which Starwire for Android features and settings the planned iOS client will
 have. It comes from [port-plan.md](port-plan.md), the Android README and the two Android
 preference files, as of 25 Oct 2026 (phase 0), with statuses updated by each device run (last:
-[batch 4](device-runs/2026-10-25-feature-ios-batch-4.md)). Rows marked "check" are open questions for the phase that builds them.
+[batch 4.5](device-runs/2026-10-25-feature-ios-batch-4-5.md)). Rows marked "check" are open questions for the phase that builds them.
 
 Status values:
 
@@ -119,6 +119,28 @@ when there is no phase because the feature can't exist or the host lacks it.
 | Launcher shortcuts | 8 | planned | App Intents, the Shortcuts app and the `starwire://` URL scheme |
 | Android TV channels and poster provider | - | not possible | No Android TV home screen on iOS |
 | Wake-on-LAN | 8 | planned | Needs the paid account and Apple's multicast capability. Without it the app shows a plain message. Check phase: the plan gives none |
+
+### Batch 4.5: UX, settings and quality of life
+
+Beyond Android, from [ux-overhaul.md](ux-overhaul.md) and the
+[batch 4.5 report](device-runs/2026-10-25-feature-ios-batch-4-5.md).
+
+| Feature | Phase | Status | Notes |
+|---|---|---|---|
+| Stream menu in groups, with choice pages for bitrate, touch mode and the picture's fit | 4.5 | verified | Opened from the button and the edge tab, its touch-mode and bitrate pages shown, with a stream on the iPad Pro. Controller moves unit tested in the app's model only |
+| More settings over the stream (touch, keyboards, menu, on-screen controls) | 4.5 | built | Gestures, the menu button and the keyboard change at once; the rest at the next stream |
+| Menu button: look, size, opacity, docking to a side, tucking away when unused | 4.5 | verified | The edge tab opened the menu on the iPad Pro. Auto-hide timing not watched on the device |
+| Picture: fit, stretch or fill (`list_video_scaling`, also per game) | 4.5 | built | System video layer and touches follow it. The Metal presenter always fits |
+| Every touch mode as the starting one (`list_touch_mode`, also per game) | 4.5 | verified | The scroll test started each mode from this setting |
+| This device's full-screen and safe-area resolutions; typed bitrate with Recommended | 4.5 | built | Sizes from the real screen, unit tested |
+| Four and five-finger taps, and a configurable three-finger tap | 4.5 | built | Recording-sink tests in every mode, including multi-touch's cancel. Not tapped on the device |
+| On-screen keyboard layouts (Full, Compact, Gaming, Number pad), remapped keys, size, docked or floating | 4.5 | verified | Docked and floating at 80% shown on the iPad Pro; the key editor is snapshot tested |
+| Controller keyboard (PS5 style) | 4.5 | built | Drawn on the iPad Pro; typing with a controller is a hands-on item |
+| Ctrl+Alt+Shift+M, S, D on a hardware keyboard | 4.5 | built | Not tried: no keyboard on the iPad |
+| Settings sidebar and search | 4.5 | verified | On the iPad Pro |
+| Touch delivery at the display's rate during a stream | 4.5 | verified | First scroll movement 48 to 23 ms in the natural trackpad on the latency page |
+| Scrolling sent once per display refresh | 4.5 | verified | The page moved in 3 to 8% more frames, with no measured delay |
+| Auto-open the keyboard when a PC text field is focused | 4.5 | planned | Vibeshine sends nothing; needs the Windows helper and a security review |
 
 ## Settings
 

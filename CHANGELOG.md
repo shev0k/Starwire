@@ -162,6 +162,10 @@ steps and the checksums for each version.
   picture can fit, stretch or fill; the resolution list offers this device's full screen and safe
   area; the bitrate can be typed in Mbps beside its slider, with a button back to the recommended
   one. Settings has a sidebar on the iPad and a search field.
+- **iOS: smoother, quicker finger scrolling.** Touches reach the app at the screen's full rate
+  during a stream (iOS 18's low-latency event delivery): on the iPad Pro a trackpad scroll showed
+  on the PC's page after 23 ms instead of 48. Scrolling goes out once per screen refresh, which
+  moved the page in a few more frames.
 - **iOS: touch and latency measurements.** The statistics overlay shows the last gesture's touch
   rate (deliveries, coalesced samples, delay, packets per second), and with a test page on the PC
   the time from input to picture and how often the page moved while scrolling.
