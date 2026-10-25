@@ -156,8 +156,18 @@ public enum SettingsCredits {
 
     /// Projects only the iOS app uses, from the notes in the code that was brought over.
     public static let iosProjects: [ProjectCredit] = [
+        project(0, "Moonlight iOS", "Diego Waxemberg, Cameron Gutman and contributors", "ios_credit_moonlight_ios",
+                "https://github.com/moonlight-stream/moonlight-ios", iosOnly: true),
+        project(0, "Moonlight iOS (Metal renderer)", "Andy Grundman", "ios_credit_andy_metal",
+                "https://github.com/andygrundman/moonlight-ios", iosOnly: true),
         project(0, "VoidLink", "The-Fried-Fish", "ios_credit_voidlink",
                 "https://github.com/The-Fried-Fish/VoidLink-previously-moonlight-zwm", iosOnly: true),
+        project(0, "Artemis iOS", "daniel-zn", "ios_credit_artemis_ios",
+                "https://github.com/daniel-zn/danielzn-moonlight-ios", iosOnly: true),
+        project(3, "Vibeshine and its moonlight-common-c", "Chase Payne (Nonary)", "ios_credit_vibeshine",
+                "https://github.com/Nonary/moonlight-common-c", iosOnly: true),
+        project(4, "swift-crypto", "Apple", "ios_credit_swift_crypto", "https://github.com/apple/swift-crypto",
+                iosOnly: true),
     ]
 
     /// The list for the About page: Android's, with the iOS-only ones at the end of their heading.

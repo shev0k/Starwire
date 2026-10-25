@@ -23,15 +23,10 @@
         appDelegate.pcUuidToLoad = (NSString*)[shortcut.userInfo objectForKey:@"UUID"];
     }
 
-    // The same storyboards UIMainStoryboardFile and UIMainStoryboardFile~ipad named
-    NSString* storyboardName = UIDevice.currentDevice.userInterfaceIdiom == UIUserInterfaceIdiomPad ? @"iPad" : @"iPhone";
-    UIStoryboard* storyboard = [UIStoryboard storyboardWithName:storyboardName bundle:nil];
-
     self.window = [[UIWindow alloc] initWithWindowScene:(UIWindowScene*)scene];
-    // The demo mode (iOS Settings) shows StarwireKit's fakes instead of the PC list
-    self.window.rootViewController = StarwireSettings.demoModeEnabled
-        ? [StarwireDemo makeViewController]
-        : [storyboard instantiateInitialViewController];
+    // The SwiftUI app (phase 3). Upstream's storyboards stay in the tree, unused. The demo mode
+    // shows StarwireKit's demo PC instead of the real ones.
+    self.window.rootViewController = [StarwireAppUI makeRootViewController];
     appDelegate.window = self.window;
     [self.window makeKeyAndVisible];
 }

@@ -73,6 +73,8 @@ struct DemoAppsView: View {
 struct DemoStreamScreen: View {
     let host: FakeHostService
     let app: HostApp
+    /// Shown full screen by the app: closes it. Pushed in a navigation stack: nil.
+    var onClose: (() -> Void)?
     @State private var model = DemoStreamModel()
     @State private var showBitrates = false
     @Environment(\.dismiss) private var dismiss
@@ -116,6 +118,22 @@ struct DemoStreamScreen: View {
                         Task { model.bitrate = (try? await host.setBitrate(kbps: mbps * 1000)) ?? 0 }
                     }
                 }
+            }
+        }
+        .overlay(alignment: .topTrailing) {
+            if let onClose {
+                Button {
+                    dismiss()
+                    onClose()
+                } label: {
+                    Image(systemName: "xmark")
+                        .font(.title3.weight(.semibold))
+                        .padding(12)
+                        .background(.black.opacity(0.4), in: Circle())
+                }
+                .accessibilityLabel(L("ios_demo_end_stream"))
+                .accessibilityIdentifier("DemoClose")
+                .padding()
             }
         }
         .navigationTitle(app.name)

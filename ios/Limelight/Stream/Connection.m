@@ -264,6 +264,8 @@ int ArInit(int audioConfiguration, POPUS_MULTISTREAM_CONFIGURATION inOpusConfig,
     }
 
     opusConfig = *inOpusConfig;
+    // Audio haptics follow the stream's sound (Starwire)
+    [StarwireAudioHaptics.shared startWithSampleRate:opusConfig.sampleRate channels:opusConfig.channelCount];
     opusDecoder = opus_multistream_decoder_create(opusConfig.sampleRate,
                                                   opusConfig.channelCount,
                                                   opusConfig.streams,
@@ -286,6 +288,7 @@ void ArStart(void) {
 }
 
 void ArStop(void) {
+    [StarwireAudioHaptics.shared stop];
     [audioRenderer stop];
     audioIsStopping = true;
 }
@@ -329,6 +332,7 @@ void ArDecodeAndPlaySample(char* sampleData, int sampleLength) {
 
     // Update desiredSize with the number of bytes actually populated by the decoding operation
     if (samplesDecoded > 0) {
+        [StarwireAudioHaptics.shared process:(const float*)buffer frames:samplesDecoded channels:opusConfig.channelCount];
         desiredBufferSize = frameSize * samplesDecoded;
     }
     else {

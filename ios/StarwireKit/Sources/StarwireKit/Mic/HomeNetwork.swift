@@ -45,7 +45,7 @@ public enum HomeNetwork {
         return false
     }
 
-    static func parseIPv4(_ text: String) -> [UInt8]? {
+    public static func parseIPv4(_ text: String) -> [UInt8]? {
         let parts = text.split(separator: ".", omittingEmptySubsequences: false)
         guard parts.count == 4 else { return nil }
         var out: [UInt8] = []
@@ -56,7 +56,7 @@ public enum HomeNetwork {
         return out
     }
 
-    static func parseIPv6(_ text: String) -> [UInt8]? {
+    public static func parseIPv6(_ text: String) -> [UInt8]? {
         // Drop a zone ("fe80::1%en0")
         var address = text.split(separator: "%", maxSplits: 1).first.map(String.init) ?? text
         // An IPv4 address at the end ("::ffff:192.168.0.1") is the last two groups

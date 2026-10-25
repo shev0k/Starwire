@@ -25,6 +25,9 @@
 @property (nonatomic) StreamConfiguration* streamConfig;
 @property (nonatomic, strong) MetalViewController *metalViewController;
 @property (nonatomic, strong) ImGuiRenderer *imguiView;
+// Starwire: called when the stream screen goes away. The SwiftUI app presents this screen
+// modally, so it is dismissed then instead of popped.
+@property (nonatomic, copy) void (^onFinished)(void);
 
 -(void)updatePreferredDisplayMode:(BOOL)streamActive;
 

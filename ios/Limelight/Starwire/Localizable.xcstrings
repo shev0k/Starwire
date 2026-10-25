@@ -15152,6 +15152,710 @@
         }
       }
     },
+    "ios_category_app_specific" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Settings for this app"
+          }
+        }
+      }
+    },
+    "ios_credit_voidlink" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apple Pencil pressure curves and frame interpolation"
+          }
+        }
+      }
+    },
+    "ios_drop_policy_alternate" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Alternate (old)"
+          }
+        }
+      }
+    },
+    "ios_drop_policy_newest" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Keep the newest"
+          }
+        }
+      }
+    },
+    "ios_external_display_mirror" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mirror this screen"
+          }
+        }
+      }
+    },
+    "ios_external_display_video" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Video on the display"
+          }
+        }
+      }
+    },
+    "ios_group_pacing_tests" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Frame pacing tests"
+          }
+        }
+      }
+    },
+    "ios_group_this_device" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "On this device"
+          }
+        }
+      }
+    },
+    "ios_onscreen_controls_auto" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Auto"
+          }
+        }
+      }
+    },
+    "ios_onscreen_controls_full" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Full"
+          }
+        }
+      }
+    },
+    "ios_onscreen_controls_off" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Off"
+          }
+        }
+      }
+    },
+    "ios_onscreen_controls_simple" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Simple"
+          }
+        }
+      }
+    },
+    "ios_pencil_curve_firm" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Firm"
+          }
+        }
+      }
+    },
+    "ios_pencil_curve_linear" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Linear"
+          }
+        }
+      }
+    },
+    "ios_pencil_curve_soft" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Soft"
+          }
+        }
+      }
+    },
+    "ios_present_timing_frame" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Full frame interval (old)"
+          }
+        }
+      }
+    },
+    "ios_present_timing_nearest" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nearest refresh"
+          }
+        }
+      }
+    },
+    "ios_spatial_audio_fixed" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fixed in place"
+          }
+        }
+      }
+    },
+    "ios_spatial_audio_head_tracked" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Follows your head"
+          }
+        }
+      }
+    },
+    "ios_spatial_audio_off" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Off"
+          }
+        }
+      }
+    },
+    "ios_summary_bt_mouse" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Use a Bluetooth mouse to move the PC's cursor."
+          }
+        }
+      }
+    },
+    "ios_summary_client_name" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "What other hosts call this device. Vibeshine uses the name you typed with the PIN. Leave it empty to use the device's own name."
+          }
+        }
+      }
+    },
+    "ios_summary_drop_policy" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Which frames to drop when too many are waiting. For frame pacing tests. Changes apply to the next stream."
+          }
+        }
+      }
+    },
+    "ios_summary_external_display" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Video on the display keeps the touch controls on this screen. Plug the display in again after changing this."
+          }
+        }
+      }
+    },
+    "ios_summary_frame_interpolation" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "iPadOS 26 or later. Adds a made-up frame between each pair, so a 60 FPS stream shows at 120 Hz, for about half a frame of extra latency. It only runs at sizes the iPad allows."
+          }
+        }
+      }
+    },
+    "ios_summary_frames_to_buffer" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "How many decoded frames the app keeps queued. More frames ride out a patchy network but add latency."
+          }
+        }
+      }
+    },
+    "ios_summary_graph_opacity" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "How see-through the graphs are."
+          }
+        }
+      }
+    },
+    "ios_summary_graphs" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Shows live graphs over the stream, next to the statistics."
+          }
+        }
+      }
+    },
+    "ios_summary_onscreen_controls_level" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Auto shows them only when no controller is connected. Simple shows fewer buttons."
+          }
+        }
+      }
+    },
+    "ios_summary_pacing_frames_to_buffer" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "0 uses the Frames to buffer setting. For frame pacing tests. Changes apply to the next stream."
+          }
+        }
+      }
+    },
+    "ios_summary_pencil_curve" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "How hard you need to press for the same line weight. Soft needs a lighter press, firm a harder one."
+          }
+        }
+      }
+    },
+    "ios_summary_present_timing" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "When a frame is shown. For frame pacing tests. Changes apply to the next stream."
+          }
+        }
+      }
+    },
+    "ios_summary_spatial_audio" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "For surround sound on headphones that support it."
+          }
+        }
+      }
+    },
+    "ios_summary_use_app_settings" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Use the app's settings or the global settings instead of the ones below"
+          }
+        }
+      }
+    },
+    "ios_summary_use_global_settings" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Use the global settings instead of the ones below"
+          }
+        }
+      }
+    },
+    "ios_summary_verbose_logging" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Writes extra detail to the system log. Takes effect the next time the app starts."
+          }
+        }
+      }
+    },
+    "ios_summary_video_renderer" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Automatic uses the system's video layer. The other choices are for testing."
+          }
+        }
+      }
+    },
+    "ios_summary_virtual_display_scale" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Makes the virtual display bigger or smaller than the stream. 0 lets the PC decide. Vibeshine only."
+          }
+        }
+      }
+    },
+    "ios_summary_vrr_request" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Asks for a virtual display that follows the game's frame rate. Vibeshine only."
+          }
+        }
+      }
+    },
+    "ios_summary_yuv444" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sends colour at full detail instead of half, which helps with text and thin lines. The PC has to support it."
+          }
+        }
+      }
+    },
+    "ios_title_bt_mouse" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bluetooth mouse support"
+          }
+        }
+      }
+    },
+    "ios_title_client_name" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Name on the PC"
+          }
+        }
+      }
+    },
+    "ios_title_drop_policy" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "When the queue is full"
+          }
+        }
+      }
+    },
+    "ios_title_external_display" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "External display"
+          }
+        }
+      }
+    },
+    "ios_title_frame_interpolation" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Frame interpolation"
+          }
+        }
+      }
+    },
+    "ios_title_frames_to_buffer" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Frames to buffer"
+          }
+        }
+      }
+    },
+    "ios_title_graph_opacity" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Graph opacity"
+          }
+        }
+      }
+    },
+    "ios_title_graphs" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Performance graphs"
+          }
+        }
+      }
+    },
+    "ios_title_onscreen_controls_level" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "On-screen controls style"
+          }
+        }
+      }
+    },
+    "ios_title_pacing_frames_to_buffer" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Frames to buffer for tests"
+          }
+        }
+      }
+    },
+    "ios_title_pencil_curve" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apple Pencil pressure curve"
+          }
+        }
+      }
+    },
+    "ios_title_present_timing" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Present timing"
+          }
+        }
+      }
+    },
+    "ios_title_spatial_audio" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Spatial audio"
+          }
+        }
+      }
+    },
+    "ios_title_use_app_settings" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Use app settings"
+          }
+        }
+      }
+    },
+    "ios_title_use_global_settings" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Use global settings"
+          }
+        }
+      }
+    },
+    "ios_title_verbose_logging" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Verbose logging"
+          }
+        }
+      }
+    },
+    "ios_title_virtual_display_scale" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Virtual display scale"
+          }
+        }
+      }
+    },
+    "ios_title_vrr_request" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Variable refresh rate"
+          }
+        }
+      }
+    },
+    "ios_title_yuv444" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Full colour detail (YUV 4:4:4)"
+          }
+        }
+      }
+    },
+    "ios_use_app_default" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Use the app's setting"
+          }
+        }
+      }
+    },
+    "ios_use_global_default" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Use the global setting"
+          }
+        }
+      }
+    },
+    "ios_video_renderer_auto" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Automatic (system video layer)"
+          }
+        }
+      }
+    },
+    "ios_video_renderer_display" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Display driven"
+          }
+        }
+      }
+    },
+    "ios_video_renderer_loop" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Render loop (old)"
+          }
+        }
+      }
+    },
     "ip_hint" : {
       "extractionState" : "manual",
       "localizations" : {

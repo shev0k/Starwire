@@ -639,7 +639,7 @@ static NSMutableSet* hostList;
     DataManager* dataMan = [[DataManager alloc] init];
     // The settings store follows the settings screen and iOS Settings until phase 3 replaces
     // them. Copied before the launch arguments below, which must never be saved.
-    [StarwireSettings syncLegacySettings:[dataMan getSettings]];
+    [StarwireSettings migrateLegacySettingsOnce:[dataMan getSettings]];
     [StarwireSettings reload];
     TemporarySettings* streamSettings = [dataMan getSettings];
     // Launch arguments from the device runs (StreamTestOverrides.h); none in normal use

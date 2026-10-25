@@ -127,7 +127,11 @@
 - (void)viewDidLoad
 {
     [super viewDidLoad];
-    
+
+    // What the storyboard set, for the SwiftUI app that creates this screen in code
+    self.view.backgroundColor = [UIColor blackColor];
+    self.view.multipleTouchEnabled = YES;
+
     [self.navigationController setNavigationBarHidden:YES animated:YES];
     
     [UIApplication sharedApplication].idleTimerDisabled = YES;
@@ -156,6 +160,11 @@
     _spinner.center = CGPointMake(self.view.frame.size.width / 2, self.view.frame.size.height / 2 - _stageLabel.frame.size.height - _spinner.frame.size.height);
     
     _controllerSupport = [[ControllerSupport alloc] initWithConfig:self.streamConfig delegate:self];
+    // Audio haptics drive the first controller's motors (Starwire)
+    __weak ControllerSupport *weakControllers = _controllerSupport;
+    StarwireAudioHaptics.shared.rumble = ^(uint16_t low, uint16_t high) {
+        [weakControllers rumble:0 lowFreqMotor:low highFreqMotor:high];
+    };
     _inactivityTimer = nil;
     
 #if TARGET_OS_TV
@@ -638,6 +647,8 @@
 
 - (void) finishReturnToMainFrame {
     [_alertGate markExiting];
+    [StarwireMicrophone.shared streamStopped];
+    StarwireAudioHaptics.shared.rumble = nil;
     // An alert presented above the stream stays up after the stream screen is popped (for
     // example when the app goes to the background), so take it down with the stream
     UIAlertController *alert = _presentedAlert;
@@ -656,7 +667,17 @@
     _topSwipeUpRecognizer.enabled = FALSE;
 #endif
 
-    [self.navigationController popToRootViewControllerAnimated:YES];
+    if (self.navigationController != nil) {
+        [self.navigationController popToRootViewControllerAnimated:YES];
+    } else if (self.presentingViewController != nil && !self.isBeingDismissed) {
+        // Starwire's SwiftUI app presents the stream modally
+        [self.presentingViewController dismissViewControllerAnimated:YES completion:nil];
+    }
+    void (^onFinished)(void) = self.onFinished;
+    self.onFinished = nil;
+    if (onFinished != nil) {
+        onFinished();
+    }
 }
 
 // This will fire if the user opens control center or gets a low battery message
@@ -799,6 +820,8 @@
 
 - (void) connectionStarted {
     Log(LOG_I, @"Connection started");
+    // The microphone to the PC's receiver, if the settings ask for it (Starwire)
+    [StarwireMicrophone.shared streamStarted];
     dispatch_async(dispatch_get_main_queue(), ^{
         // The user may have left while it was connecting (daniel-zn's Artemis iOS guards this too)
         if (self->_alertGate.exiting) {
