@@ -237,7 +237,7 @@ settings. It has three tests:
 
 | Test | What it does |
 | --- | --- |
-| `testStreamAndSample` | Starts the app tile, reads the statistics overlay every 15 seconds for `STARWIRE_SECONDS` (default 300), takes screenshots at the start and end, stops with an edge swipe, and checks the app list is back with no alert |
+| `testStreamAndSample` | Starts the app tile, reads the statistics overlay every 15 seconds for `STARWIRE_SECONDS` (default 300), takes screenshots at the start and end, records the "Pacing summary" line at the end, stops with an edge swipe, and checks the app list is back with no alert |
 | `testBackgroundAndResume` | Starts a stream, switches to the Settings app for 10 seconds, comes back, checks the app list is showing with no alert, then streams and stops once more |
 | `testStreamsInARow` | Starts and stops `STARWIRE_STREAMS` streams (default 10), 10 seconds each, checking for an alert and that the app is still running after each |
 
@@ -249,6 +249,7 @@ test. The test turns them into the app's launch arguments; the app has no code f
 | `TEST_RUNNER_STARWIRE_APP` | app tile to start, default `Desktop` |
 | `TEST_RUNNER_STARWIRE_SECONDS` | stream length for `testStreamAndSample` |
 | `TEST_RUNNER_STARWIRE_STREAMS` | streams for `testStreamsInARow` |
+| `TEST_RUNNER_STARWIRE_PRESENTER` | `loop` (default, the render loop) or `display` (CAMetalDisplayLink) |
 | `TEST_RUNNER_STARWIRE_PRESENT_TIMING` | `nearest` (default) or `frame` (the old rule) |
 | `TEST_RUNNER_STARWIRE_DROP_POLICY` | `alternate` (default, the old one) or `newest` |
 | `TEST_RUNNER_STARWIRE_BUFFER` | frames to buffer, `1` to `3`; unset uses the app's setting |
@@ -308,78 +309,130 @@ git, so that local spec isn't needed any more.
 The renderer in this build is Andy Grundman's Metal one (it replaced upstream's
 `AVSampleBufferDisplayLayer` renderer), so a working stream is a working Metal path.
 
-## 7a. Phase 1a checks (`feature/ios-phase-1a`)
+## 7a. Pacing checks (`feature/ios-phase-1a`, `feature/ios-pacing`)
 
-Phase 1a is done when, on the iPad:
-- pacing drops are under 1% at 120 FPS with moving content, or the report explains with
-  measurements why not and names the best setting found;
+Pacing is done when, on the iPad:
+- pacing drops are under 1% at 120 FPS with moving content, with no more decode to screen
+  latency than the render loop has, or the report explains with measurements why not and names
+  the next step;
 - 10 streams in a row, plus background and resume, end with no crash and no double alert;
 - the PC shows as online (serverinfo works over the network);
 - the app's own log lines are readable from a Release build.
 
-### What the first run showed, and what this branch changes
+### What phase 1a found
 
-At 2420x1668, 120 FPS, HEVC, 70 Mbps with testufo.com moving on the PC, the overlay showed 0%
-network drops but 12.1% to 13.5% pacing drops, steady for 5 minutes, with a frame queue of 1.5 to
-1.9 and "Frames to buffer" at 2. About 120 FPS arrived and about 105 FPS were shown.
+At 2420x1668, 120 FPS, HEVC with testufo.com moving, every setting tried dropped about 12% of
+frames: the old and new present timing, both drop policies, and buffers of 2 and 3 (see
+[the phase 1a report](device-runs/2026-10-25-feature-ios-phase-1a.md)). Network drops were 0%,
+bursts were 0%, the frame queue sat near 1.9 of 2, and about 105 FPS were shown. So the app takes
+frames off the queue more slowly than they arrive, at every setting.
 
-A drop that steady, with no network loss, looks like the screen taking frames more slowly than
-they arrive, not like bursty arrival: with a queue of 2 and a consumer that can only take one
-frame per refresh, any refresh where the previous frame stays up twice leaves one frame too
-many, and the queue drops it. The code has a likely cause. Every frame was presented with
-`presentDrawable:afterMinimumDuration:1/fps`. At 120 FPS on a 120 Hz screen that is exactly one
-refresh, so a frame that comes up a few microseconds short of a full refresh has to wait for the
-next one and stays up for two. About 15 such refreshes a second would explain 120 in and 105
-out.
+Its "held 2+ refreshes" counter said only 1.9%. That counter put any interval under 1.5 refreshes
+in "one refresh", and 1.5 refreshes at 120 Hz is exactly 12.5 ms. A ProMotion panel can show a
+frame on a 4.17 ms grid, so a frame that misses its refresh may stay up 12.5 ms, not 16.7 ms,
+and the counter could miss it. About a quarter of frames at 12.5 ms would give the 105 FPS seen.
+That is the theory this branch measures.
 
-This branch:
-- holds each frame for the frame interval minus half a refresh ("nearest" present timing), so
-  at 120 on 120 Hz a frame stays up for one refresh, and at 60 on 120 Hz for two;
-- counts, for every 5 second window, how frames arrived (bursts under half a frame apart, on
-  time, late) and how many refreshes each frame stayed up, and gives every drop a reason
-  (incoming frame dropped, or oldest dropped to make room) and says whether it came right after a
-  burst. The log has the full line (`pacing window ...` in the `pacing` category); the overlay's
-  last line is the short version:
-  `Pacing: bursts x%, drops after burst n, held 2+ refreshes y%, skipped n`;
-- keeps the old behaviour one setting away, for the A/B runs below.
+### What `feature/ios-pacing` adds
 
-How to read a window:
+**Measurement.** Every frame's time on screen comes from the drawable's `presentedTime`, sorted
+into half-refresh steps, and the display's refresh interval comes from the display link. The
+overlay's last three lines:
+
+```
+Pacing: bursts x%, drops after burst n, skipped n, late n
+Shown for 4.2/8.3/12.5/16.7/20.8/25+ ms: a/b/c/d/e/f%, mean m ms, refresh r ms, decode to screen l ms
+Pacing summary (loop): 120 s, in 14400, drops x% (incoming n, oldest n, replaced n), shown n, shown for ..., ...
+```
+
+The first two cover the last 5 second window. The summary line covers the whole stream so far
+(whole 5 second windows plus the current one), and `testStreamAndSample` records it at the end as
+a `[device-run] summary:` line, so no `log collect` is needed. The log's `pacing window` lines have
+everything, including the refresh histogram.
+
+| Field | Meaning |
+| --- | --- |
+| Shown for | How long each frame stayed on screen. At 120 FPS on 120 Hz it should be nearly all 8.3 ms |
+| mean (shown) | The mean of those times. 8.33 ms is 120 FPS on screen; 9.4 ms is about 106 |
+| refresh | The display's refresh interval while streaming, from the display link. 8.33 ms is 120 Hz |
+| off grid | Times more than a quarter step off the 4.17 ms grid: the panel isn't on a fixed grid |
+| late | Display presenter only: frames shown more than half a step after the refresh they were drawn for |
+| skipped | Drawables the compositor never showed |
+| replaced | Display presenter only: frames skipped because a newer one was waiting at a refresh |
+| refreshes without a new frame | Display presenter only: refreshes where no new frame had arrived, so the last one stayed up |
+| drawable wait | Render loop only: time spent waiting in `nextDrawable` |
+| decode to screen | From the end of decoding to `presentedTime`: queue, render and compositor together. Compare it between presenters for latency |
+
+**The display presenter** (`StarwirePresenter`, "Presenter" in iOS Settings > Apps > Starwire, or
+`TEST_RUNNER_STARWIRE_PRESENTER`). `loop` is the render loop from phase 1a and is still the
+default. `display` drives drawing from a `CAMetalDisplayLink` at the stream's frame rate on the
+render thread: at each refresh it takes the newest decoded frame (waiting at most half the time
+left before the drawable is due), drops any older ones as "replaced", and presents the link's
+drawable with no minimum duration. A refresh with no new frame draws nothing. It keeps no extra
+frame: a frame is drawn at the next display link call after it arrives and shown one refresh
+later. The present timing, drop policy and frames to buffer settings only affect the render
+loop.
+
+### Reading the numbers
 
 | What the numbers show | What it means |
 | --- | --- |
-| "held 2+ refreshes" about equal to the drop rate, few bursts | The screen is the bottleneck (the present-timing theory) |
-| Many bursts and most drops "after burst", "held 2+" near 0 | Frames arrive in clumps (host capture timing or Wi-Fi); a deeper buffer or a virtual display may help |
+| Loop: refresh 8.33 ms, many frames shown for 12.5 ms, drawable wait near 8 ms or more | The theory holds: the render loop waits on drawables and its frames miss refreshes by half a refresh. The display presenter should fix it |
+| Refresh mean above 8.33 ms, or off grid | The display isn't running a steady 120 Hz while streaming. Check Low Power Mode and Settings > Accessibility > Motion > Limit Frame Rate, and say what they were |
+| Display: drops under 1%, shown for nearly all 8.3 ms, decode to screen no higher than the loop's | Fixed |
+| Display: "replaced" and "refreshes without a new frame" both high, about equal | Frames arrive unevenly against the refresh: one refresh gets none, the next gets two. The host or Wi-Fi is uneven; try the virtual display run, and say so |
+| Display: "late" above 1% | Frames are drawn too late for their refresh: the GPU or the compositor is slow. Compare the GPU time in an Instruments trace |
 | "skipped" above 0 | The compositor threw drawables away: frames lost without being counted as drops |
-| Drops near 0 but "held 2+" high | Frames arrived late (starved), not dropped: look at network latency |
-| Drops steady, bursts 0, "held 2+" far below the drop rate | The consumer takes frames off the queue more slowly than they arrive, but not one refresh at a time: look at the render loop, not pacing policy (the phase 1a run) |
 
 ### The A/B runs
 
-Open https://www.testufo.com on the PC's streamed screen first (ask the owner), or any video at
-120 FPS. Keep the app's settings as in the first run: Safe Area (2420x1668), 120 FPS, HEVC,
-70 Mbps, Frames to buffer 2, Statistics Overlay on. Run `testStreamAndSample` once per row, 300
-seconds each, with only the listed variables set. If the drop rate is steady from sample to
-sample, 120 seconds (`TEST_RUNNER_STARWIRE_SECONDS=120`) is enough; say so in the report.
+Open https://www.testufo.com on the PC's streamed screen first (ask the owner). Keep the app's
+settings as in phase 1a: Safe Area (2420x1668), 120 FPS, HEVC, 70 Mbps, Frames to buffer 2,
+Statistics Overlay on. Run `testStreamAndSample` once per row with only the listed variables, and
+`TEST_RUNNER_STARWIRE_SECONDS=120` unless the row says otherwise.
 
 | Run | Variables | Why |
 | --- | --- | --- |
-| A | `TEST_RUNNER_STARWIRE_PRESENT_TIMING=frame` | The old rule: should reproduce about 12% |
-| B | none (nearest, alternate, buffer from the app) | The fix |
-| C | `TEST_RUNNER_STARWIRE_DROP_POLICY=newest` | Keep the newest frame instead of alternating |
-| D | `TEST_RUNNER_STARWIRE_BUFFER=3` | A deeper queue; adds about 8 ms of latency, so only worth it if it removes drops B can't |
-| E | `TEST_RUNNER_STARWIRE_VIRTUAL_DISPLAY=1` | Vibeshine captures a 120 Hz virtual display instead of the 480 Hz monitor, which may even out arrival |
+| L | none | The render loop with the new counters: shows how frames are lost |
+| D | `TEST_RUNNER_STARWIRE_PRESENTER=display` | The display-driven presenter |
+| D5 | `TEST_RUNNER_STARWIRE_PRESENTER=display`, `TEST_RUNNER_STARWIRE_SECONDS=300` | Only if D is under 1%: five minutes to confirm |
+| V | `TEST_RUNNER_STARWIRE_PRESENTER=display`, `TEST_RUNNER_STARWIRE_VIRTUAL_DISPLAY=1` | Vibeshine streams a 120 Hz virtual display instead of the 480 Hz monitor |
 
-Run A and B always. Run C, D and E if B is still at 1% or more, or if B's windows show bursts.
-E changes what the PC shows: tell the owner first, and open testufo.com on the virtual display.
-Before E, quit Desktop on the PC (tap the tile on the iPad, then Quit App): if it is still
-running, the test taps Resume App and the session stays on the display it started on. Then ask
-the owner whether the PC really switched (testufo.com on the PC shows the refresh rate). In the
-phase 1a run Vibeshine kept streaming the 480 Hz monitor even on a fresh launch.
+V changes what the PC shows: ask the owner first. Before V, quit Desktop on the PC (tap the tile
+on the iPad, then Quit App), or the test taps Resume App and the session stays on its old
+display. Then ask the owner whether the PC really switched (testufo.com shows the refresh rate),
+and open testufo.com on the virtual display.
 
-For each run, put in the report: the drop percentage from the overlay at about 60 s and at the
-end, the mean over all samples, the pacing line, the network latency, and the decode time. If
-the log could be collected, add two `pacing window` lines (PC addresses removed). Then say which
-setting was best. The goal is under 1% pacing drops without a deeper buffer than 2.
+The app sends `virtualDisplay=1` on both launch and resume (a unit test checks the request).
+Vibeshine's source honours it on its own, even with the host's virtual display mode off, so if the
+PC still streams the monitor, the reason is on the PC. Ask the owner to look in Vibeshine's log
+(web UI > Troubleshooting) right after the launch for `Virtual display created`, `Virtual display
+creation failed`, `SudaVDA driver unavailable`, `Rejecting per-client virtual display`, or
+`Joining the running game's active capture output` (that one means it resumed a running session),
+and for the Vibeshine version. Put what was found in the report.
+
+For each run, put in the report: the summary line, the drop percentage at about 60 s and at the
+end, the "Shown for" line at the end, decode to screen, network latency and decode time. Then
+say which presenter was better, and whether the display presenter's decode to screen latency was
+higher than the loop's. If D is under 1% with no added latency, the owner can make it the default
+in a later change.
+
+### A deeper trace (optional)
+
+Only if the numbers above don't explain the drops. An Instruments trace shows every frame's
+display time, the GPU work and the app's `pacing` signposts on one timeline. Start a stream (for
+example `testStreamAndSample` with `TEST_RUNNER_STARWIRE_SECONDS=120`) and, while it runs, from
+another terminal:
+
+```bash
+xcrun xctrace record --template "Metal System Trace" --device "$IPAD_UDID" --attach Starwire --time-limit 20s --output ../build/pacing.trace
+open ../build/pacing.trace
+```
+
+In Instruments, the Display track shows how long each frame stayed on screen; the `pacing`
+signposts (os_signpost) show decode, enqueue, drop and present. If `xctrace` asks for the Mac's
+admin password, ask the owner; skip the trace rather than work around it. Traces don't go into
+git: describe what they show in the report.
 
 ### Stability, serverinfo and logs
 

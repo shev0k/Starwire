@@ -26,6 +26,12 @@ steps and the checksums for each version.
 - **iOS: frame pacing measurements.** Every 5 seconds the log, and the statistics overlay, say
   how frames arrived and why they were dropped. iOS Settings has test choices for present timing,
   drop policy and frames to buffer, and a "Use a virtual display" switch for Vibeshine.
+- **iOS: on-screen timing in the statistics overlay.** How long each frame stayed on screen, in
+  steps of 4.2 ms (8.3, 12.5, 16.7 ms and so on), the display's refresh interval, the time from
+  decoding to the screen, and a summary line for the whole stream. Not yet tried on the iPad.
+- **iOS: a display-driven presenter, as a test choice.** "Presenter" in iOS Settings draws the
+  newest frame at each display refresh from a CAMetalDisplayLink, as Nonary's moonlight-qt does on
+  macOS. The old render loop stays the default until a run on the iPad shows which is better.
 - **iOS: unit tests on the simulator in CI,** including Andy Grundman's frame queue tests, and a
   UI test the Mac runs on the iPad.
 
@@ -50,6 +56,10 @@ steps and the checksums for each version.
   - The app uses the UIScene lifecycle that iOS will require.
   - A paired PC is checked over HTTPS, so a PC whose plain HTTP port doesn't answer isn't shown
     as offline.
+- **iOS: app tiles and PC cards have accessibility labels.** VoiceOver read nothing for a tile
+  showing box art.
+- **iOS: a normal launch no longer logs "Loading frame already shown!" as an error.** It is
+  expected when one PC is saved.
 
 ## [0.2.1] - 2026-10-23
 
