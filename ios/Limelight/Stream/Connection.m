@@ -63,6 +63,8 @@ static BandwidthTracker *bwTracker;
 
 // Which Connection owns common-c's single global connection and the statics above
 static SessionOwnership* ownership;
+// Whether common-c's connection is started and not yet stopped, under initLock
+static BOOL commonStarted;
 
 int DrDecoderSetup(int videoFormat, int width, int height, int redrawRate, void* context, int drFlags)
 {
@@ -456,6 +458,7 @@ void ClSetAdaptiveTriggers(uint16_t controllerNumber, uint8_t eventFlags, uint8_
         [initLock lock];
         if ([ownership endIfCurrent:self]) {
             LiStopConnection();
+            commonStarted = NO;
             renderer = nil;
             _callbacks = nil;
         }
@@ -604,8 +607,17 @@ void ClSetAdaptiveTriggers(uint16_t controllerNumber, uint8_t eventFlags, uint8_
         Log(LOG_I, @"Connection was stopped before it started; not connecting");
         return;
     }
+    // Starwire: the last stream's stop may not have run yet (the app can start the next stream
+    // as soon as the stream screen closes). Its connection would keep running and hand its
+    // frames to this stream's renderer before that is set up, so it is stopped first.
+    if (commonStarted) {
+        Log(LOG_I, @"The last connection hadn't stopped yet; stopping it before this one starts");
+        LiStopConnection();
+        commonStarted = NO;
+    }
     renderer = _myRenderer;
     _callbacks = _myCallbacks;
+    commonStarted = YES;
     LiStartConnection(&_serverInfo,
                       &_streamConfig,
                       &_clCallbacks,

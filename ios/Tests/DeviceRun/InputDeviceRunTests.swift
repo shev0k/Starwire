@@ -42,7 +42,7 @@ final class InputDeviceRunTests: XCTestCase {
 
     func testTouchModes() throws {
         try startStream()
-        let screen = app.windows.firstMatch
+        let screen: XCUIElement = app
         let centre = screen.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.55))
 
         // The stream starts in the gaming trackpad (checkbox_touchscreen_trackpad, on by default)
@@ -161,10 +161,10 @@ final class InputDeviceRunTests: XCTestCase {
         // Dragging the button moves it and doesn't open the menu
         let start = button.frame
         // To the other side from where an earlier run left it
-        let screen = app.windows.firstMatch.frame
+        let screen: XCUIElement = app.frame
         let target = CGVector(dx: start.midX > screen.midX ? 0.1 : 0.9, dy: start.midY > screen.midY ? 0.2 : 0.7)
         button.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
-            .press(forDuration: 0.1, thenDragTo: app.windows.firstMatch.coordinate(withNormalizedOffset: target))
+            .press(forDuration: 0.1, thenDragTo: app.coordinate(withNormalizedOffset: target))
         sleep(1)
         XCTAssertFalse(app.otherElements["StreamMenu"].exists, "dragging the button opened the menu")
         XCTAssertNotEqual(button.frame.origin, start.origin, "the button didn't move")
@@ -250,7 +250,7 @@ final class InputDeviceRunTests: XCTestCase {
         let from = control("A button").frame
         before = counts()
         control("A button").coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).press(forDuration: 0.2,
-                                  thenDragTo: app.windows.firstMatch.coordinate(withNormalizedOffset: CGVector(dx: 0.6, dy: 0.4)))
+                                  thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.6, dy: 0.4)))
         screenshot("layout editor")
         done.tap()
         XCTAssertTrue(waitForGone(done))
@@ -391,7 +391,7 @@ final class InputDeviceRunTests: XCTestCase {
 
     private func openMenuWithThreeFingers() {
         if app.otherElements["StreamMenu"].exists { return }
-        app.windows.firstMatch.tap(withNumberOfTaps: 1, numberOfTouches: 3)
+        app.tap(withNumberOfTaps: 1, numberOfTouches: 3)
         XCTAssertTrue(app.otherElements["StreamMenu"].waitForExistence(timeout: 5), "a three-finger tap didn't open the menu")
     }
 
