@@ -857,6 +857,7 @@
     button.alpha = 0.5;
     button.accessibilityIdentifier = @"StreamMenuButton";
     button.accessibilityLabel = @"Change bitrate";
+    button.accessibilityValue = [NSString stringWithFormat:@"%d Mbps", _bitrateKbps / 1000];
     button.translatesAutoresizingMaskIntoConstraints = NO;
     [button addTarget:self action:@selector(showBitrateMenu:) forControlEvents:UIControlEventTouchUpInside];
     [self.view addSubview:button];
@@ -891,6 +892,7 @@
         if (applied > 0) {
             Log(LOG_I, @"Bitrate changed during the stream: %d kbps asked, %ld applied", kbps, (long)applied);
             self->_bitrateKbps = (int)applied;
+            self->_streamMenuButton.accessibilityValue = [NSString stringWithFormat:@"%ld Mbps", (long)applied / 1000];
             [self showToast:[NSString stringWithFormat:@"Bitrate %ld Mbps", (long)applied / 1000]];
         } else {
             Log(LOG_W, @"Bitrate change refused: %@", error);
@@ -912,7 +914,7 @@
     [toast sizeToFit];
     toast.center = CGPointMake(self.view.bounds.size.width / 2, self.view.bounds.size.height - 60);
     [self.view addSubview:toast];
-    [UIView animateWithDuration:0.4 delay:2.5 options:0 animations:^{
+    [UIView animateWithDuration:0.4 delay:4 options:0 animations:^{
         toast.alpha = 0;
     } completion:^(BOOL finished) {
         [toast removeFromSuperview];

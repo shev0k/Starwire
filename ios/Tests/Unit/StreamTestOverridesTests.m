@@ -57,9 +57,11 @@
     [_defaults setBool:YES forKey:StreamHDRKey];
     [_defaults setBool:YES forKey:StreamYUV444Key];
     [_defaults setBool:YES forKey:StreamPlayAudioOnPCKey];
+    [_defaults setBool:YES forKey:StreamStatsOverlayKey];
     TemporarySettings *s = [self settings];
     NSString *changed = StreamApplyTestOverrides(s, _defaults);
-    XCTAssertEqualObjects(changed, @"60 FPS, 1920x1080, av1, HDR on, 4:4:4 on, audio on the PC");
+    XCTAssertEqualObjects(changed, @"60 FPS, 1920x1080, av1, HDR on, 4:4:4 on, overlay on, audio on the PC");
+    XCTAssertTrue(s.statsOverlay);
     XCTAssertEqual(s.framerate.intValue, 60);
     XCTAssertEqual(s.width.intValue, 1920);
     XCTAssertEqual(s.height.intValue, 1080);

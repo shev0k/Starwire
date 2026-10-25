@@ -8,7 +8,7 @@
 //
 //    -StarwireFrameRate 60          -StarwireCodec av1|hevc|h264|auto
 //    -StarwireResolution 1920x1080  -StarwireHDR YES|NO     -StarwireYUV444 YES|NO
-//    -StarwirePlayAudioOnPC YES|NO
+//    -StarwirePlayAudioOnPC YES|NO   -StarwireStatsOverlay YES|NO
 //
 //  Unset arguments leave the settings alone.
 //
@@ -22,6 +22,7 @@ extern NSString *const StreamCodecKey;
 extern NSString *const StreamResolutionKey;
 extern NSString *const StreamHDRKey;
 extern NSString *const StreamYUV444Key;
+extern NSString *const StreamStatsOverlayKey;
 
 // Applies every override that is set. Returns a short description of what changed, empty if
 // nothing did, for the log.

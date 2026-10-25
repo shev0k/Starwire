@@ -10,6 +10,7 @@ NSString *const StreamCodecKey = @"StarwireCodec";
 NSString *const StreamResolutionKey = @"StarwireResolution";
 NSString *const StreamHDRKey = @"StarwireHDR";
 NSString *const StreamYUV444Key = @"StarwireYUV444";
+NSString *const StreamStatsOverlayKey = @"StarwireStatsOverlay";
 
 NSString *StreamApplyTestOverrides(TemporarySettings *settings, NSUserDefaults *defaults) {
     NSMutableArray<NSString *> *changed = [NSMutableArray array];
@@ -43,6 +44,11 @@ NSString *StreamApplyTestOverrides(TemporarySettings *settings, NSUserDefaults *
     if ([defaults objectForKey:StreamYUV444Key] != nil) {
         settings.enableYUV444 = [defaults boolForKey:StreamYUV444Key];
         [changed addObject:settings.enableYUV444 ? @"4:4:4 on" : @"4:4:4 off"];
+    }
+
+    if ([defaults objectForKey:StreamStatsOverlayKey] != nil) {
+        settings.statsOverlay = [defaults boolForKey:StreamStatsOverlayKey];
+        [changed addObject:settings.statsOverlay ? @"overlay on" : @"overlay off"];
     }
 
     BOOL pcAudio = StreamPlayAudioOnPCWithOverride(defaults, settings.playAudioOnPC);

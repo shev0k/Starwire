@@ -43,7 +43,8 @@
 //  They become the app's launch arguments, which the app reads as user defaults. The app has no
 //  code for tests.
 //
-//  The statistics overlay must be on in the app's settings: the overlay text is what's sampled.
+//  The statistics overlay is turned on for the tests' launches (-StarwireStatsOverlay YES): the
+//  overlay text is what's sampled.
 //
 
 import XCTest
@@ -77,6 +78,8 @@ final class StreamDeviceRunTests: XCTestCase {
         if let v = env["STARWIRE_RESOLUTION"] { args += ["-StarwireResolution", v] }
         if let v = env["STARWIRE_HDR"] { args += ["-StarwireHDR", v == "1" ? "YES" : "NO"] }
         if let v = env["STARWIRE_YUV444"] { args += ["-StarwireYUV444", v == "1" ? "YES" : "NO"] }
+        // The tests read the statistics overlay, whatever the app's own setting is
+        args += ["-StarwireStatsOverlay", "YES"]
         // The PC's sound stays on the PC unless a run asks otherwise: the owner may be using it
         args += ["-StarwirePlayAudioOnPC", env["STARWIRE_PC_AUDIO"] == "0" ? "NO" : "YES"]
         if let v = env["STARWIRE_VIRTUAL_DISPLAY"] { args += ["-StarwireVirtualDisplayMode", v == "1" ? "virtual" : "primary"] }
@@ -196,10 +199,12 @@ final class StreamDeviceRunTests: XCTestCase {
             let choice = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "\(mbps) Mbps")).firstMatch
             XCTAssertTrue(choice.waitForExistence(timeout: 5), "no \(mbps) Mbps in the bitrate menu")
             choice.tap()
-            let toast = app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", "Bitrate")).firstMatch
-            XCTAssertTrue(toast.waitForExistence(timeout: 10), "no answer from the PC")
-            record("asked \(mbps) Mbps: \(toast.label)")
-            XCTAssertEqual(toast.label, "Bitrate \(mbps) Mbps", "the PC didn't apply \(mbps) Mbps")
+            // The button's value is the bitrate the PC applied
+            let applied = NSPredicate(format: "value == %@", "\(mbps) Mbps")
+            let answered = expectation(for: applied, evaluatedWith: button)
+            let result = XCTWaiter.wait(for: [answered], timeout: 10)
+            record("asked \(mbps) Mbps: the PC applied \(button.value as? String ?? "?")")
+            XCTAssertEqual(result, .completed, "the PC didn't apply \(mbps) Mbps")
             sleep(15)
             record("15 s after \(mbps) Mbps:\n\(overlay.label)")
         }
@@ -208,14 +213,18 @@ final class StreamDeviceRunTests: XCTestCase {
         try assertBackAtAppList()
     }
 
-    // Vibeshine's Remote Input tile: a stream with input only, next to whatever runs on the PC
+    // Vibeshine's Remote Input tile: a stream with input only, next to whatever runs on the PC.
+    // It sends no picture, so the statistics overlay never shows; the stream's menu button, added
+    // when the connection starts, says it's up.
     func testRemoteInput() throws {
         let tile = app.buttons.matching(NSPredicate(format: "label == %@", "Remote Input")).firstMatch
         XCTAssertTrue(tile.waitForExistence(timeout: 30), "no Remote Input tile")
         tile.tap()
-        let overlay = try waitForOverlay()
+        XCTAssertTrue(app.buttons["StreamMenuButton"].waitForExistence(timeout: 60), "Remote Input didn't connect")
+        assertNoAlert()
         sleep(10)
-        record("Remote Input:\n\(overlay.label)")
+        assertNoAlert()
+        record("Remote Input connected; app state \(app.state.rawValue)")
         screenshot("remote input")
         stopStreamWithEdgeSwipe()
         try assertBackAtAppList()
@@ -224,6 +233,9 @@ final class StreamDeviceRunTests: XCTestCase {
     // Vibeshine's Remote Monitor tile: this device's own virtual display, kept after the stream
     // until Disconnect Monitor, whose answer (HTTP 410) the app shows as a message
     func testRemoteMonitor() throws {
+        // It shares this device's virtual display with a game this device runs, so the test
+        // pattern is quit first if it's running
+        try quitTestAppIfRunning()
         let tile = app.buttons.matching(NSPredicate(format: "label == %@", "Remote Monitor")).firstMatch
         XCTAssertTrue(tile.waitForExistence(timeout: 30), "no Remote Monitor tile")
         tile.tap()
@@ -251,15 +263,15 @@ final class StreamDeviceRunTests: XCTestCase {
         app.terminate()
         app.launchArguments += ["-StarwireDemoMode", "YES"]
         app.launch()
-        let host = app.descendants(matching: .any)["DemoHost"]
+        let host = app.descendants(matching: .any).matching(identifier: "DemoHost").firstMatch
         XCTAssertTrue(host.waitForExistence(timeout: 10), "no demo PC")
         host.tap()
-        let desktop = app.descendants(matching: .any)["DemoApp-Desktop"]
+        let desktop = app.descendants(matching: .any).matching(identifier: "DemoApp-Desktop").firstMatch
         XCTAssertTrue(desktop.waitForExistence(timeout: 10), "no demo apps")
         desktop.tap()
         let streaming = app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", "Streaming the demo picture")).firstMatch
         XCTAssertTrue(streaming.waitForExistence(timeout: 10), "the demo stream didn't start")
-        let video = app.descendants(matching: .any)["DemoVideo"]
+        let video = app.descendants(matching: .any).matching(identifier: "DemoVideo").firstMatch
         for _ in 0..<3 {
             video.tap()
         }
@@ -273,6 +285,31 @@ final class StreamDeviceRunTests: XCTestCase {
     }
 
     // MARK: - Helpers
+
+    // Quits the test's app on the PC when it's running: its tile then shows a menu
+    private func quitTestAppIfRunning() throws {
+        let tile = appTile
+        XCTAssertTrue(tile.waitForExistence(timeout: 30), "no \"\(appName)\" tile")
+        tile.tap()
+        let quit = app.buttons["Quit App"]
+        if quit.waitForExistence(timeout: 3) {
+            record("quitting \(appName) on the PC first")
+            quit.tap()
+            XCTAssertTrue(tile.waitForExistence(timeout: 30), "the app list didn't come back after quitting")
+            sleep(3)
+        } else {
+            // Nothing was running, so the tap started a stream: stop it again
+            _ = try waitForOverlay()
+            stopStreamWithEdgeSwipe()
+            try assertBackAtAppList()
+            tile.tap()
+            if quit.waitForExistence(timeout: 5) {
+                quit.tap()
+                XCTAssertTrue(tile.waitForExistence(timeout: 30))
+                sleep(3)
+            }
+        }
+    }
 
     // Leaves the app: the Home button first, then the Settings app. On iPadOS 27 with windowed
     // apps, opening Settings can leave Starwire in the foreground beside it, so the test checks
