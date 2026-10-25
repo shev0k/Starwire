@@ -18,9 +18,14 @@ Exits with swift's exit code: 0 when every test passes.
 
 .PARAMETER Filter
 Runs only the tests whose names match, as `swift test --filter` does.
+
+.PARAMETER ScratchPath
+Builds in this folder instead of ios/StarwireKit/.build, so two runs at once don't wait on each
+other's lock.
 #>
 param(
-    [string]$Filter = ''
+    [string]$Filter = '',
+    [string]$ScratchPath = ''
 )
 
 $ErrorActionPreference = 'Stop'
@@ -57,6 +62,7 @@ if (-not (Get-Command swift -ErrorAction SilentlyContinue)) {
 
 $swiftArgs = @('test', '--package-path', $package)
 if ($Filter) { $swiftArgs += @('--filter', $Filter) }
+if ($ScratchPath) { $swiftArgs += @('--scratch-path', $ScratchPath) }
 Write-Host "swift $($swiftArgs -join ' ')"
 & swift @swiftArgs
 exit $LASTEXITCODE
