@@ -357,14 +357,20 @@ final class InputDeviceRunTests: XCTestCase {
             // Multi-touch scrolls with one finger, as on a touchscreen; the other modes with two
             let fingers = mode == "multi_touch" ? 1 : 2
             for drag in 0..<drags {
-                // Up then down, so the page's list never reaches an end
+                // Up then down, so the page's list never reaches an end. The points are XCTest's
+                // own screen points, which follow the panel's mounting, as its taps use
                 let up = drag % 2 == 0
-                let x = frame.midX, y = frame.midY + (up ? 150 : -150)
-                let starts = (0..<fingers).map { NSValue(cgPoint: CGPoint(x: x + CGFloat($0) * 90, y: y)) }
-                try StarwireMultiTouch.dragFingers(starts, by: CGVector(dx: 0, dy: up ? -300 : 300), duration: 0.8, steps: 96,
+                func at(_ x: CGFloat, _ y: CGFloat) -> CGPoint {
+                    streamScreen.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(dx: x, dy: y)).screenPoint
+                }
+                let y0 = frame.height / 2 + (up ? 150 : -150), y1 = y0 + (up ? -300 : 300)
+                let starts = (0..<fingers).map { NSValue(cgPoint: at(frame.width / 2 + CGFloat($0) * 90, y0)) }
+                let a = at(frame.width / 2, y0), b = at(frame.width / 2, y1)
+                try StarwireMultiTouch.dragFingers(starts, by: CGVector(dx: b.x - a.x, dy: b.y - a.y), duration: 0.8, steps: 96,
                                                    orientation: interfaceOrientation)
                 usleep(700_000)
             }
+            record("scroll \(mode): drags from \(streamScreen.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).screenPoint), orientation \(interfaceOrientation.rawValue)")
             sleep(2)
             screenshot("scroll \(mode)")
             record("scroll \(mode): \(overlayLine("Touch: "))")
@@ -378,6 +384,13 @@ final class InputDeviceRunTests: XCTestCase {
 
     /// The screen's orientation as the event synthesiser wants it
     private var interfaceOrientation: UIInterfaceOrientation {
+        // XCTest's own taps use the app's interface orientation (a property XCUIApplication has
+        // but doesn't publish)
+        let key = NSSelectorFromString("interfaceOrientation")
+        if app.responds(to: key), let raw = app.value(forKey: "interfaceOrientation") as? Int,
+           let orientation = UIInterfaceOrientation(rawValue: raw), orientation != .unknown {
+            return orientation
+        }
         switch XCUIDevice.shared.orientation {
         case .portrait: return .portrait
         case .portraitUpsideDown: return .portraitUpsideDown
