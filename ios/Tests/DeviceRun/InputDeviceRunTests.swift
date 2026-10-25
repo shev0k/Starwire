@@ -384,8 +384,7 @@ final class InputDeviceRunTests: XCTestCase {
     private func overlayLine(_ prefix: String) -> String {
         let text = overlay.label
         guard let range = text.range(of: prefix) else { return "(no \(prefix) line)" }
-        return String(text[range.lowerBound...].prefix { $0 != "
-" })
+        return String(text[range.lowerBound...].prefix { $0 != "\n" })
     }
 
     private func inputLine() -> String {
