@@ -20,6 +20,9 @@ packages:
   OpenSSL:
     url: https://github.com/krzyzanowskim/OpenSSL-Package.git
     from: 3.1.5004
+  # Starwire's own logic with no UIKit (settings, pairing rules, Vibeshine's endpoints, the seams)
+  StarwireKit:
+    path: StarwireKit
 
 settings:
   base:
@@ -88,6 +91,7 @@ targets:
     dependencies:
       - target: moonlight-common
       - package: OpenSSL
+      - package: StarwireKit
       - sdk: libxml2.tbd
       - sdk: Accelerate.framework
       - sdk: AudioToolbox.framework
@@ -163,6 +167,7 @@ targets:
       base:
         GENERATE_INFOPLIST_FILE: YES
         PRODUCT_BUNDLE_IDENTIFIER: io.github.shev0k.starwire.tests
+        SWIFT_VERSION: "5.0"
         TEST_HOST: "$(BUILT_PRODUCTS_DIR)/Starwire.app/Starwire"
         BUNDLE_LOADER: "$(TEST_HOST)"
         GCC_PRECOMPILE_PREFIX_HEADER: YES
@@ -173,6 +178,8 @@ targets:
           - "$(SDKROOT)/usr/include/libxml2"
           # The Core Data classes the app target generates (Host+CoreDataClass.h)
           - "$(CONFIGURATION_TEMP_DIR)/Starwire.build/DerivedSources/CoreDataGenerated/Limelight"
+          # The app's Swift classes for ObjC (Moonlight-Swift.h)
+          - "$(CONFIGURATION_TEMP_DIR)/Starwire.build/DerivedSources"
         USER_HEADER_SEARCH_PATHS:
           - "$(SRCROOT)/Limelight/**"
 

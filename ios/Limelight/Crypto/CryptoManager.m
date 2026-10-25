@@ -8,6 +8,9 @@
 
 #import "CryptoManager.h"
 #import "mkcert.h"
+#if !TARGET_OS_TV
+#import "Moonlight-Swift.h"
+#endif
 
 #include <openssl/sha.h>
 #include <openssl/x509.h>
@@ -169,14 +172,13 @@ static NSData* p12 = nil;
     return signedData;
 }
 
+// Starwire: on iOS the identity lives in the Keychain (StarwireIdentity.swift), moved there
+// from the old files in Documents on the first launch, without changing a byte.
 + (NSData*) readCryptoObject:(NSString*)item {
 #if TARGET_OS_TV
     return [[NSUserDefaults standardUserDefaults] dataForKey:item];
 #else
-    NSArray *paths = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES);
-    NSString *documentsDirectory = [paths objectAtIndex:0];
-    NSString *file = [documentsDirectory stringByAppendingPathComponent:item];
-    return [NSData dataWithContentsOfFile:file];
+    return [StarwireIdentity dataForItem:item];
 #endif
 }
 
@@ -184,10 +186,7 @@ static NSData* p12 = nil;
 #if TARGET_OS_TV
     [[NSUserDefaults standardUserDefaults] setObject:data forKey:item];
 #else
-    NSArray *paths = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES);
-    NSString *documentsDirectory = [paths objectAtIndex:0];
-    NSString *file = [documentsDirectory stringByAppendingPathComponent:item];
-    [data writeToFile:file atomically:NO];
+    [StarwireIdentity write:data forItem:item];
 #endif
 }
 

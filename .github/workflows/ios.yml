@@ -81,6 +81,8 @@ jobs:
 
       # The app's unit tests (StarwireTests) on whichever iPad simulator this Xcode has, else an
       # iPhone one
+      # Signed ad hoc ("-"), which needs no certificate: an unsigned app gets no Keychain on the
+      # simulator, and the identity tests use it
       - name: Unit tests on the simulator
         working-directory: ios
         run: |
@@ -97,7 +99,7 @@ jobs:
           xcodebuild -project Starwire.xcodeproj -scheme Starwire -configuration Debug \
             -destination "id=$udid" -derivedDataPath ../build/DerivedData \
             -resultBundlePath ../logs/unit-tests.xcresult \
-            CODE_SIGNING_ALLOWED=NO test 2>&1 | tee ../logs/unit-tests.log
+            CODE_SIGN_IDENTITY=- test 2>&1 | tee ../logs/unit-tests.log
 
       # The device checks need the iPad and the PC, so CI only checks that they build
       - name: Build the device-run UI tests
