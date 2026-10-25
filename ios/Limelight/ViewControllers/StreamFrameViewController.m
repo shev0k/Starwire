@@ -590,8 +590,13 @@
 #if !TARGET_OS_TV
         // What input has reached the PC (StarwireKit's InputTally), and how touches are read
         if (text.length > 0 && self->_streamControls != nil) {
-            text = [NSString stringWithFormat:@"%@\nTouch: %@\n%@", text, self->_streamControls.input.touchModeTitle,
-                    StarwireStreamInput.inputSummary];
+            text = [NSString stringWithFormat:@"%@\nTouch: %@\n%@\n%@", text, self->_streamControls.input.touchModeTitle,
+                    StarwireStreamInput.inputSummary, StarwireStreamInput.touchRateSummary];
+            // Only with -StarwireLatencyProbe YES on the input latency page
+            NSString *probe = StarwireStreamInput.latencyProbeSummary;
+            if (probe.length > 0) {
+                text = [NSString stringWithFormat:@"%@\n%@", text, probe];
+            }
         }
 #endif
         [self updateOverlayText:text];

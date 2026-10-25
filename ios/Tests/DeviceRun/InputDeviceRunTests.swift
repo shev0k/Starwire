@@ -360,6 +360,8 @@ final class InputDeviceRunTests: XCTestCase {
                 usleep(700_000)
             }
             sleep(2)
+            screenshot("scroll \(mode)")
+            record("scroll \(mode): \(overlayLine("Touch: "))")
             record("scroll \(mode): \(overlayLine("Touch rate:"))")
             record("scroll \(mode): \(overlayLine("Latency probe:"))")
             record("scroll \(mode): \(inputLine())")
@@ -382,6 +384,7 @@ final class InputDeviceRunTests: XCTestCase {
     }
 
     private func overlayLine(_ prefix: String) -> String {
+        guard overlay.exists else { return "(no statistics overlay)" }
         let text = overlay.label
         guard let range = text.range(of: prefix) else { return "(no \(prefix) line)" }
         return String(text[range.lowerBound...].prefix { $0 != "\n" })
