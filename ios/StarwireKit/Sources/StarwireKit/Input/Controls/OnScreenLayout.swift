@@ -118,6 +118,15 @@ public struct OnScreenOptions: Equatable, Sendable {
     public var opacityPercent = 90
     /// `checkbox_vibrate_osc`
     public var vibrateOnHostRumble = true
+    /// The tallest the default layout's 128 x 72 grid may be, in the screen's units. Android
+    /// stretches the grid over the whole height, which makes the controls far too big on an iPad
+    /// (batch 3). With a limit, a taller screen gets the grid at that height along its bottom:
+    /// controls the size they are on a large phone, at the bottom corners. No limit by default,
+    /// which is Android's layout exactly.
+    public var largestGridHeight = Double.infinity
+
+    /// The limit the iOS app uses, in points: about the height of a large iPhone in landscape.
+    public static let phoneGridHeight = 480.0
 
     public init() {}
 
@@ -193,8 +202,10 @@ public struct OnScreenLayout: Equatable, Sendable {
     }
 
     /// The layout the settings and the saved layout describe.
-    public init(store: SettingsStore, screen: OnScreenSize) {
-        self.init(options: OnScreenOptions(store: store), screen: screen, saved: OnScreenLayoutStore(store: store).load())
+    public init(store: SettingsStore, screen: OnScreenSize, largestGridHeight: Double = .infinity) {
+        var options = OnScreenOptions(store: store)
+        options.largestGridHeight = largestGridHeight
+        self.init(options: options, screen: screen, saved: OnScreenLayoutStore(store: store).load())
     }
 
     public func rect(of id: OnScreenElementID, in screen: OnScreenSize) -> OnScreenRect? {
@@ -258,15 +269,18 @@ public struct OnScreenLayout: Equatable, Sendable {
     public static func defaultFrames(options: OnScreenOptions, screen: OnScreenSize) -> [OnScreenElementID: OnScreenFrame] {
         let width = Int(screen.width)
         let height = Int(screen.height)
-        // Controls on the right move over by however much wider than 16:9 the screen is (or
+        // The grid's height: the screen's, or the limit, with the grid along the bottom
+        let grid = min(height, options.largestGridHeight.isFinite ? Int(options.largestGridHeight) : height)
+        let top = height - grid
+        // Controls on the right move over by however much wider than 16:9 the grid is (or
         // back, when it is narrower)
-        let rightDisplacement = width - height * 16 / 9
+        let rightDisplacement = width - grid * 16 / 9
 
-        func scale(_ units: Int) -> Int { screenScale(units, height: height) }
+        func scale(_ units: Int) -> Int { screenScale(units, height: grid) }
         var frames: [OnScreenElementID: OnScreenFrame] = [:]
         func place(_ id: OnScreenElementID, x: Int, y: Int, width w: Int, height h: Int, right: Bool = false) {
             let left = scale(x) + (right ? rightDisplacement : 0)
-            let rect = OnScreenRect(x: Double(left), y: Double(scale(y)), width: Double(scale(w)), height: Double(scale(h)))
+            let rect = OnScreenRect(x: Double(left), y: Double(top + scale(y)), width: Double(scale(w)), height: Double(scale(h)))
             frames[id] = OnScreenFrame(rect: rect, in: OnScreenSize(width: Double(width), height: Double(height)))
         }
 

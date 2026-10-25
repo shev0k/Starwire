@@ -111,7 +111,8 @@ final class OnScreenControlsView: UIView {
     /// The layout the settings and the saved layout describe, with a controller for it.
     private func loadLayout() {
         guard builtSize.width > 0, builtSize.height > 0 else { return }
-        let fresh = OnScreenLayout(store: store, screen: screen)
+        // Phone-sized controls on an iPad, rather than Android's whole-height grid
+        let fresh = OnScreenLayout(store: store, screen: screen, largestGridHeight: OnScreenOptions.phoneGridHeight)
         layout = fresh
         opacityPercent = min(max(fresh.options.opacityPercent, 0), 100)
         controller = OnScreenController(layout: fresh, screen: screen)

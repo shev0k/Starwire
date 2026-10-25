@@ -77,6 +77,36 @@ final class InputControlsLayoutTests: XCTestCase {
         assertRect(narrowLayout.rect(of: .a, in: narrow), rect(1110, 315, 150, 150))
     }
 
+    // Batch 3 found Android's whole-height grid far too big on an iPad: the app limits the grid
+    // to a large phone's height, along the bottom of the screen
+    func testATallScreenGetsPhoneSizedControlsAlongTheBottom() {
+        let iPad = OnScreenSize(width: 1210, height: 834)
+        var options = makeOptions()
+        options.largestGridHeight = OnScreenOptions.phoneGridHeight
+        let layout = OnScreenLayout(options: options, screen: iPad)
+        let grid = Int(OnScreenOptions.phoneGridHeight)
+        for (element, rect) in layout.resolved(in: iPad) {
+            XCTAssertGreaterThanOrEqual(rect.y, Double(834 - grid), "\(element.id) is below the grid's top")
+            XCTAssertLessThanOrEqual(rect.maxY, 834.5, "\(element.id)")
+            XCTAssertGreaterThanOrEqual(rect.x, 0, "\(element.id)")
+            XCTAssertLessThanOrEqual(rect.x + rect.width, 1210.5, "\(element.id)")
+        }
+        // A button is 10 cells of a 480-point grid, not of the 834-point screen
+        XCTAssertEqual(layout.rect(of: .a, in: iPad)?.width ?? 0, Double(OnScreenLayout.screenScale(10, height: grid)), accuracy: 0.5)
+        XCTAssertLessThan(layout.rect(of: .dpad, in: iPad)!.width, OnScreenLayout(options: makeOptions(), screen: iPad)
+            .rect(of: .dpad, in: iPad)!.width * 0.6)
+        // The right-hand controls still reach the right edge as on Android
+        let a = layout.rect(of: .a, in: iPad)!
+        XCTAssertEqual(a.x, Double(OnScreenLayout.screenScale(106, height: grid) + 1210 - grid * 16 / 9), accuracy: 0.5)
+
+        // A screen shorter than the limit (a phone) gets Android's layout exactly
+        let phone = OnScreenSize(width: 844, height: 390)
+        XCTAssertEqual(OnScreenLayout(options: options, screen: phone).frames,
+                       OnScreenLayout(options: makeOptions(), screen: phone).frames)
+        // And the editor's reset uses the same limit
+        XCTAssertEqual(OnScreenLayout.defaultFrames(options: options, screen: iPad), layout.frames)
+    }
+
     func testFramesAreFractionsSoTheyFollowTheScreen() {
         let layout = OnScreenLayout(options: makeOptions(), screen: screen)
         let frame = layout.frames[.a]!
