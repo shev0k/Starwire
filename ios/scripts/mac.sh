@@ -4,6 +4,7 @@
 # PC (Git Bash) or any shell with ssh. One agent runs the whole loop with it; nobody has to carry
 # prompts to the Mac. The steps are the ones in docs/ios/mac-runbook.md.
 #
+#   ios/scripts/mac.sh setup                clone the agent's own checkout on the Mac, once
 #   ios/scripts/mac.sh sync                 push this branch, then fetch, check out and pull it on
 #                                           the Mac, with the iOS submodules
 #   ios/scripts/mac.sh build                xcodegen, then a Release build of the app and of the
@@ -26,6 +27,11 @@
 #   IPAD=<UDID>                optional; otherwise the first physical iPad devicectl lists
 # Connection settings can be overridden with STARWIRE_MAC, STARWIRE_MAC_KEY and STARWIRE_MAC_REPO.
 #
+# The build signs the app, which needs the login keychain. macOS keeps it locked to SSH sessions,
+# so the build runs as a one-off launchd job in the logged-in user's session (in_gui in
+# mac-remote.sh), and the Mac's password is never needed. Such jobs can't read ~/Documents, so the
+# agent has its own checkout in ~/Developer/Starwire and leaves the owner's copy alone.
+#
 # Rules this script keeps: it never uninstalls io.github.shev0k.starwire (pairing would be lost),
 # never discards changes in the Mac's checkout (sync stops instead), and runs builds and tests
 # under caffeinate so the Mac stays awake.
@@ -34,7 +40,7 @@ set -euo pipefail
 
 MAC=${STARWIRE_MAC:-shevok@192.168.1.122}
 KEY=${STARWIRE_MAC_KEY:-$HOME/.ssh/id_ed25519_starwire_mac}
-REPO=${STARWIRE_MAC_REPO:-/Users/shevok/Documents/GitHub/Starwire}
+REPO=${STARWIRE_MAC_REPO:-/Users/shevok/Developer/Starwire}
 HERE=$(cd "$(dirname "$0")/../.." && pwd)
 OUT="$HERE/build/mac"
 
@@ -51,40 +57,26 @@ remote() {
     for a in "$@"; do
         quoted+=" $(printf '%q' "$a")"
     done
-    ssh_mac "bash -s --$quoted" <<EOF
-set -euo pipefail
-export PATH="\$HOME/.local/bin:\$PATH"
-if [ -f "\$HOME/.config/starwire/env" ]; then . "\$HOME/.config/starwire/env"; fi
-cd "$REPO"
-mkdir -p build/runs
-
-need_team() {
-    if [ -z "\${STARWIRE_TEAM:-}" ]; then
-        echo "STARWIRE_TEAM isn't set: put it in ~/.config/starwire/env on the Mac (runbook section 3)" >&2
-        exit 2
-    fi
-}
-
-need_ipad() {
-    if [ -z "\${IPAD:-}" ]; then
-        IPAD=\$(xcrun devicectl list devices 2>/dev/null | awk '/iPad/ && /physical/ && !/unavailable/ {
-            for (i = 1; i <= NF; i++) if (\$i ~ /^[0-9A-F]{8}-[0-9A-F]{16}\$/) { print \$i; exit } }')
-    fi
-    if [ -z "\${IPAD:-}" ]; then
-        echo "No iPad is connected to the Mac (xcrun devicectl list devices). Plug it in, unlocked." >&2
-        xcrun devicectl list devices >&2 || true
-        exit 3
-    fi
-}
-
-$script
-EOF
+    {
+        printf 'REPO=%q\n' "$REPO"
+        cat "$HERE/ios/scripts/mac-remote.sh"
+        printf '%s\n' "$script"
+    } | ssh_mac "bash -s --$quoted"
 }
 
 cmd=${1:-}
 shift || true
 
 case "$cmd" in
+setup)
+    remote '
+if [ ! -d "$REPO/.git" ]; then
+    git clone -q https://github.com/shev0k/Starwire.git "$REPO"
+fi
+echo "checkout at $REPO"
+'
+    ;;
+
 sync)
     branch=$(git -C "$HERE" rev-parse --abbrev-ref HEAD)
     git -C "$HERE" push -q -u origin "$branch"
@@ -111,15 +103,11 @@ echo "Mac at $(git rev-parse --short HEAD) on $branch"
 build)
     remote '
 need_team
-cd ios
-xcodegen generate --quiet
-common=(-project Starwire.xcodeproj -configuration Release -destination "generic/platform=iOS"
-    -derivedDataPath ../build/DerivedData -allowProvisioningUpdates -allowProvisioningDeviceRegistration
-    DEVELOPMENT_TEAM="$STARWIRE_TEAM" CODE_SIGN_STYLE=Automatic)
+(cd ios && xcodegen generate --quiet)
 status=0
-caffeinate -i xcodebuild "${common[@]}" -scheme StarwireDeviceRun build-for-testing > ../build/device-build.log 2>&1 || status=$?
-grep -E "error:|\*\* (BUILD|TEST BUILD) (SUCCEEDED|FAILED)" ../build/device-build.log | sort -u | tail -40
-echo "warnings: $(grep -c "warning:" ../build/device-build.log || true)"
+in_gui "cd ios && caffeinate -i xcodebuild -project Starwire.xcodeproj -scheme StarwireDeviceRun     -configuration Release -destination generic/platform=iOS -derivedDataPath ../build/DerivedData     -allowProvisioningUpdates -allowProvisioningDeviceRegistration     DEVELOPMENT_TEAM=$STARWIRE_TEAM CODE_SIGN_STYLE=Automatic build-for-testing" > build/device-build.log 2>&1 || status=$?
+grep -E ": (fatal )?error:|^error:|errSec|\*\* (BUILD|TEST BUILD) (SUCCEEDED|FAILED)" build/device-build.log | cut -c1-300 | sort -u | tail -40
+echo "warnings: $(grep -c ": warning:" build/device-build.log || true)"
 exit $status
 '
     ;;
