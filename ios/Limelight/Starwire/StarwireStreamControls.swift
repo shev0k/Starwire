@@ -99,7 +99,7 @@ final class StarwireStreamControls: NSObject {
         case .none: break
         case .menu: toggleMenu()
         case .fullKeyboard: perform(.toggleFullKeyboard)
-        case .systemKeyboard: onSystemKeyboard?()
+        case .systemKeyboard: perform(.systemKeyboard)
         case .onScreenControls: perform(.toggleOnScreenControls)
         case .stats: perform(.toggleStats)
         case .panZoom: perform(.togglePanZoom)
@@ -190,7 +190,8 @@ final class StarwireStreamControls: NSObject {
         switch action {
         case .systemKeyboard:
             // After a controller, its own keyboard; after a touch, the system's
-            if StarwireGamepads.shared.hasController && StarwireGamepads.shared.lastActivity > input.lastTouch {
+            if StarwireSettings.store.bool("checkbox_controller_keyboard") && StarwireGamepads.shared.hasController
+                && StarwireGamepads.shared.lastActivity > input.lastTouch {
                 setControllerKeyboard(shown: true)
             } else {
                 onSystemKeyboard?()
