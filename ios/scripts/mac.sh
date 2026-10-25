@@ -18,6 +18,8 @@
 #                                           TEST_RUNNER_STARWIRE_VAR. The [device-run] lines and the
 #                                           summary come back to build/mac/<label>.txt
 #   ios/scripts/mac.sh unit                 the app's unit tests on a simulator
+#   ios/scripts/mac.sh snapshots [record]   the screens' snapshot tests on an iPhone and an iPad
+#                                           simulator; "record" writes new pictures
 #   ios/scripts/mac.sh log [seconds] [args] start the app with its console log for N seconds (20),
 #                                           with launch arguments like -StarwireVerboseLogging YES
 #   ios/scripts/mac.sh run '<command>'      any command in the Mac's repo, with the same setup
@@ -232,6 +234,30 @@ caffeinate -i xcodebuild -project Starwire.xcodeproj -scheme Starwire -configura
     -destination "platform=iOS Simulator,name=$sim" -derivedDataPath ../build/DerivedData \
     -collect-test-diagnostics never CODE_SIGN_IDENTITY=- test > ../build/unit-tests.log 2>&1 || status=$?
 grep -E "error:|Executed [0-9]+ tests|\*\* TEST|failed \(" ../build/unit-tests.log | sort -u | tail -40
+exit $status
+'
+    ;;
+
+snapshots)
+    # The SwiftUI screens on an iPhone and an iPad simulator (SnapshotTests). "record" writes new
+    # pictures to ios/Tests/Snapshots in the Mac's checkout instead of comparing.
+    record=0
+    [ "${1:-}" = record ] && record=1
+    remote '
+cd ios
+xcodegen generate --quiet
+status=0
+for kind in iPhone iPad; do
+    if [ $kind = iPhone ]; then
+        line=$(xcrun simctl list devices available | grep -E "iPhone [0-9]+ Pro \(" | head -1)
+    else
+        line=$(xcrun simctl list devices available | grep -E "iPad Pro" | head -1)
+    fi
+    sim=$(echo "$line" | grep -Eo "[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}" | head -1)
+    echo "== $kind: $(echo "$line" | sed "s/ *(.*//;s/^ *//") $sim"
+    TEST_RUNNER_STARWIRE_RECORD='"$record"' caffeinate -i xcodebuild -project Starwire.xcodeproj -scheme Starwire         -configuration Debug -destination "platform=iOS Simulator,id=$sim" -derivedDataPath ../build/DerivedData         -resultBundlePath ../build/runs/snapshots-$kind-$(date +%H%M%S).xcresult         -only-testing:StarwireTests/SnapshotTests -collect-test-diagnostics never CODE_SIGN_IDENTITY=- test         > ../build/snapshots-$kind.log 2>&1 || status=$?
+    grep -E "error:|Executed [0-9]+ tests|\*\* TEST|skipped|failed \(" ../build/snapshots-$kind.log | sort -u | tail -30
+done
 exit $status
 '
     ;;

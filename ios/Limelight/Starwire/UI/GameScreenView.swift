@@ -116,6 +116,8 @@ struct GameScreenView: View {
             Button { dismiss() } label: {
                 Label(host?.name ?? L("ios_back"), systemImage: "chevron.left")
                     .font(.headline)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.6)
                     .padding(.horizontal, 16)
                     .frame(minHeight: 44)
                     .background(Color.white.opacity(0.12), in: Capsule())
@@ -148,6 +150,8 @@ struct GameScreenView: View {
             .accessibilityLabel(L("ios_settings_title"))
             .controllerFocusable("games-settings", cornerRadius: 22) { state.path.append(.settings(section: nil)) }
         }
+        // The bar's buttons grow with the text only so far, so they keep fitting on a narrow screen
+        .dynamicTypeSize(...DynamicTypeSize.accessibility1)
         .padding(.top, 8)
     }
 
@@ -293,31 +297,42 @@ struct HeroView: View {
                     .minimumScaleFactor(0.7)
                     .accessibilityAddTraits(.isHeader)
                 ChipRow(chips)
-                HStack(spacing: 12) {
-                    Button(action: onPlay) {
-                        Label(host.runningAppID == game.id ? L("applist_menu_resume") : L("ios_play"), systemImage: "play.fill")
-                            .font(.title3.weight(.bold))
-                            .padding(.horizontal, 26)
-                            .frame(minHeight: 52)
-                            .foregroundStyle(.black)
-                            .background(Color.white, in: Capsule())
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityIdentifier("hero-play")
-                    .controllerFocusable("hero-play", cornerRadius: 26, action: onPlay)
-                    Button(action: onSettings) {
-                        Text(L("ios_this_games_settings"))
-                            .font(.body.weight(.semibold))
-                            .padding(.horizontal, 22)
-                            .frame(minHeight: 52)
-                            .background(Color.white.opacity(0.14), in: Capsule())
-                    }
-                    .buttonStyle(.plain)
-                    .controllerFocusable("hero-settings", cornerRadius: 26, action: onSettings)
+                // Side by side when they fit, else one above the other
+                ViewThatFits(in: .horizontal) {
+                    HStack(spacing: 12) { heroButtons }
+                    VStack(alignment: .leading, spacing: 12) { heroButtons }
                 }
             }
         }
         .animation(.easeInOut(duration: StarfieldBackground.tintSeconds), value: game.id)
+    }
+
+    @ViewBuilder
+    private var heroButtons: some View {
+        Button(action: onPlay) {
+            Label(host.runningAppID == game.id ? L("applist_menu_resume") : L("ios_play"), systemImage: "play.fill")
+                .font(.title3.weight(.bold))
+                .lineLimit(1)
+                .padding(.horizontal, 26)
+                .frame(minHeight: 52)
+                .foregroundStyle(.black)
+                .background(Color.white, in: Capsule())
+                .fixedSize()
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier("hero-play")
+        .controllerFocusable("hero-play", cornerRadius: 26, action: onPlay)
+        Button(action: onSettings) {
+            Text(L("ios_this_games_settings"))
+                .font(.body.weight(.semibold))
+                .lineLimit(1)
+                .padding(.horizontal, 22)
+                .frame(minHeight: 52)
+                .background(Color.white.opacity(0.14), in: Capsule())
+                .fixedSize()
+        }
+        .buttonStyle(.plain)
+        .controllerFocusable("hero-settings", cornerRadius: 26, action: onSettings)
     }
 
     /// Codec, resolution and frame rate, and HDR, from the settings this game streams with

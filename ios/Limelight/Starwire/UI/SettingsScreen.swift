@@ -195,6 +195,8 @@ struct SettingsScreen: View {
                     .controllerFocusable("pill-\(item.id)", cornerRadius: 22) { section = item.id }
                 }
         }
+        // The section buttons grow with the text only so far, so the settings stay in view
+        .dynamicTypeSize(...DynamicTypeSize.accessibility1)
         .padding(.horizontal, 20)
         .padding(.vertical, 6)
     }

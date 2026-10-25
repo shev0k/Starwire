@@ -16,7 +16,12 @@ final class StarwireAppUI: NSObject {
     /// The window's root: the demo PC in demo mode, else the real ones.
     @MainActor @objc static func makeRootViewController() -> UIViewController {
         StarwireSettings.migrateLegacySettingsOnce(StarwireHostLibraryFacade.legacyCoreDataSettings())
-        let backend: LibraryBackend = StarwireSettings.demoModeEnabled ? DemoLibraryBackend() : LiveLibraryBackend()
+        var demo = StarwireSettings.demoModeEnabled
+        #if DEBUG
+        // The unit tests run inside the app: no discovery or PCs while they run
+        demo = demo || NSClassFromString("XCTestCase") != nil
+        #endif
+        let backend: LibraryBackend = demo ? DemoLibraryBackend() : LiveLibraryBackend()
         if backend.isDemo {
             StarwireLog.info("Demo mode: no PC is used")
         }
@@ -243,6 +248,7 @@ struct ScreenHeader<Trailing: View>: View {
             Spacer(minLength: 8)
             trailing()
         }
+        .dynamicTypeSize(...DynamicTypeSize.accessibility2)
         .padding(.horizontal, 20)
         .padding(.top, 8)
     }

@@ -56,6 +56,7 @@ struct PCListView: View {
                 state.path.append(.settings(section: nil))
             }
         }
+        .dynamicTypeSize(...DynamicTypeSize.accessibility1)
         .padding(.top, 12)
     }
 
