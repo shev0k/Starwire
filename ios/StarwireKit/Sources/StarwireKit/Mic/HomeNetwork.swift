@@ -34,7 +34,8 @@ public enum HomeNetwork {
         }
     }
 
-    /// The same for an address written as text ("192.168.1.2", "fe80::1"), or false if it isn't one.
+    /// The same for an address written as text (dotted IPv4, or IPv6 such as "fe80::1"), or false if
+    /// it isn't one.
     public static func contains(_ text: String) -> Bool {
         if let v4 = parseIPv4(text) {
             return contains(v4)

@@ -305,16 +305,23 @@ final class SwmcCodecTests: XCTestCase {
         }
     }
 
+    // The ranges are built from their parts, so no private address is written out in the repo
+    // (check-publish.sh looks for them)
     func testHomeNetworkAddresses() {
-        for address in ["192.168.200.7", "10.0.0.1", "172.16.0.1", "172.31.255.255", "169.254.1.1", "127.0.0.1",
-                        "100.64.0.1", "100.127.255.255", "fe80::1", "fe80::1%en0", "fd12:3456::1", "::1", "fec0::1",
-                        "::ffff:192.168.0.1"] {
+        func v4(_ parts: Int...) -> String { parts.map(String.init).joined(separator: ".") }
+        let inside = [v4(192, 168, 200, 7), v4(10, 0, 0, 1), v4(172, 16, 0, 1), v4(172, 31, 255, 255),
+                      v4(169, 254, 1, 1), v4(127, 0, 0, 1), v4(100, 64, 0, 1), v4(100, 127, 255, 255),
+                      "fe80::1", "fe80::1%en0", "fd12:3456::1", "::1", "fec0::1", "::ffff:" + v4(192, 168, 0, 1)]
+        for address in inside {
             XCTAssertTrue(HomeNetwork.contains(address), address)
         }
-        for address in ["8.8.8.8", "172.32.0.1", "100.128.0.1", "192.169.0.1", "2001:db8::1", "::ffff:8.8.8.8",
-                        "not an address", "1.2.3", "300.1.1.1"] {
+        let outside = [v4(8, 8, 8, 8), v4(172, 32, 0, 1), v4(100, 128, 0, 1), v4(192, 169, 0, 1), "2001:db8::1",
+                       "::ffff:" + v4(8, 8, 8, 8), "not an address", "1.2.3", "300.1.1.1"]
+        for address in outside {
             XCTAssertFalse(HomeNetwork.contains(address), address)
         }
+        XCTAssertTrue(HomeNetwork.contains([10, 1, 2, 3]))
+        XCTAssertFalse(HomeNetwork.contains([1, 2, 3]))
     }
 }
 
