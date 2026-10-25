@@ -317,7 +317,7 @@ struct HeroView: View {
                 .frame(minHeight: 52)
                 .foregroundStyle(.black)
                 .background(Color.white, in: Capsule())
-                .fixedSize()
+                .minimumScaleFactor(0.6)
         }
         .buttonStyle(.plain)
         .accessibilityIdentifier("hero-play")
@@ -329,7 +329,7 @@ struct HeroView: View {
                 .padding(.horizontal, 22)
                 .frame(minHeight: 52)
                 .background(Color.white.opacity(0.14), in: Capsule())
-                .fixedSize()
+                .minimumScaleFactor(0.6)
         }
         .buttonStyle(.plain)
         .controllerFocusable("hero-settings", cornerRadius: 26, action: onSettings)
