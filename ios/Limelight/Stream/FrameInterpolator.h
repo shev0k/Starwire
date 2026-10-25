@@ -28,6 +28,8 @@ BOOL FrameInterpolationApplies(BOOL wanted, BOOL availableAtSize, double streamF
 + (BOOL)isAvailable;
 // Whether a stream of this size can be interpolated, as far as the system says
 + (BOOL)supportsWidth:(int)width height:(int)height;
+// The size limits the system reports, for the log and the summary
++ (NSString *)limitsDescription;
 // Whether `defaults` asks for interpolation and it can run for this stream
 + (BOOL)appliesWithDefaults:(NSUserDefaults *)defaults width:(int)width height:(int)height fps:(double)fps displayHz:(double)displayHz;
 

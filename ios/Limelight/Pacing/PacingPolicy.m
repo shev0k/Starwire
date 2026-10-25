@@ -52,10 +52,22 @@ NSString *const StreamPlayAudioOnPCKey = @"StarwirePlayAudioOnPC";
 }
 
 - (JitterBuffer *)makeJitterBufferForFrameInterval:(double)frameInterval {
-    if (_presenter != PacingPresenterDisplay || _jitterBuffer == JitterBufferModeLowestLatency) {
+    return [self makeJitterBufferForFrameInterval:frameInterval interpolating:NO];
+}
+
+- (JitterBufferMode)jitterBufferModeInterpolating:(BOOL)interpolating {
+    if (interpolating && _jitterBuffer == JitterBufferModeLowestLatency) {
+        return JitterBufferModeLowLatency;
+    }
+    return _jitterBuffer;
+}
+
+- (JitterBuffer *)makeJitterBufferForFrameInterval:(double)frameInterval interpolating:(BOOL)interpolating {
+    JitterBufferMode mode = [self jitterBufferModeInterpolating:interpolating];
+    if (_presenter != PacingPresenterDisplay || mode == JitterBufferModeLowestLatency) {
         return nil;
     }
-    return [[JitterBuffer alloc] initWithMode:_jitterBuffer frameInterval:frameInterval];
+    return [[JitterBuffer alloc] initWithMode:mode frameInterval:frameInterval];
 }
 
 - (int)queueLimitWithFramesToBuffer:(int)framesToBuffer {
@@ -132,6 +144,18 @@ BOOL StreamPlayAudioOnPCWithOverride(NSUserDefaults *defaults, BOOL appSetting) 
         return appSetting;
     }
     return [defaults boolForKey:StreamPlayAudioOnPCKey];
+}
+
+int PacingRefreshesPerFrame(double linkHz, double presentFps) {
+    if (!(linkHz > 0) || !(presentFps > 0)) {
+        return 1;
+    }
+    long n = lround(linkHz / presentFps);
+    return n < 1 ? 1 : (int)n;
+}
+
+BOOL PacingDisplayShouldTakeFrame(int refreshesSinceShown, int refreshesPerFrame) {
+    return refreshesSinceShown >= refreshesPerFrame;
 }
 
 BOOL StreamUsesVirtualDisplay(NSUserDefaults *defaults) {

@@ -149,6 +149,9 @@ void PacingWindowAccumulate(PacingWindow *total, const PacingWindow *w) {
     if (w->onePercentLowFps > 0 && (total->onePercentLowFps == 0 || w->onePercentLowFps < total->onePercentLowFps)) {
         total->onePercentLowFps = w->onePercentLowFps;
     }
+    total->interpolated += w->interpolated;
+    total->interpolationFailures += w->interpolationFailures;
+    total->interpolationSeconds += w->interpolationSeconds;
     total->jitterSamples += w->jitterSamples;
     total->jitterTargetSum += w->jitterTargetSum;
     total->maxJitterTarget = MAX(total->maxJitterTarget, w->maxJitterTarget);
@@ -218,6 +221,8 @@ void PacingWindowAccumulate(PacingWindow *total, const PacingWindow *w) {
         _lastArrivalGapFrames = 1.0;
         _presenterName = @"loop";
         _jitterBufferName = @"off";
+        _interpolationNote = @"off";
+        _pictureInPictureNote = @"off";
         _gapTimes = calloc(PACING_MAX_GAP_TIMES, sizeof(double));
         _shownIntervals = calloc(PACING_MAX_SHOWN, sizeof(double));
     }
@@ -275,6 +280,17 @@ void PacingWindowAccumulate(PacingWindow *total, const PacingWindow *w) {
     }
     if (hostTimeUs > 0) {
         _lastHostTimeUs = hostTimeUs;
+    }
+    os_unfair_lock_unlock(&_lock);
+}
+
+- (void)noteInterpolatedFrame:(BOOL)made seconds:(double)seconds {
+    os_unfair_lock_lock(&_lock);
+    if (made) {
+        _current.interpolated++;
+        _current.interpolationSeconds += seconds;
+    } else {
+        _current.interpolationFailures++;
     }
     os_unfair_lock_unlock(&_lock);
 }
@@ -569,7 +585,8 @@ static double MeanJitterTarget(PacingWindow w) {
             "refresh mean %.2f ms, off grid %.1f%%; refreshes without a new frame %.1f%%; drawable wait mean %.2f ms; "
             "decode to screen mean %.1f ms, max %.1f ms; "
             "network %@; network to screen mean %.1f ms, max %.1f ms; "
-            "jitter buffer %@, held mean %.2f, max %d, catch up %d; 1%% low (worst 5 s) %.1f FPS",
+            "jitter buffer %@, held mean %.2f, max %d, catch up %d; 1%% low (worst 5 s) %.1f FPS; "
+            "interpolation %@, made %d, failed %d, mean %.2f ms; picture in picture %@",
             self.presenterName, w.windowSeconds, w.arrivals, Percent(drops, w.arrivals),
             w.drops[PacingDropIncoming], w.drops[PacingDropOldest], w.drops[PacingDropReplaced],
             w.arrivalLate, w.arrivalGaps, w.maxArrivalGapMs, w.presented,
@@ -581,7 +598,10 @@ static double MeanJitterTarget(PacingWindow w) {
             MeanLatencyMs(w), w.maxLatencyMs,
             [self networkPartForWindow:w], MeanNetLatencyMs(w), w.maxNetLatencyMs,
             self.jitterBufferName, MeanJitterTarget(w), w.maxJitterTarget, w.drops[PacingDropCatchUp],
-            w.onePercentLowFps];
+            w.onePercentLowFps,
+            self.interpolationNote, w.interpolated, w.interpolationFailures,
+            w.interpolated > 0 ? w.interpolationSeconds * 1000.0 / w.interpolated : 0.0,
+            self.pictureInPictureNote];
 }
 
 @end

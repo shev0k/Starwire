@@ -704,4 +704,74 @@ static const double kMs = 1000.0;
     XCTAssertEqualObjects(line, @"Video stream: 30.0 FPS, 1% low -, drops 0.0% / 0.0%, latency - ms, decode 0.0 ms, display - Hz");
 }
 
+
+- (void)testSummaryShowsInterpolation {
+    PacingStats *stats = [self stats120];
+    stats.interpolationNote = @"on at 1920x1080";
+    [stats noteInterpolatedFrame:YES seconds:0.003];
+    [stats noteInterpolatedFrame:YES seconds:0.005];
+    [stats noteInterpolatedFrame:NO seconds:0];
+    NSString *summary = [stats summaryLineForWindow:[stats totalWindow]];
+    XCTAssertTrue([summary containsString:@"; interpolation on at 1920x1080, made 2, failed 1, mean 4.00 ms;"], @"%@", summary);
+}
+
+
+- (void)testSummaryShowsPictureInPicture {
+    PacingStats *stats = [self stats120];
+    XCTAssertTrue([[stats summaryLineForWindow:[stats totalWindow]] hasSuffix:@"; picture in picture off"]);
+    stats.pictureInPictureNote = @"closed, started 1";
+    XCTAssertTrue([[stats summaryLineForWindow:[stats totalWindow]] hasSuffix:@"; picture in picture closed, started 1"]);
+}
+
+- (void)testRefreshesPerFrame {
+    XCTAssertEqual(PacingRefreshesPerFrame(120, 60), 2);
+    XCTAssertEqual(PacingRefreshesPerFrame(120, 120), 1);
+    XCTAssertEqual(PacingRefreshesPerFrame(120, 40), 3);
+    XCTAssertEqual(PacingRefreshesPerFrame(60, 120), 1);
+    XCTAssertEqual(PacingRefreshesPerFrame(0, 60), 1);
+}
+
+// 60 FPS on a 120 Hz display link, with frames landing within 1.5 ms of the refresh they are
+// due for (a fixed-seed generator). Taking the newest frame at every refresh alternates 8.3 and
+// 25 ms whenever a frame lands just after its refresh, as the iPad showed; holding each frame for
+// two refreshes keeps nearly every frame on screen for 16.7 ms.
+- (void)testHoldingEachFrameForItsRefreshesKeepsSixtyEven {
+    const double r = 1.0 / 120;
+    uint32_t seed = 4242;
+    enum { frames = 600 };
+    double arrivals[frames];
+    for (int i = 0; i < frames; i++) {
+        seed = seed * 1664525u + 1013904223u;
+        double jitter = ((double)(seed >> 8) / (double)(1u << 24) - 0.5) * 0.003;
+        arrivals[i] = 10.0 + i * 2 * r + jitter;
+    }
+    for (int hold = 0; hold <= 1; hold++) {
+        int perFrame = hold ? PacingRefreshesPerFrame(120, 60) : 1;
+        int since = perFrame, next = 0, queued = 0, lastShownRefresh = -1, even = 0, intervals = 0;
+        for (int k = 0; k < frames * 2; k++) {
+            double refresh = 10.0 + k * r;
+            while (next < frames && arrivals[next] <= refresh) {
+                queued++;
+                next++;
+            }
+            since++;
+            if (!PacingDisplayShouldTakeFrame(since, perFrame) || queued == 0) {
+                continue;
+            }
+            queued = 0;   // the newest, as lowest latency does
+            if (lastShownRefresh >= 0) {
+                intervals++;
+                even += (k - lastShownRefresh) == 2;
+            }
+            lastShownRefresh = k;
+            since = 0;
+        }
+        if (hold) {
+            XCTAssertGreaterThan((double)even / intervals, 0.99, @"held: %d of %d even", even, intervals);
+        } else {
+            XCTAssertLessThan((double)even / intervals, 0.9, @"not held: %d of %d even", even, intervals);
+        }
+    }
+}
+
 @end

@@ -335,4 +335,39 @@ typedef struct {
     XCTAssertEqual([queue dequeueForRefreshAt:1.005 waitingUpTo:0].frameNumber, 2);
 }
 
+
+// Frame interpolation queues its made-up frame with the real one; showing the newest would skip
+// every made-up frame, so lowest latency becomes low latency while it runs
+- (void)testInterpolationShowsFramesInOrder {
+    [_defaults setObject:@"display" forKey:PacingPresenterKey];
+    [_defaults setObject:@"lowest-latency" forKey:JitterBufferKey];
+    PacingSettings *settings = [[PacingSettings alloc] initWithDefaults:_defaults];
+    XCTAssertNil([settings makeJitterBufferForFrameInterval:kFrame interpolating:NO]);
+    XCTAssertEqual([settings makeJitterBufferForFrameInterval:kFrame interpolating:YES].mode, JitterBufferModeLowLatency);
+    [_defaults setObject:@"smooth" forKey:JitterBufferKey];
+    settings = [[PacingSettings alloc] initWithDefaults:_defaults];
+    XCTAssertEqual([settings jitterBufferModeInterpolating:YES], JitterBufferModeSmooth);
+
+    // Pairs arriving together every two refreshes come out one per refresh, none skipped
+    JitterBuffer *jb = [self buffer:JitterBufferModeLowLatency];
+    int queued = 0, shown = 0, drops = 0;
+    for (int k = 0; k < 240; k++) {
+        double t = 1.0 + k * kFrame;
+        if (k % 2 == 0) {
+            [jb noteArrivalAt:t - 0.002];
+            [jb noteArrivalAt:t - 0.0019];
+            queued += 2;
+        }
+        JitterBufferChoice c = [jb chooseWithQueued:queued at:t];
+        queued -= c.drop;
+        drops += c.drop;
+        if (c.show && queued > 0) {
+            queued--;
+            shown++;
+        }
+    }
+    XCTAssertEqual(drops, 0);
+    XCTAssertGreaterThanOrEqual(shown, 238);
+}
+
 @end

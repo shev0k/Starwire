@@ -105,9 +105,7 @@ final class StreamDeviceRunTests: XCTestCase {
         _ = try waitForOverlay()
         sleep(5)
 
-        let settings = XCUIApplication(bundleIdentifier: "com.apple.Preferences")
-        settings.activate()
-        XCTAssertTrue(settings.wait(for: .runningForeground, timeout: 10))
+        try sendAppToBackground()
         sleep(10)
         app.activate()
         XCTAssertTrue(app.wait(for: .runningForeground, timeout: 10))
@@ -130,18 +128,23 @@ final class StreamDeviceRunTests: XCTestCase {
         _ = try waitForOverlay()
         sleep(5)
 
-        let settings = XCUIApplication(bundleIdentifier: "com.apple.Preferences")
-        settings.activate()
-        XCTAssertTrue(settings.wait(for: .runningForeground, timeout: 10))
+        // XCUITest's app state isn't reliable here (with picture in picture showing it stayed
+        // "foreground"), so the app's own summary line says whether picture in picture started
+        XCUIDevice.shared.press(.home)
         sleep(10)
-        record("in the background: app state \(app.state.rawValue) (4 = foreground, 3 = background)")
+        record("after Home: app state \(app.state.rawValue) (4 = foreground, 3 = background, 2 = suspended)")
         screenshot("picture in picture")
         app.activate()
         XCTAssertTrue(app.wait(for: .runningForeground, timeout: 10))
 
         let overlay = app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", "Video stream:")).firstMatch
         XCTAssertTrue(overlay.waitForExistence(timeout: 10), "the stream ended in the background")
-        record("after coming back:\n\(overlay.label)")
+        sleep(6)
+        let summary = summaryLine(in: overlay.label)
+        record("summary: \(summary)")
+        XCTAssertTrue(summary.contains("picture in picture closed, started")
+                      || summary.contains("picture in picture showing, started"),
+                      "picture in picture never started")
         stopStreamWithEdgeSwipe()
         try assertBackAtAppList()
     }
@@ -161,6 +164,36 @@ final class StreamDeviceRunTests: XCTestCase {
     }
 
     // MARK: - Helpers
+
+    // Leaves the app: the Home button first, then the Settings app. On iPadOS 27 with windowed
+    // apps, opening Settings can leave Starwire in the foreground beside it, so the test checks
+    // the app really left and skips (rather than passes) when nothing worked.
+    private func sendAppToBackground() throws {
+        XCUIDevice.shared.press(.home)
+        if waitUntilNotForeground(timeout: 5) {
+            record("left the app with the Home button")
+            return
+        }
+        let settings = XCUIApplication(bundleIdentifier: "com.apple.Preferences")
+        settings.activate()
+        _ = settings.wait(for: .runningForeground, timeout: 10)
+        if waitUntilNotForeground(timeout: 5) {
+            record("left the app by opening Settings")
+            return
+        }
+        throw XCTSkip("couldn't send the app to the background (state \(app.state.rawValue))")
+    }
+
+    private func waitUntilNotForeground(timeout: TimeInterval) -> Bool {
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            if app.state != .runningForeground {
+                return true
+            }
+            usleep(200_000)
+        }
+        return false
+    }
 
     // App tiles are buttons labelled with the app's name (UIAppView)
     private var appTile: XCUIElement {

@@ -182,7 +182,7 @@ sim=$(xcrun simctl list devices available | grep -Eo "iPhone [0-9]+ Pro \(" | he
 status=0
 caffeinate -i xcodebuild -project Starwire.xcodeproj -scheme Starwire -configuration Debug \
     -destination "platform=iOS Simulator,name=$sim" -derivedDataPath ../build/DerivedData \
-    CODE_SIGNING_ALLOWED=NO test > ../build/unit-tests.log 2>&1 || status=$?
+    -collect-test-diagnostics never CODE_SIGNING_ALLOWED=NO test > ../build/unit-tests.log 2>&1 || status=$?
 grep -E "error:|Executed [0-9]+ tests|\*\* TEST|failed \(" ../build/unit-tests.log | sort -u | tail -40
 exit $status
 '

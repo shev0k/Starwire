@@ -136,10 +136,19 @@ extern int ff_isom_write_av1c(AVIOContext *pb, const uint8_t *buf, int size,
                                                          refreshInterval:1.0 / (_displayHz > 0 ? _displayHz : 60)
                                                             windowLength:5.0];
     _frameQueue.pacingStats.presenterName = _pacingSettings.presenterName;
-    _frameQueue.pacingStats.jitterBufferName = _pacingSettings.jitterBufferName;
+    BOOL interpolating = _interpolator != nil;
+    _frameQueue.pacingStats.jitterBufferName = _pacingSettings.presenter == PacingPresenterDisplay
+        ? JitterBufferModeName([_pacingSettings jitterBufferModeInterpolating:interpolating]) : @"off";
+    if ([[NSUserDefaults standardUserDefaults] boolForKey:FrameInterpolationKey]) {
+        _frameQueue.pacingStats.interpolationNote = interpolating
+            ? [NSString stringWithFormat:@"on at %dx%d", videoWidth, videoHeight]
+            : [NSString stringWithFormat:@"not possible at %dx%d %d FPS (%@)", videoWidth, videoHeight, frameRate,
+               [FrameInterpolator limitsDescription]];
+        Log(LOG_I, @"Frame interpolation %@", _frameQueue.pacingStats.interpolationNote);
+    }
 
     // The display presenter's jitter buffer, and room in the queue for what it holds
-    _frameQueue.jitterBuffer = [_pacingSettings makeJitterBufferForFrameInterval:1.0 / queueRate];
+    _frameQueue.jitterBuffer = [_pacingSettings makeJitterBufferForFrameInterval:1.0 / queueRate interpolating:interpolating];
     int queueLimit = [_pacingSettings queueLimitWithFramesToBuffer:_frameQueue.highWaterMark];
     [_frameQueue setHighWaterMark:queueLimit];
     Log(LOG_I, @"Pacing: jitter buffer %@, queue limit %d", _pacingSettings.jitterBufferName, queueLimit);
@@ -204,7 +213,9 @@ int DrSubmitDecodeUnit(PDECODE_UNIT decodeUnit);
         return;
     }
     if (_previousPixelBuffer && frameType != FRAME_TYPE_IDR) {
+        CFTimeInterval start = CACurrentMediaTime();
         CVPixelBufferRef between = [interpolator copyFrameBetween:_previousPixelBuffer atTime:_previousPts and:pixelBuffer atTime:pts];
+        [_frameQueue.pacingStats noteInterpolatedFrame:between != NULL seconds:CACurrentMediaTime() - start];
         if (between) {
             CMTime middle = CMTimeMultiplyByRatio(CMTimeAdd(_previousPts, pts), 1, 2);
             // The Frame takes the buffer's retain

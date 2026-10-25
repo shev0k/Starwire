@@ -61,6 +61,19 @@ BOOL FrameInterpolationApplies(BOOL wanted, BOOL availableAtSize, double streamF
 #endif
 }
 
++ (NSString *)limitsDescription {
+#if !TARGET_OS_SIMULATOR
+    if (@available(iOS 27.0, tvOS 27.0, *)) {
+        if ([self isAvailable]) {
+            return [NSString stringWithFormat:@"up to %ld on a side and %ld pixels",
+                    (long)[VTLowLatencyFrameInterpolationConfiguration maximumDimensionForSpatialScaleFactor:1],
+                    (long)[VTLowLatencyFrameInterpolationConfiguration maximumPixelCountForSpatialScaleFactor:1]];
+        }
+    }
+#endif
+    return [self isAvailable] ? @"limits not reported" : @"not available";
+}
+
 + (BOOL)appliesWithDefaults:(NSUserDefaults *)defaults width:(int)width height:(int)height fps:(double)fps displayHz:(double)displayHz {
     BOOL wanted = [defaults boolForKey:FrameInterpolationKey];
     if (!wanted) {

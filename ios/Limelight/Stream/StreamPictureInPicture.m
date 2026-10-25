@@ -89,6 +89,10 @@ BOOL StreamEndsOnBackground(BOOL pictureInPictureActive) {
 }
 
 - (void)noteDecodedPixelBuffer:(CVPixelBufferRef)pixelBuffer at:(CFTimeInterval)now {
+    if (_lastEnqueue <= 0) {
+        // The first frame of a stream: its statistics exist now
+        [FrameQueue sharedInstance].pacingStats.pictureInPictureNote = [self note];
+    }
     if (!pixelBuffer || !PictureInPictureShouldEnqueue(self.active, now, _lastEnqueue, kIdleEnqueueInterval)) {
         return;
     }
@@ -129,12 +133,21 @@ BOOL StreamEndsOnBackground(BOOL pictureInPictureActive) {
     CFRelease(sample);
 }
 
+- (NSString *)note {
+    if (self.active) {
+        return [NSString stringWithFormat:@"showing, started %d", self.startCount];
+    }
+    return self.startCount > 0 ? [NSString stringWithFormat:@"closed, started %d", self.startCount] : @"ready";
+}
+
 #pragma mark - AVPictureInPictureControllerDelegate
 
 - (void)pictureInPictureControllerWillStartPictureInPicture:(AVPictureInPictureController *)controller {
     Log(LOG_I, @"Picture in picture starting");
     _restoring = NO;
     _active = YES;
+    _startCount++;
+    [FrameQueue sharedInstance].pacingStats.pictureInPictureNote = [self note];
 }
 
 - (void)pictureInPictureControllerDidStartPictureInPicture:(AVPictureInPictureController *)controller {
@@ -156,6 +169,7 @@ BOOL StreamEndsOnBackground(BOOL pictureInPictureActive) {
 - (void)pictureInPictureControllerDidStopPictureInPicture:(AVPictureInPictureController *)controller {
     Log(LOG_I, @"Picture in picture stopped (%@)", _restoring ? @"back to the app" : @"closed");
     _active = NO;
+    [FrameQueue sharedInstance].pacingStats.pictureInPictureNote = [self note];
     if (self.onStop) {
         self.onStop(_restoring);
     }

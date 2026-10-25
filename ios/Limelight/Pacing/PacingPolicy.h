@@ -93,6 +93,11 @@ typedef struct {
 // The display presenter's jitter buffer for a stream at frameInterval seconds a frame, or nil to
 // show the newest frame at every refresh (lowest latency, or the render loop)
 - (nullable JitterBuffer *)makeJitterBufferForFrameInterval:(double)frameInterval;
+// The same with frame interpolation running. Its made-up frame arrives together with the real
+// one, so lowest latency (always the newest) would skip every made-up frame; low latency shows
+// both in order instead.
+- (nullable JitterBuffer *)makeJitterBufferForFrameInterval:(double)frameInterval interpolating:(BOOL)interpolating;
+- (JitterBufferMode)jitterBufferModeInterpolating:(BOOL)interpolating;
 // The frames the queue may hold: enough for the jitter buffer's target plus the frames it lets
 // pile up before catching up. The render loop uses frames to buffer.
 - (int)queueLimitWithFramesToBuffer:(int)framesToBuffer;
@@ -129,6 +134,14 @@ int StreamFrameRateWithOverride(NSUserDefaults *defaults, int appSetting);
 // The app's "Play audio on PC", or StreamPlayAudioOnPCKey when it is set. Launch argument only:
 // the device runs keep the PC's sound on the PC, so someone using the PC hears it.
 BOOL StreamPlayAudioOnPCWithOverride(NSUserDefaults *defaults, BOOL appSetting);
+
+// Display presenter: refreshes each frame should stay up for, when the display link runs
+// faster than the stream (2 for 60 FPS on 120 Hz). At least 1.
+int PacingRefreshesPerFrame(double linkHz, double presentFps);
+// Whether to take a new frame at this refresh: only once the one on screen has had its
+// refreshes. A frame that comes a little after its refresh then waits one refresh, and the
+// cadence stays even instead of alternating 8.3 and 25 ms.
+BOOL PacingDisplayShouldTakeFrame(int refreshesSinceShown, int refreshesPerFrame);
 
 // Whether to ask the host for a virtual display (Vibeshine's virtualDisplay=1 launch parameter)
 BOOL StreamUsesVirtualDisplay(NSUserDefaults *defaults);

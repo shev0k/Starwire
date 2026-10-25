@@ -42,6 +42,10 @@ BOOL StreamEndsOnBackground(BOOL pictureInPictureActive);
 
 // Showing or about to show (from willStart to didStop)
 @property (atomic, readonly) BOOL active;
+// Times it started this stream
+@property (atomic, readonly) int startCount;
+// "ready", "showing" or "closed", with the start count, for the statistics summary
+- (NSString *)note;
 // Called on the main thread when the window closes. restored is YES when the user went back to
 // the app from it, NO when they closed it.
 @property (nonatomic, copy, nullable) void (^onStop)(BOOL restored);

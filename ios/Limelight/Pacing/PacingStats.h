@@ -111,6 +111,11 @@ typedef struct {
     int refreshesWithFrame;
     int refreshesWithoutFrame;
 
+    // Frame interpolation: frames made, failures, and the time spent making them
+    int interpolated;
+    int interpolationFailures;
+    double interpolationSeconds;
+
     // Display presenter with a jitter buffer: frames held back, sampled at every refresh
     int jitterSamples;
     int jitterTargetSum;
@@ -176,6 +181,12 @@ CFTimeInterval PacingMediaTimeFromMicroseconds(uint64_t timeUs, uint64_t nowUs, 
 - (void)noteJitterTarget:(int)target;
 // The jitter buffer's name, for the summary line ("off" when there is none)
 @property (atomic, copy) NSString *jitterBufferName;
+// Frame interpolation: one made-up frame (or a failure) and how long it took
+- (void)noteInterpolatedFrame:(BOOL)made seconds:(double)seconds;
+// What frame interpolation is doing this stream, for the summary ("off" by default)
+@property (atomic, copy) NSString *interpolationNote;
+// What picture in picture has done this stream, for the summary ("off" by default)
+@property (atomic, copy) NSString *pictureInPictureNote;
 // Render loop: how long nextDrawable took
 - (void)noteDrawableWait:(double)seconds;
 

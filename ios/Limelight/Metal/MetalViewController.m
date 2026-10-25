@@ -29,6 +29,9 @@ The implementation of the cross-platform game view controller.
     CADisplayLink *_displayLink;
     // Display presenter: the refresh the last update was for (render thread only)
     CFTimeInterval _lastTargetPresentation;
+    // Display presenter: refreshes a frame stays up for, and refreshes since the last new one
+    int _refreshesPerFrame;
+    int _refreshesSinceShown;
 }
 
 - (nonnull instancetype)initWithFrame:(CGRect)bounds framerate:(float)framerate enableHdr:(BOOL)enableHdr metricsHandler:(MetricsHandler)metricsHandler {
@@ -95,6 +98,8 @@ The implementation of the cross-platform game view controller.
     // The display's rate: its top rate, or the stream's with refresh rate reduction allowed
     PacingRefreshRange range = PacingDisplayRefreshRange(_framerate, displayHz, pacing.reduceRefreshRate);
     view.refreshRange = range;
+    _refreshesPerFrame = PacingRefreshesPerFrame(range.preferred, _framerate);
+    _refreshesSinceShown = _refreshesPerFrame;
     Log(LOG_I, @"[MetalViewController] display refresh range %.0f to %.0f, preferred %.0f (reduction %@)",
         range.minimum, range.maximum, range.preferred, pacing.reduceRefreshRate ? @"allowed" : @"off");
 
@@ -140,10 +145,19 @@ The implementation of the cross-platform game view controller.
     }
     _lastTargetPresentation = target;
 
+    // A faster display than the stream: the frame on screen keeps its refreshes first
+    _refreshesSinceShown++;
+    if (!PacingDisplayShouldTakeFrame(_refreshesSinceShown, _refreshesPerFrame)) {
+        return;
+    }
+
     CFTimeInterval now = CACurrentMediaTime();
     CFTimeInterval wait = PacingDisplayFrameWait(now, update.targetTimestamp);
     Frame *frame = [_frameQueue dequeueForRefreshAt:now waitingUpTo:wait];
     [stats noteRefreshWithNewFrame:frame != nil];
+    if (frame) {
+        _refreshesSinceShown = 0;
+    }
     if (frame) {
         [renderer renderFrame:frame intoDrawable:update.drawable ofLayer:layer targetTime:target];
     }
