@@ -1,7 +1,95 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  iOS-only strings, English only, in the same format as Android's strings.xml.
-  strings-to-xcstrings.py merges them into Localizable.xcstrings with Android's strings.
-  A key must not also exist in app/src/main/res/values/strings.xml: that is an error.
+  English strings that only the iOS app uses: the settings Android doesn't have, the per-game
+  screen's titles (Android writes those in code), and the text for iOS where Android's text
+  doesn't fit. This file is merged into the String Catalog with Android's strings.xml and
+  arrays.xml. Names start with ios_. Same format as Android's: apostrophes are written \'.
+  StarwireKit's SettingsLayout names these strings; SettingsLayoutTests checks that each exists.
 -->
-<resources/>
+<resources>
+    <!-- Groups -->
+    <string name="ios_group_this_device">On this device</string>
+    <string name="ios_group_pacing_tests">Frame pacing tests</string>
+
+    <!-- Per-game settings (Android writes these titles in code) -->
+    <string name="ios_category_app_specific">Settings for this app</string>
+    <string name="ios_title_use_global_settings">Use global settings</string>
+    <string name="ios_summary_use_global_settings">Use the global settings instead of the ones below</string>
+    <string name="ios_title_use_app_settings">Use app settings</string>
+    <string name="ios_summary_use_app_settings">Use the app\'s settings or the global settings instead of the ones below</string>
+    <string name="ios_use_global_default">Use the global setting</string>
+    <string name="ios_use_app_default">Use the app\'s setting</string>
+
+    <!-- Video renderer: Android's choices are Vulkan and Direct Surface, so iOS has its own -->
+    <string name="ios_summary_video_renderer">Automatic uses the system\'s video layer. The other choices are for testing.</string>
+    <string name="ios_video_renderer_auto">Automatic (system video layer)</string>
+    <string name="ios_video_renderer_display">Display driven</string>
+    <string name="ios_video_renderer_loop">Render loop (old)</string>
+
+    <!-- Stream -->
+    <string name="ios_title_frame_interpolation">Frame interpolation</string>
+    <string name="ios_summary_frame_interpolation">iPadOS 26 or later. Adds a made-up frame between each pair, so a 60 FPS stream shows at 120 Hz, for about half a frame of extra latency. It only runs at sizes the iPad allows.</string>
+    <string name="ios_title_external_display">External display</string>
+    <string name="ios_summary_external_display">Video on the display keeps the touch controls on this screen. Plug the display in again after changing this.</string>
+    <string name="ios_external_display_mirror">Mirror this screen</string>
+    <string name="ios_external_display_video">Video on the display</string>
+    <string name="ios_title_frames_to_buffer">Frames to buffer</string>
+    <string name="ios_summary_frames_to_buffer">How many decoded frames the app keeps queued. More frames ride out a patchy network but add latency.</string>
+
+    <!-- Sound and vibration -->
+    <string name="ios_title_spatial_audio">Spatial audio</string>
+    <string name="ios_summary_spatial_audio">For surround sound on headphones that support it.</string>
+    <string name="ios_spatial_audio_fixed">Fixed in place</string>
+    <string name="ios_spatial_audio_head_tracked">Follows your head</string>
+    <string name="ios_spatial_audio_off">Off</string>
+
+    <!-- Touch and mouse -->
+    <string name="ios_title_bt_mouse">Bluetooth mouse support</string>
+    <string name="ios_summary_bt_mouse">Use a Bluetooth mouse to move the PC\'s cursor.</string>
+    <string name="ios_title_pencil_curve">Apple Pencil pressure curve</string>
+    <string name="ios_summary_pencil_curve">How hard you need to press for the same line weight. Soft needs a lighter press, firm a harder one.</string>
+    <string name="ios_pencil_curve_linear">Linear</string>
+    <string name="ios_pencil_curve_soft">Soft</string>
+    <string name="ios_pencil_curve_firm">Firm</string>
+
+    <!-- On-screen controls -->
+    <string name="ios_title_onscreen_controls_level">On-screen controls style</string>
+    <string name="ios_summary_onscreen_controls_level">Auto shows them only when no controller is connected. Simple shows fewer buttons.</string>
+    <string name="ios_onscreen_controls_off">Off</string>
+    <string name="ios_onscreen_controls_auto">Auto</string>
+    <string name="ios_onscreen_controls_simple">Simple</string>
+    <string name="ios_onscreen_controls_full">Full</string>
+
+    <!-- PC (Vibeshine only) -->
+    <string name="ios_title_virtual_display_scale">Virtual display scale</string>
+    <string name="ios_summary_virtual_display_scale">Makes the virtual display bigger or smaller than the stream. 0 lets the PC decide. Vibeshine only.</string>
+    <string name="ios_title_vrr_request">Variable refresh rate</string>
+    <string name="ios_summary_vrr_request">Asks for a virtual display that follows the game\'s frame rate. Vibeshine only.</string>
+    <string name="ios_title_client_name">Name on the PC</string>
+    <string name="ios_summary_client_name">What other hosts call this device. Vibeshine uses the name you typed with the PIN. Leave it empty to use the device\'s own name.</string>
+
+    <!-- Advanced -->
+    <string name="ios_title_yuv444">Full colour detail (YUV 4:4:4)</string>
+    <string name="ios_summary_yuv444">Sends colour at full detail instead of half, which helps with text and thin lines. The PC has to support it.</string>
+    <string name="ios_title_graphs">Performance graphs</string>
+    <string name="ios_summary_graphs">Shows live graphs over the stream, next to the statistics.</string>
+    <string name="ios_title_graph_opacity">Graph opacity</string>
+    <string name="ios_summary_graph_opacity">How see-through the graphs are.</string>
+    <string name="ios_title_verbose_logging">Verbose logging</string>
+    <string name="ios_summary_verbose_logging">Writes extra detail to the system log. Takes effect the next time the app starts.</string>
+
+    <!-- Frame pacing tests -->
+    <string name="ios_title_present_timing">Present timing</string>
+    <string name="ios_summary_present_timing">When a frame is shown. For frame pacing tests. Changes apply to the next stream.</string>
+    <string name="ios_present_timing_nearest">Nearest refresh</string>
+    <string name="ios_present_timing_frame">Full frame interval (old)</string>
+    <string name="ios_title_drop_policy">When the queue is full</string>
+    <string name="ios_summary_drop_policy">Which frames to drop when too many are waiting. For frame pacing tests. Changes apply to the next stream.</string>
+    <string name="ios_drop_policy_alternate">Alternate (old)</string>
+    <string name="ios_drop_policy_newest">Keep the newest</string>
+    <string name="ios_title_pacing_frames_to_buffer">Frames to buffer for tests</string>
+    <string name="ios_summary_pacing_frames_to_buffer">0 uses the Frames to buffer setting. For frame pacing tests. Changes apply to the next stream.</string>
+
+    <!-- Credits -->
+    <string name="ios_credit_voidlink">Apple Pencil pressure curves and frame interpolation</string>
+</resources>
