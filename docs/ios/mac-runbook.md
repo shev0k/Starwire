@@ -53,6 +53,27 @@ Batch 4 (the SwiftUI app) added:
   `panel-<title>` (for example `panel-Resume Session`), since the same title can also be on the
   screen behind. The stream screen's view has the identifier `StreamScreen`, for gestures.
 
+Batch 4.5 (UX and settings) added:
+- `ci`: every check GitHub's iOS workflow runs (both simulator builds, the unit tests, the
+  device-run build, the script tests, the string catalog and StarwireKit), on the Mac, with one
+  line per step. Use it instead of waiting for GitHub Actions; GitHub's run is only for the end
+  of a batch.
+- `test DesignDeviceRunTests/testStreamScreens` (also `testOtherPlacements`, `testSettings`):
+  photographs the stream menu, the menu button, both keyboards and Settings with a real stream.
+- `test InputDeviceRunTests/testScrollSmoothness`: drags one or two fingers in each touch mode
+  (`MODES=natural_trackpad,direct`, `DRAGS=8`) and records the overlay's "Touch rate:" line;
+  `TOUCH_LINK=NO` turns off the low-latency touch delivery, to compare. On the "Starwire input
+  latency" app (`ios/scripts/input-latency.html`) the "Latency probe:" line adds input to
+  picture and how often the page's list moved. Two-finger drags use XCTest's own event
+  synthesiser through `Tests/DeviceRun/MultiTouch.m`, as XCTest has no public API for them.
+- Settings can be given by their own key as launch arguments, for tests:
+  `-list_keyboard_placement floating`.
+
+Screenshots come out as the iPad's panel is mounted (portrait, often upside down or sideways);
+turn them before looking. If the PC's monitors are asleep, Windows moves its open windows onto
+the stream's virtual display, so a screenshot can show the owner's own windows: look before
+sharing any.
+
 If `sync --wip` stops with "patch does not apply" and the Mac's checkout has no changes
 (`git status` is clean there), a `build/wip.patch` was left from a sync that failed half way.
 Remove `build/wip.patch` and `build/wip.next.patch` in the Mac's checkout and sync again.

@@ -144,6 +144,29 @@ steps and the checksums for each version.
   tried yet. Security review: `docs/ios/security/2026-10-25-microphone-swmc.md`.
 - **iOS: audio haptics,** Android's bass-to-vibration, to the controller's motors and, on an
   iPhone, the Taptic Engine, 25 to 200%. Not felt yet.
+- **iOS: a new stream menu.** It slides in from the right with the game's numbers, quick
+  switches, the stream's choices (bitrate, touch mode, how the picture fills the screen) as pages,
+  the keys to send, and Disconnect and Quit Session. It works by touch and by controller, and
+  "More settings" opens the touch, keyboard, menu and on-screen controls settings over the stream.
+- **iOS: the menu button can dock to the side** as a slim tab, by choice or after 3, 5 or 10 s
+  untouched, with a size and an opacity of its own.
+- **iOS: on-screen keyboard choices:** Full, Compact, Gaming and Number pad layouts, any key
+  remapped to send another, a size from 60 to 140%, and docked or floating where you drag it.
+- **iOS: a keyboard for controllers,** in the manner of the PS5's: a grid for the d-pad or stick,
+  L1 deletes, R1 is a space, L2 Shift, R2 the symbols, Start Enter. It opens instead of the
+  system keyboard when a controller was the last thing used.
+- **iOS: four and five-finger tap shortcuts** in every touch mode, including multi-touch, where
+  the PC's touches are cancelled so nothing is clicked. They open the full keyboard and the menu
+  by default and can be set to other things; the three-finger tap can be changed too.
+- **iOS: more settings.** Every touch mode can be the starting one, in Settings and per game; the
+  picture can fit, stretch or fill; the resolution list offers this device's full screen and safe
+  area; the bitrate can be typed in Mbps beside its slider, with a button back to the recommended
+  one. Settings has a sidebar on the iPad and a search field.
+- **iOS: touch and latency measurements.** The statistics overlay shows the last gesture's touch
+  rate (deliveries, coalesced samples, delay, packets per second), and with a test page on the PC
+  the time from input to picture and how often the page moved while scrolling.
+- **iOS: covers for the Vibeshine test apps,** drawn in Starwire's style
+  (`ios/scripts/covers/`).
 
 ### Changed
 
@@ -187,6 +210,11 @@ steps and the checksums for each version.
 - **iOS: a poll no longer forgets the PC's MAC address,** which Wake-on-LAN needs.
 - **iOS: a PC found again on the network is checked over HTTPS** with its pinned certificate,
   not plain HTTP, which timed out on the iPad.
+- **iOS: slow two-finger scrolls in the natural trackpad no longer send empty scroll packets,**
+  one for every touch.
+- **iOS: Settings > Export now includes each game's own settings,** which Import already read.
+- **iOS: the test pattern opens only on the stream's own display,** never on one of the PC's
+  monitors while it waits for the virtual display.
 
 ## [0.2.1] - 2026-10-23
 
